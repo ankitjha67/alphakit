@@ -14,6 +14,7 @@ from alphakit.strategies.trend.dual_momentum_gem.strategy import DualMomentumGEM
 from alphakit.strategies.trend.ema_cross_12_26.strategy import EMACross1226
 from alphakit.strategies.trend.fifty_two_week_high.strategy import FiftyTwoWeekHigh
 from alphakit.strategies.trend.frog_in_the_pan.strategy import FrogInThePan
+from alphakit.strategies.trend.ichimoku_cloud.strategy import IchimokuCloud
 from alphakit.strategies.trend.residual_momentum.strategy import ResidualMomentum
 from alphakit.strategies.trend.sma_cross_10_30.strategy import SMACross1030
 from alphakit.strategies.trend.sma_cross_50_200.strategy import SMACross50200
@@ -30,6 +31,7 @@ __all__ = [
     "EMACross1226",
     "FiftyTwoWeekHigh",
     "FrogInThePan",
+    "IchimokuCloud",
     "ResidualMomentum",
     "SMACross1030",
     "SMACross50200",
