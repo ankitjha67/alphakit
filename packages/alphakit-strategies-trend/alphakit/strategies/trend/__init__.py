@@ -9,5 +9,9 @@ Turtle, Ichimoku, SuperTrend — per the master plan section 4.2.
 from __future__ import annotations
 
 from alphakit.strategies.trend.tsmom_12_1.strategy import TimeSeriesMomentum12m1m
+from alphakit.strategies.trend.tsmom_volscaled.strategy import TimeSeriesMomentumVolScaled
 
-__all__ = ["TimeSeriesMomentum12m1m"]
+__all__ = [
+    "TimeSeriesMomentum12m1m",
+    "TimeSeriesMomentumVolScaled",
+]
