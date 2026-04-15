@@ -1,7 +1,7 @@
 [project]
 name = "alphakit-bridges"
 version = "0.0.1"
-description = "AlphaKit engine bridges: internal, vectorbt, backtrader, LEAN, nautilus."
+description = "AlphaKit engine bridges: vectorbt, backtrader, LEAN, nautilus."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
@@ -10,11 +10,13 @@ dependencies = [
     "alphakit-core",
     "numpy>=1.26",
     "pandas>=2.2",
+    "vectorbt>=0.26",
+    "backtrader>=1.9",
 ]
 
 [project.optional-dependencies]
-vectorbt = ["vectorbt>=0.26"]
-backtrader = ["backtrader>=1.9"]
+lean = []  # LEAN is a Phase 2+ integration — no pip-installable package
+nautilus = ["nautilus_trader>=1.193"]
 
 [build-system]
 requires = ["hatchling>=1.25"]

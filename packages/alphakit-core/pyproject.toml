@@ -10,6 +10,7 @@ dependencies = [
     "numpy>=1.26",
     "pandas>=2.2",
     "pydantic>=2.7",
+    "pandas-market-calendars>=4.4",
 ]
 
 [build-system]
