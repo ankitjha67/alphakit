@@ -9,6 +9,7 @@ Turtle, Ichimoku, SuperTrend — per the master plan section 4.2.
 from __future__ import annotations
 
 from alphakit.strategies.trend.donchian_breakout_20.strategy import DonchianBreakout20
+from alphakit.strategies.trend.donchian_breakout_55.strategy import DonchianBreakout55
 from alphakit.strategies.trend.dual_momentum_gem.strategy import DualMomentumGEM
 from alphakit.strategies.trend.ema_cross_12_26.strategy import EMACross1226
 from alphakit.strategies.trend.fifty_two_week_high.strategy import FiftyTwoWeekHigh
@@ -23,6 +24,7 @@ from alphakit.strategies.trend.xs_momentum_jt.strategy import CrossSectionalMome
 __all__ = [
     "CrossSectionalMomentumJT",
     "DonchianBreakout20",
+    "DonchianBreakout55",
     "DualMomentumGEM",
     "EMACross1226",
     "FiftyTwoWeekHigh",

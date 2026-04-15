@@ -1,0 +1,21 @@
+{
+  "slug": "donchian_breakout_55",
+  "status": "placeholder",
+  "note": "Populated by scripts/benchmark_strategy.py during Phase 1.",
+  "benchmark_date": null,
+  "data_start": null,
+  "in_sample_end": null,
+  "out_of_sample_end": null,
+  "universe": ["SPY", "EFA", "EEM", "AGG", "GLD", "DBC"],
+  "metrics": {
+    "sharpe": null, "sortino": null, "calmar": null, "max_drawdown": null,
+    "annualized_return": null, "annualized_vol": null,
+    "turnover_annual": null, "capacity_usd_bn": null
+  },
+  "regime_performance": {
+    "bull_market_sharpe": null, "bear_market_sharpe": null, "sideways_sharpe": null
+  },
+  "transaction_costs_assumed_bps": 5,
+  "commit_sha": null,
+  "engine": null
+}
