@@ -8,12 +8,14 @@ Turtle, Ichimoku, SuperTrend — per the master plan section 4.2.
 
 from __future__ import annotations
 
+from alphakit.strategies.trend.dual_momentum_gem.strategy import DualMomentumGEM
 from alphakit.strategies.trend.tsmom_12_1.strategy import TimeSeriesMomentum12m1m
 from alphakit.strategies.trend.tsmom_volscaled.strategy import TimeSeriesMomentumVolScaled
 from alphakit.strategies.trend.xs_momentum_jt.strategy import CrossSectionalMomentumJT
 
 __all__ = [
     "CrossSectionalMomentumJT",
+    "DualMomentumGEM",
     "TimeSeriesMomentum12m1m",
     "TimeSeriesMomentumVolScaled",
 ]
