@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use AlphaKit in academic work, please cite it as below."
+title: "AlphaKit: An open-source multi-asset quantitative strategy library"
+abstract: >-
+  AlphaKit is a modular, paper-cited, benchmarked library of production-grade
+  trading strategies covering multiple asset classes. Every strategy implements
+  a common StrategyProtocol interface and ships with paper citation, parameter
+  defaults, out-of-sample benchmarks, documented failure modes, and tests.
+type: software
+authors:
+  - family-names: "Jha"
+    given-names: "Ankit"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+repository-code: "https://github.com/ankitjha67/alphakit"
+url: "https://ankitjha67.github.io/alphakit"
+license: Apache-2.0
+version: "0.0.1"
+date-released: "2026-04-15"
+keywords:
+  - quantitative finance
+  - systematic trading
+  - backtesting
+  - factor investing
+  - algorithmic trading
+  - portfolio management
+  - open source
+preferred-citation:
+  type: software
+  title: "AlphaKit: An open-source multi-asset quantitative strategy library"
+  authors:
+    - family-names: "Jha"
+      given-names: "Ankit"
+  year: 2026
+  url: "https://github.com/ankitjha67/alphakit"
+  version: "0.0.1"
