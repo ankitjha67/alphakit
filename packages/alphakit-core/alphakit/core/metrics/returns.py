@@ -7,14 +7,13 @@ All functions accept ``pd.Series`` or ``np.ndarray`` of **periodic returns**
 
 from __future__ import annotations
 
-from typing import TypeAlias, Union
+from typing import TypeAlias
 
 import numpy as np
 import pandas as pd
-
 from alphakit.core.metrics.drawdown import max_drawdown
 
-ReturnLike: TypeAlias = Union[pd.Series, np.ndarray]
+ReturnLike: TypeAlias = pd.Series | np.ndarray
 """Accepted input for every metric in this module."""
 
 

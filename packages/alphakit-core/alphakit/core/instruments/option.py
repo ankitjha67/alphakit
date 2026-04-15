@@ -5,10 +5,9 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from pydantic import Field
-
 from alphakit.core.data.option_chain import OptionRight
 from alphakit.core.instruments.base import AssetClass, Instrument
+from pydantic import Field
 
 
 class OptionStyle(str, Enum):

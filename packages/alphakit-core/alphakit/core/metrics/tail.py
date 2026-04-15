@@ -13,12 +13,12 @@ Conventions
 from __future__ import annotations
 
 from statistics import NormalDist
-from typing import TypeAlias, Union
+from typing import TypeAlias
 
 import numpy as np
 import pandas as pd
 
-ReturnLike: TypeAlias = Union[pd.Series, np.ndarray]
+ReturnLike: TypeAlias = pd.Series | np.ndarray
 
 
 def _clean(returns: ReturnLike) -> np.ndarray:

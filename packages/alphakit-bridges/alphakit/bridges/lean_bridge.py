@@ -29,7 +29,6 @@ Implementation sketch for Phase 2
 from __future__ import annotations
 
 import pandas as pd
-
 from alphakit.core.protocols import BacktestResult, StrategyProtocol
 
 NAME: str = "lean"

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pydantic import Field
-
 from alphakit.core.instruments.base import AssetClass, Instrument
+from pydantic import Field
 
 
 class Equity(Instrument):

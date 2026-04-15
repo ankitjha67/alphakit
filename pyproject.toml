@@ -119,8 +119,14 @@ select = [
     "TID", # tidy imports
 ]
 ignore = [
-    "E501", # line too long (handled by formatter)
-    "B008", # function call in default arg (common in fastapi-style code)
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default arg (common in fastapi-style code)
+    # Ambiguous-unicode warnings. AlphaKit uses typographical characters
+    # ("×", "–", "−", "≈") in docstrings and comments by design; they
+    # are not code and cannot be mistaken for operators.
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]

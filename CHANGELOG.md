@@ -16,6 +16,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Citation file (`CITATION.cff`)
 - Workspace skeleton for `alphakit-core`, `alphakit-data`, `alphakit-bridges`,
   `alphakit-strategies-trend`
+- `alphakit-core`: `StrategyProtocol`, `BacktestEngineProtocol`,
+  `DataFeedProtocol`, `BacktestResult`; data schemas (`Bar`, `Tick`,
+  `OptionChain`, `OrderBook`); instruments (`Equity`, `Option`, `Future`,
+  `FXPair`, `CryptoPair`); `Signal` / `SignalDirection`; `Portfolio` /
+  `Position` with rebalance engine; metrics (`sharpe_ratio`, `sortino_ratio`,
+  `calmar_ratio`, `information_ratio`, `max_drawdown`, `ulcer_index`,
+  `recovery_time`, `var_parametric`, `var_historical`, `cvar`, `tail_ratio`)
+- `alphakit-bridges`: `vectorbt_bridge`, `backtrader_bridge`, `lean_bridge`
+  stub (Phase 2+)
+- `alphakit-strategies-trend`: reference strategy `tsmom_12_1`
+  (Moskowitz-Ooi-Pedersen 2012 JFE) with full per-strategy contract:
+  `strategy.py`, `config.yaml`, `paper.md`, `known_failures.md`,
+  `benchmark_results.json` placeholder, `README.md`, unit and integration
+  tests
+- `CONTRIBUTING.md` with per-strategy contract spec
+- `SECURITY.md` vulnerability reporting policy
+- GitHub templates: PR template, new-strategy issue, bug-report issue
+- CI workflows: `test.yml` (pytest matrix 3.10/3.11/3.12 × ubuntu/macos,
+  coverage gate ≥85%), `lint.yml` (ruff + mypy strict),
+  `docs.yml` (MkDocs build + deploy to gh-pages)
+- MkDocs Material documentation site with landing page, quickstart,
+  architecture, and strategy-contract pages
+
+### TODO
+
+- Add `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) — tracked
+  separately, will land before v0.1.0
 
 <!--
 ## [0.0.1] - 2026-04-15

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, Union
+from typing import TypeAlias
 
 import numpy as np
 import pandas as pd
 
-ReturnLike: TypeAlias = Union[pd.Series, np.ndarray]
+ReturnLike: TypeAlias = pd.Series | np.ndarray
 
 
 def _to_equity(returns_or_equity: ReturnLike, *, is_returns: bool = True) -> np.ndarray:

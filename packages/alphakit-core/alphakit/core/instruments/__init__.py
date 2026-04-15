@@ -11,8 +11,8 @@ from __future__ import annotations
 from alphakit.core.instruments.base import AssetClass, Instrument
 from alphakit.core.instruments.crypto import CryptoKind, CryptoPair
 from alphakit.core.instruments.equity import Equity
-from alphakit.core.instruments.fx import FXPair, FXTenor
 from alphakit.core.instruments.future import Future
+from alphakit.core.instruments.fx import FXPair, FXTenor
 from alphakit.core.instruments.option import Option, OptionStyle
 
 __all__ = [

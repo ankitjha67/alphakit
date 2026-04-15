@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import Field, model_validator
-
 from alphakit.core.instruments.base import AssetClass, Instrument
+from pydantic import Field, model_validator
 
 
 class FXTenor(str, Enum):

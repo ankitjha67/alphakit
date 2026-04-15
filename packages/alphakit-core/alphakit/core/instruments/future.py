@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import Field, model_validator
-
 from alphakit.core.instruments.base import AssetClass, Instrument
+from pydantic import Field, model_validator
 
 
 class Future(Instrument):
@@ -41,7 +40,5 @@ class Future(Instrument):
     @model_validator(mode="after")
     def _check_continuous_consistency(self) -> Future:
         if self.expiry is None and self.splicing_method is None:
-            raise ValueError(
-                "continuous future (expiry=None) must declare a splicing_method"
-            )
+            raise ValueError("continuous future (expiry=None) must declare a splicing_method")
         return self

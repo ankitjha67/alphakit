@@ -1,0 +1,61 @@
+name: Test
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+  workflow_dispatch:
+
+# Cancel in-flight runs on the same branch when a new commit is pushed.
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege token for tests — read-only.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: py${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.8.17"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      # We sync `dev` only (not `--all-extras`): the `rl` extra pulls
+      # torch + CUDA which is multi-GB and not needed to test core,
+      # bridges or the reference strategy. Phase 3 will introduce a
+      # dedicated `ml` workflow that installs torch-cpu explicitly.
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run pytest with coverage gate
+        run: uv run pytest --cov=alphakit --cov-report=term-missing --cov-fail-under=85
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-py${{ matrix.python-version }}-${{ matrix.os }}
+          path: .coverage
+          if-no-files-found: ignore
+          retention-days: 7

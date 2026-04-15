@@ -25,7 +25,6 @@ from typing import Any, cast
 
 import numpy as np
 import pandas as pd
-
 from alphakit.core.metrics.drawdown import max_drawdown
 from alphakit.core.metrics.returns import calmar_ratio, sharpe_ratio, sortino_ratio
 from alphakit.core.protocols import BacktestResult, StrategyProtocol
@@ -137,15 +136,23 @@ def run(
     cerebro.run()
 
     # Extract the broker equity curve from the TimeReturn analyzer.
-    analyzer_result = cast(dict[Any, float], cerebro.runstrats[0][0].analyzers.time_return.get_analysis())
+    analyzer_result = cast(
+        dict[Any, float], cerebro.runstrats[0][0].analyzers.time_return.get_analysis()
+    )
     if analyzer_result:
         timestamps = list(analyzer_result.keys())
         ret_values = list(analyzer_result.values())
-        returns = pd.Series(ret_values, index=pd.DatetimeIndex(timestamps), dtype=float, name="returns")
+        returns = pd.Series(
+            ret_values, index=pd.DatetimeIndex(timestamps), dtype=float, name="returns"
+        )
         equity_curve = (1.0 + returns).cumprod() * initial_cash
     else:
-        returns = pd.Series([0.0] * len(prices.index), index=prices.index, dtype=float, name="returns")
-        equity_curve = pd.Series([initial_cash] * len(prices.index), index=prices.index, dtype=float)
+        returns = pd.Series(
+            [0.0] * len(prices.index), index=prices.index, dtype=float, name="returns"
+        )
+        equity_curve = pd.Series(
+            [initial_cash] * len(prices.index), index=prices.index, dtype=float
+        )
     equity_curve.name = "equity"
 
     returns_arr = returns.to_numpy()

@@ -63,8 +63,7 @@ class OrderBook(BaseModel):
                 )
         if self.bids and self.asks and self.bids[0].price >= self.asks[0].price:
             raise ValueError(
-                f"crossed book: best bid {self.bids[0].price} "
-                f">= best ask {self.asks[0].price}"
+                f"crossed book: best bid {self.bids[0].price} >= best ask {self.asks[0].price}"
             )
         return self
 

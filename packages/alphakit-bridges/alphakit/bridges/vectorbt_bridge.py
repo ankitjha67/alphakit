@@ -27,7 +27,6 @@ from typing import Any, cast
 
 import numpy as np
 import pandas as pd
-
 from alphakit.core.metrics.drawdown import max_drawdown
 from alphakit.core.metrics.returns import calmar_ratio, sharpe_ratio, sortino_ratio
 from alphakit.core.protocols import BacktestResult, StrategyProtocol
@@ -110,7 +109,9 @@ def run(
 
     # 3. Extract the equity curve and per-bar returns as pandas objects.
     equity_raw = portfolio.value()
-    equity_curve = cast(pd.Series, equity_raw.squeeze() if hasattr(equity_raw, "squeeze") else equity_raw)
+    equity_curve = cast(
+        pd.Series, equity_raw.squeeze() if hasattr(equity_raw, "squeeze") else equity_raw
+    )
     if not isinstance(equity_curve, pd.Series):
         equity_curve = pd.Series(equity_curve, index=prices.index)
     equity_curve = equity_curve.astype(float)

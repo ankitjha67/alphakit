@@ -66,14 +66,14 @@ class StrategyProtocol(Protocol):
     -----------------------------
     * ``name``             — unique slug, e.g. ``"tsmom_12_1"``
     * ``family``           — strategy family, e.g. ``"trend"``
-    * ``asset_classes``    — list of asset classes this strategy is valid for
+    * ``asset_classes``    — tuple of asset classes this strategy is valid for
     * ``paper_doi``        — DOI, arXiv link, or book ISBN. **Never blank.**
     * ``rebalance_frequency`` — ``"daily"`` | ``"weekly"`` | ``"monthly"`` | ...
     """
 
     name: str
     family: str
-    asset_classes: list[str]
+    asset_classes: tuple[str, ...]
     paper_doi: str
     rebalance_frequency: str
 
