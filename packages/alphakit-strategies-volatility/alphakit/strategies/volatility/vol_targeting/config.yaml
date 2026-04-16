@@ -5,6 +5,8 @@ universe:
   - SPY
   - EFA
   - AGG
-target_vol: 0.10\nvol_lookback: 20\nmax_leverage: 2.0
+target_vol: 0.10
+vol_lookback: 20
+max_leverage: 2.0
 long_only: false
 rebalance: daily

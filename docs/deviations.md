@@ -8,6 +8,73 @@ can evaluate which results to trust and which to discount.
 See [ADR-001](adr/001-carry-data-deferred.md) for the architectural
 decision behind carry-data proxies.
 
+See [benchmark_notes.md](benchmark_notes.md) for honest benchmark analysis.
+
+## Known strategy clusters
+
+Two groups of strategies produce **identical benchmark results** in v0.1.0
+because they share the same underlying proxy implementation. This is an
+intentional, documented limitation — not a bug.
+
+### Cluster 1: Vol proxy (6 strategies, Sharpe +0.6565)
+
+These strategies all reduce to the same vol-scaled equity overlay:
+
+- `vol_targeting` (Moreira & Muir 2017) — the "real" implementation
+- `covered_call_proxy` (Whaley 2002) — ADR-002 proxy
+- `cash_secured_put_proxy` (Ungar & Moran 2009) — ADR-002 proxy
+- `wheel_strategy_proxy` (practitioner) — ADR-002 proxy
+- `iron_condor_systematic_proxy` (Israelov & Nielsen 2014) — ADR-002 proxy
+- `short_strangle_proxy` (Israelov & Nielsen 2014) — ADR-002 proxy
+
+**Why they are identical:** The 5 `_proxy` strategies require an options
+pricing engine to differentiate their payoff profiles (covered call vs.
+iron condor vs. strangle). Without options Greeks, delta hedging, or strike
+selection, they all collapse to "long equity, scaled by inverse realized
+vol." The canonical slugs (without `_proxy`) are reserved for Phase 4
+when the real options engine ships.
+
+**When they will diverge:** Phase 4 (v1.0.0), which introduces the options
+pricing engine, real Greeks, and strike selection logic.
+
+### Cluster 2: Value proxy (4 strategies, Sharpe +0.0991)
+
+These strategies all reduce to the same long-term-reversal value proxy:
+
+- `pe_value` (Fama & French 1992)
+- `pb_value` (Fama & French 1992)
+- `ev_ebitda` (standard fundamental screen)
+- `fcf_yield` (standard fundamental screen)
+
+**Why they are identical:** All four require fundamental data (earnings,
+book value, EBITDA, free cash flow) that is not available in Phase 1.
+The proxy uses negative trailing 10-year return as a value signal, which
+is the same computation for all four because the only input is price.
+
+**When they will diverge:** Phase 3 (v0.3.0), which introduces fundamental
+data feeds from SEC EDGAR / Compustat / similar providers.
+
+---
+
+## Benchmark Summary Table (v0.1.0, synthetic data)
+
+| Strategy | Family | Shipped Sharpe | Paper Sharpe | Delta | Notes |
+|----------|--------|---------------:|-------------:|------:|-------|
+| vol_targeting | volatility | +0.66 | ~0.7-1.0 | ~-0.2 | Direct impl, no proxy needed |
+| vix_roll_short | volatility | +0.58 | ~1.0+ | ~-0.4 | Proxy; real VIX futures would differ |
+| sma_cross_50_200 | trend | +0.45 | ~0.3-0.5 | ~0.0 | Reasonable match |
+| dual_momentum_gem | trend | +0.44 | ~0.5-0.7 | ~-0.2 | Reasonable on synthetic data |
+| gap_fill | meanrev | +0.31 | ~0.4+ | ~-0.1 | Needs real intraday data for accuracy |
+| vrp_harvest | volatility | +0.29 | ~0.5-0.8 | ~-0.3 | Vol term structure proxy |
+| crypto_funding_carry | carry | +0.29 | ~0.5+ | ~-0.2 | No real funding rates in fixtures |
+| xs_momentum_jt | trend | +0.19 | ~0.5-0.7 | ~-0.4 | Cross-sectional weaker on 6 assets |
+| ev_ebitda | value | +0.10 | ~0.3-0.5 | ~-0.3 | Return-based proxy, no fundamentals |
+| short_term_reversal_1m | meanrev | -1.26 | ~0.5+ | ~-1.8 | Synthetic data has no reversal signal |
+| bond_carry_roll | carry | -1.24 | ~0.4-0.6 | ~-1.7 | No yield curve data in fixtures |
+
+Paper Sharpe values are approximate ranges from original publications.
+Delta is rough (synthetic data ≠ real data). See benchmark_notes.md for details.
+
 ---
 
 ## Trend family

@@ -2,9 +2,11 @@
 
 > The most comprehensive, researcher-defensible, multi-asset, plug-and-play open-source quant strategy library.
 
-[![CI](https://img.shields.io/badge/CI-pending-lightgrey)](https://github.com/ankitjha67/alphakit/actions)
-[![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](https://github.com/ankitjha67/alphakit)
-[![PyPI](https://img.shields.io/badge/pypi-v0.0.1-blue)](https://pypi.org/project/alphakit/)
+[![Release](https://img.shields.io/badge/release-v0.1.0-blue)](https://github.com/ankitjha67/alphakit/releases/tag/v0.1.0)
+[![Strategies](https://img.shields.io/badge/strategies-60-brightgreen)](https://github.com/ankitjha67/alphakit)
+[![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/ankitjha67/alphakit/actions)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen)](https://github.com/ankitjha67/alphakit)
+[![PyPI](https://img.shields.io/badge/pypi-v0.1.0-blue)](https://pypi.org/project/alphakit/)
 [![Docs](https://img.shields.io/badge/docs-mkdocs--material-blue)](https://ankitjha67.github.io/alphakit)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
@@ -15,6 +17,15 @@ data schemas, metrics, adapters) with **independent sub-packages** by strategy f
 Every strategy ships with paper citation, parameter defaults, OOS benchmarks, documented
 failure modes, and unit + integration tests.
 
+> **Phase 1 honesty note:** 37 of the 60 strategies shipped in v0.1.0 use
+> price-derived proxies because real yield/options/fundamental data feeds
+> ship in Phase 4. Six vol-strategies collapse to an identical implementation
+> until the options engine ships. Four value strategies collapse to the same
+> long-term-reversal proxy. All simplifications are documented in
+> [`docs/deviations.md`](docs/deviations.md) and per-strategy `paper.md` files.
+>
+> **v0.2.0+ will ship real data feeds and dedupe these clusters.**
+
 ## Why AlphaKit?
 
 - **Paper-cited.** Every strategy has a DOI, arXiv link, or book ISBN. No blog posts.
@@ -22,8 +33,50 @@ failure modes, and unit + integration tests.
 - **Failure modes documented.** "Dies in 2022 rate shock" beats silence.
 - **One interface, multiple engines.** `StrategyProtocol` runs on the internal vectorized
   engine, vectorbt, backtrader, and (Phase 2+) LEAN.
-- **Modular install.** `pip install alphakit[crypto]` does not pull equities or rates deps.
+- **Modular install.** Install only the families you need (see below).
 - **Tested.** ≥85% coverage is a CI hard gate.
+
+## Installation
+
+AlphaKit is a monorepo of independently-installable sub-packages. The root
+`pyproject.toml` is for local `uv` development only — it is **not**
+pip-installable.
+
+**Install everything from a release tag:**
+
+```bash
+# Linux / macOS
+curl -sSL https://raw.githubusercontent.com/ankitjha67/alphakit/v0.1.1/scripts/install_from_git.sh \
+  | bash -s -- v0.1.1
+
+# Or clone and run locally
+git clone https://github.com/ankitjha67/alphakit.git && cd alphakit
+bash scripts/install_from_git.sh v0.1.1
+```
+
+**Install only what you need:**
+
+```bash
+TAG=v0.1.1
+REPO=https://github.com/ankitjha67/alphakit.git
+
+# Core (required by all strategy packages)
+pip install "alphakit-core @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-core"
+
+# One strategy family
+pip install "alphakit-strategies-trend @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-strategies-trend"
+
+# Backtest bridge
+pip install "alphakit-bridges @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-bridges"
+```
+
+**Local development (requires [uv](https://docs.astral.sh/uv/)):**
+
+```bash
+git clone https://github.com/ankitjha67/alphakit.git && cd alphakit
+uv sync   # resolves all workspace packages locally
+uv run pytest
+```
 
 ## Quickstart
 
@@ -59,6 +112,46 @@ Live site: <https://ankitjha67.github.io/alphakit>
 - [Strategy contract](docs/strategy_contract.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
+
+## Benchmark Leaderboard (v0.1.0, synthetic data)
+
+> Benchmarked on deterministic fixture data with 5 bps commission.
+> See [docs/benchmark_notes.md](docs/benchmark_notes.md) for honest analysis.
+
+**Top 10 by Sharpe:**
+
+| # | Strategy | Family | Sharpe | Max DD | Ann. Return |
+|---|----------|--------|-------:|-------:|------------:|
+| 1 | vol_targeting | volatility | +0.66 | -10.0% | +4.7% | ^1
+| 2 | vix_roll_short | volatility | +0.58 | -15.7% | +5.8% |
+| 3 | sma_cross_50_200 | trend | +0.45 | -20.0% | +2.7% |
+| 4 | dual_momentum_gem | trend | +0.44 | -29.7% | +6.2% |
+| 5 | gap_fill | meanrev | +0.31 | -2.8% | +0.4% |
+| 6 | crypto_funding_carry | carry | +0.29 | -13.2% | +3.3% |
+| 7 | vrp_harvest | volatility | +0.29 | -12.0% | +2.1% |
+| 8 | xs_momentum_jt | trend | +0.19 | -18.9% | +1.8% |
+| 9 | ev_ebitda | value | +0.10 | -12.1% | +0.7% | ^2
+| 10 | ou_process_trade | meanrev | -0.03 | -5.1% | -0.1% |
+
+^1 **Vol proxy cluster:** 5 additional strategies (covered_call_proxy,
+cash_secured_put_proxy, wheel_strategy_proxy, iron_condor_systematic_proxy,
+short_strangle_proxy) produce this identical Sharpe. All 6 share the same
+vol-scaled equity overlay until the real options engine ships in Phase 4.
+See [ADR-002](docs/adr/002-proxy-suffix-convention.md).
+
+^2 **Value proxy cluster:** 3 additional strategies (fcf_yield, pb_value,
+pe_value) produce this identical Sharpe. All 4 use the same long-term-reversal
+value proxy until real fundamental data feeds ship in Phase 3.
+
+**Top 5 by Calmar (return/max-drawdown):**
+
+| # | Strategy | Family | Calmar | Max DD | Ann. Return |
+|---|----------|--------|-------:|-------:|------------:|
+| 1 | vol_targeting ^1 | volatility | 0.45 | -10.0% | +4.7% |
+| 2 | vix_roll_short | volatility | 0.36 | -15.7% | +5.8% |
+| 3 | gap_fill | meanrev | 0.28 | -2.8% | +0.4% |
+| 4 | vrp_harvest | volatility | 0.24 | -12.0% | +2.1% |
+| 5 | dual_momentum_gem | trend | 0.18 | -29.7% | +6.2% |
 
 ## Roadmap
 

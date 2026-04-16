@@ -7,59 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- Initial repository scaffolding
-- Root `pyproject.toml` with uv workspace configuration
-- Apache 2.0 license
-- Pre-commit hooks (ruff, black, mypy strict, nbstripout)
-- Citation file (`CITATION.cff`)
-- Workspace skeleton for `alphakit-core`, `alphakit-data`, `alphakit-bridges`,
-  `alphakit-strategies-trend`
-- `alphakit-core`: `StrategyProtocol`, `BacktestEngineProtocol`,
-  `DataFeedProtocol`, `BacktestResult`; data schemas (`Bar`, `Tick`,
-  `OptionChain`, `OrderBook`); instruments (`Equity`, `Option`, `Future`,
-  `FXPair`, `CryptoPair`); `Signal` / `SignalDirection`; `Portfolio` /
-  `Position` with rebalance engine; metrics (`sharpe_ratio`, `sortino_ratio`,
-  `calmar_ratio`, `information_ratio`, `max_drawdown`, `ulcer_index`,
-  `recovery_time`, `var_parametric`, `var_historical`, `cvar`, `tail_ratio`)
-- `alphakit-bridges`: `vectorbt_bridge`, `backtrader_bridge`, `lean_bridge`
-  stub (Phase 2+)
-- `alphakit-strategies-trend`: reference strategy `tsmom_12_1`
-  (Moskowitz-Ooi-Pedersen 2012 JFE) with full per-strategy contract:
-  `strategy.py`, `config.yaml`, `paper.md`, `known_failures.md`,
-  `benchmark_results.json` placeholder, `README.md`, unit and integration
-  tests
-- `CONTRIBUTING.md` with per-strategy contract spec
-- `SECURITY.md` vulnerability reporting policy
-- GitHub templates: PR template, new-strategy issue, bug-report issue
-- CI workflows: `test.yml` (pytest matrix 3.10/3.11/3.12 × ubuntu/macos,
-  coverage gate ≥85%), `lint.yml` (ruff + mypy strict),
-  `docs.yml` (MkDocs build + deploy to gh-pages)
-- MkDocs Material documentation site with landing page, quickstart,
-  architecture, and strategy-contract pages
-
-### TODO
-
-- Add `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) — tracked
-  separately, will land before v0.1.0
-
-<!--
-## [0.0.1] - 2026-04-15
+## [0.1.0] - 2026-04-16
 
 ### Added
-- `StrategyProtocol`, `BacktestEngineProtocol`, `DataFeedProtocol`
-- Core data types: `Bar`, `Tick`, `OptionChain`, `OrderBook`
-- Instrument hierarchy: `Equity`, `Future`, `Option`, `Bond`, `FXPair`, `CryptoPair`
-- Exchange calendar wrapper
-- Order / Fill / Slippage / Commission models
-- Portfolio, Position, Brinson attribution, rebalance engine
-- Metrics: Sharpe, Sortino, Calmar, MaxDD, Ulcer, VaR, CVaR, turnover
-- Internal vectorized backtest engine
-- vectorbt and backtrader bridge adapters (optional)
-- Reference strategy: `tsmom_12_1` (Time-Series Momentum 12/1, Moskowitz-Ooi-Pedersen 2012)
-- GitHub Actions CI: ruff + mypy + pytest (≥85% coverage gate)
-- MkDocs Material documentation site
--->
 
-[Unreleased]: https://github.com/ankitjha67/alphakit/compare/HEAD...main
+**60 systematic trading strategies across 5 families:**
+
+- **Trend (15)**: tsmom_12_1, tsmom_volscaled, xs_momentum_jt, sma_cross_10_30,
+  sma_cross_50_200, ema_cross_12_26, donchian_breakout_20, donchian_breakout_55,
+  dual_momentum_gem, supertrend, ichimoku_cloud, turtle_full, frog_in_the_pan,
+  residual_momentum, fifty_two_week_high
+- **Mean-Reversion (15)**: bollinger_reversion, zscore_reversion, rsi_reversion_14,
+  rsi_reversion_2, ou_process_trade, pairs_distance, pairs_engle_granger,
+  pairs_johansen, pairs_kalman, statarb_pca, long_term_reversal,
+  short_term_reversal_1m, gap_fill, overnight_intraday, crypto_basis_perp
+- **Carry (10)**: fx_carry_g10, fx_carry_em, bond_carry_roll, dividend_yield,
+  equity_carry, vol_carry_vrp, crypto_funding_carry, repo_carry,
+  swap_spread_carry, cross_asset_carry
+- **Value (10)**: pe_value, pb_value, ev_ebitda, fcf_yield, shareholder_yield,
+  magic_formula, quality_value, piotroski_fscore_proxy, altman_zscore_proxy,
+  country_cape_rotation
+- **Volatility (10)**: vol_targeting, vix_term_structure, vix_roll_short,
+  leveraged_etf_decay, covered_call_proxy, cash_secured_put_proxy,
+  wheel_strategy_proxy, iron_condor_systematic_proxy, short_strangle_proxy,
+  vrp_harvest
+
+**Infrastructure:**
+- `alphakit-core` — Protocols, metrics, Pydantic models
+- `alphakit-data` — YFinance adapter with parquet cache, synthetic fixture generator
+- `alphakit-bridges` — vectorbt bridge (from_orders-based backtester)
+- `alphakit-bench` — Benchmark runner with strategy discovery, extended metrics, CLI
+- `scripts/benchmark_all.py` — CLI for running all or individual benchmarks
+- `.github/workflows/benchmark.yml` — Weekly cron benchmark with regression detection
+
+**Documentation:**
+- `docs/strategy_contract.md` — Per-strategy contract (Appendix C schema)
+- `docs/deviations.md` — 37 documented simplifications + benchmark summary table
+- `docs/benchmark_notes.md` — Honest v0.1.0 benchmark analysis
+- `docs/adr/001-carry-data-deferred.md` — Carry data gap decision
+- `docs/adr/002-proxy-suffix-convention.md` — `_proxy` suffix naming convention
+- Per-strategy: paper.md, known_failures.md, README.md, config.yaml, benchmark_results.json
+
+### Notes
+- All v0.1.0 benchmarks use synthetic fixture data. Real-data benchmarks planned for v0.2.0.
+- Options-based strategies use `_proxy` suffix (ADR-002). Phase 4 ships real options engine.
+- 17/60 strategies show positive Sharpe on synthetic data. See benchmark_notes.md.
+
+[0.1.0]: https://github.com/ankitjha67/alphakit/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ankitjha67/alphakit/compare/v0.1.0...HEAD

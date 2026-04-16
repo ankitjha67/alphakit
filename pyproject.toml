@@ -1,6 +1,13 @@
 [project]
+# -------------------------------------------------------------------------
+# WARNING: This root package is NOT pip-installable outside the uv workspace.
+# It exists only for local development with `uv sync`. To install AlphaKit
+# in a fresh environment, use the per-subpackage install script:
+#   bash scripts/install_from_git.sh v0.1.1
+# See README.md for details.
+# -------------------------------------------------------------------------
 name = "alphakit"
-version = "0.0.1"
+version = "0.1.0"
 description = "The most comprehensive open-source quant strategy library."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -28,6 +35,8 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
     "Topic :: Scientific/Engineering",
 ]
+# These deps resolve via [tool.uv.sources] workspace mapping during `uv sync`.
+# They are NOT resolvable by pip outside the workspace. This is intentional.
 dependencies = [
     "alphakit-core",
     "alphakit-data",
@@ -37,6 +46,7 @@ dependencies = [
     "alphakit-strategies-carry",
     "alphakit-strategies-value",
     "alphakit-strategies-volatility",
+    "alphakit-bench",
 ]
 
 [project.optional-dependencies]
@@ -83,6 +93,9 @@ Repository = "https://github.com/ankitjha67/alphakit"
 Issues = "https://github.com/ankitjha67/alphakit/issues"
 Changelog = "https://github.com/ankitjha67/alphakit/blob/main/CHANGELOG.md"
 
+# No [build-system] — this root is not a distributable package.
+# Sub-packages under packages/ are independently buildable with hatchling.
+
 # ---------------------------------------------------------------------------
 # uv workspace
 # ---------------------------------------------------------------------------
@@ -96,11 +109,13 @@ members = [
     "packages/alphakit-strategies-carry",
     "packages/alphakit-strategies-value",
     "packages/alphakit-strategies-volatility",
+    "packages/alphakit-bench",
 ]
 
 [tool.uv.sources]
 alphakit-core = { workspace = true }
 alphakit-data = { workspace = true }
+alphakit-bench = { workspace = true }
 alphakit-bridges = { workspace = true }
 alphakit-strategies-trend = { workspace = true }
 alphakit-strategies-meanrev = { workspace = true }
@@ -178,6 +193,7 @@ mypy_path = [
     "packages/alphakit-strategies-carry",
     "packages/alphakit-strategies-value",
     "packages/alphakit-strategies-volatility",
+    "packages/alphakit-bench",
 ]
 
 [[tool.mypy.overrides]]

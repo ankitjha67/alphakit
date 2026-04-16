@@ -17,6 +17,7 @@ resolution-markers = [
 [manifest]
 members = [
     "alphakit",
+    "alphakit-bench",
     "alphakit-bridges",
     "alphakit-core",
     "alphakit-data",
@@ -183,9 +184,10 @@ wheels = [
 
 [[package]]
 name = "alphakit"
-version = "0.0.1"
+version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "alphakit-bench" },
     { name = "alphakit-bridges" },
     { name = "alphakit-core" },
     { name = "alphakit-data" },
@@ -263,6 +265,7 @@ volatility = [
 [package.metadata]
 requires-dist = [
     { name = "alphakit", extras = ["trend", "meanrev", "carry", "value", "volatility", "options", "rates", "commodity", "macro", "ml", "rl", "crypto", "altdata"], marker = "extra == 'all'" },
+    { name = "alphakit-bench", editable = "packages/alphakit-bench" },
     { name = "alphakit-bridges", editable = "packages/alphakit-bridges" },
     { name = "alphakit-core", editable = "packages/alphakit-core" },
     { name = "alphakit-data", editable = "packages/alphakit-data" },
@@ -299,6 +302,40 @@ requires-dist = [
     { name = "xgboost", marker = "extra == 'ml'", specifier = ">=2.0" },
 ]
 provides-extras = ["trend", "meanrev", "carry", "value", "volatility", "options", "rates", "commodity", "macro", "ml", "rl", "crypto", "altdata", "all", "dev", "docs"]
+
+[[package]]
+name = "alphakit-bench"
+version = "0.0.1"
+source = { editable = "packages/alphakit-bench" }
+dependencies = [
+    { name = "alphakit-bridges" },
+    { name = "alphakit-core" },
+    { name = "alphakit-data" },
+    { name = "alphakit-strategies-carry" },
+    { name = "alphakit-strategies-meanrev" },
+    { name = "alphakit-strategies-trend" },
+    { name = "alphakit-strategies-value" },
+    { name = "alphakit-strategies-volatility" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alphakit-bridges", editable = "packages/alphakit-bridges" },
+    { name = "alphakit-core", editable = "packages/alphakit-core" },
+    { name = "alphakit-data", editable = "packages/alphakit-data" },
+    { name = "alphakit-strategies-carry", editable = "packages/alphakit-strategies-carry" },
+    { name = "alphakit-strategies-meanrev", editable = "packages/alphakit-strategies-meanrev" },
+    { name = "alphakit-strategies-trend", editable = "packages/alphakit-strategies-trend" },
+    { name = "alphakit-strategies-value", editable = "packages/alphakit-strategies-value" },
+    { name = "alphakit-strategies-volatility", editable = "packages/alphakit-strategies-volatility" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "pandas", specifier = ">=2.2" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
 
 [[package]]
 name = "alphakit-bridges"

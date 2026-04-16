@@ -5,6 +5,8 @@ universe:
   - SPY
   - EFA
   - AGG
-fast_vol_window: 5\nslow_vol_window: 60\ntarget_vol: 0.10
+fast_vol_window: 5
+slow_vol_window: 60
+target_vol: 0.10
 long_only: false
 rebalance: daily
