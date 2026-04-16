@@ -10,6 +10,52 @@ decision behind carry-data proxies.
 
 See [benchmark_notes.md](benchmark_notes.md) for honest benchmark analysis.
 
+## Known strategy clusters
+
+Two groups of strategies produce **identical benchmark results** in v0.1.0
+because they share the same underlying proxy implementation. This is an
+intentional, documented limitation — not a bug.
+
+### Cluster 1: Vol proxy (6 strategies, Sharpe +0.6565)
+
+These strategies all reduce to the same vol-scaled equity overlay:
+
+- `vol_targeting` (Moreira & Muir 2017) — the "real" implementation
+- `covered_call_proxy` (Whaley 2002) — ADR-002 proxy
+- `cash_secured_put_proxy` (Ungar & Moran 2009) — ADR-002 proxy
+- `wheel_strategy_proxy` (practitioner) — ADR-002 proxy
+- `iron_condor_systematic_proxy` (Israelov & Nielsen 2014) — ADR-002 proxy
+- `short_strangle_proxy` (Israelov & Nielsen 2014) — ADR-002 proxy
+
+**Why they are identical:** The 5 `_proxy` strategies require an options
+pricing engine to differentiate their payoff profiles (covered call vs.
+iron condor vs. strangle). Without options Greeks, delta hedging, or strike
+selection, they all collapse to "long equity, scaled by inverse realized
+vol." The canonical slugs (without `_proxy`) are reserved for Phase 4
+when the real options engine ships.
+
+**When they will diverge:** Phase 4 (v1.0.0), which introduces the options
+pricing engine, real Greeks, and strike selection logic.
+
+### Cluster 2: Value proxy (4 strategies, Sharpe +0.0991)
+
+These strategies all reduce to the same long-term-reversal value proxy:
+
+- `pe_value` (Fama & French 1992)
+- `pb_value` (Fama & French 1992)
+- `ev_ebitda` (standard fundamental screen)
+- `fcf_yield` (standard fundamental screen)
+
+**Why they are identical:** All four require fundamental data (earnings,
+book value, EBITDA, free cash flow) that is not available in Phase 1.
+The proxy uses negative trailing 10-year return as a value signal, which
+is the same computation for all four because the only input is price.
+
+**When they will diverge:** Phase 3 (v0.3.0), which introduces fundamental
+data feeds from SEC EDGAR / Compustat / similar providers.
+
+---
+
 ## Benchmark Summary Table (v0.1.0, synthetic data)
 
 | Strategy | Family | Shipped Sharpe | Paper Sharpe | Delta | Notes |

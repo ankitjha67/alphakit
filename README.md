@@ -17,6 +17,15 @@ data schemas, metrics, adapters) with **independent sub-packages** by strategy f
 Every strategy ships with paper citation, parameter defaults, OOS benchmarks, documented
 failure modes, and unit + integration tests.
 
+> **Phase 1 honesty note:** 37 of the 60 strategies shipped in v0.1.0 use
+> price-derived proxies because real yield/options/fundamental data feeds
+> ship in Phase 4. Six vol-strategies collapse to an identical implementation
+> until the options engine ships. Four value strategies collapse to the same
+> long-term-reversal proxy. All simplifications are documented in
+> [`docs/deviations.md`](docs/deviations.md) and per-strategy `paper.md` files.
+>
+> **v0.2.0+ will ship real data feeds and dedupe these clusters.**
+
 ## Why AlphaKit?
 
 - **Paper-cited.** Every strategy has a DOI, arXiv link, or book ISBN. No blog posts.
@@ -71,7 +80,7 @@ Live site: <https://ankitjha67.github.io/alphakit>
 
 | # | Strategy | Family | Sharpe | Max DD | Ann. Return |
 |---|----------|--------|-------:|-------:|------------:|
-| 1 | vol_targeting | volatility | +0.66 | -10.0% | +4.7% |
+| 1 | vol_targeting | volatility | +0.66 | -10.0% | +4.7% | ^1
 | 2 | vix_roll_short | volatility | +0.58 | -15.7% | +5.8% |
 | 3 | sma_cross_50_200 | trend | +0.45 | -20.0% | +2.7% |
 | 4 | dual_momentum_gem | trend | +0.44 | -29.7% | +6.2% |
@@ -79,14 +88,24 @@ Live site: <https://ankitjha67.github.io/alphakit>
 | 6 | crypto_funding_carry | carry | +0.29 | -13.2% | +3.3% |
 | 7 | vrp_harvest | volatility | +0.29 | -12.0% | +2.1% |
 | 8 | xs_momentum_jt | trend | +0.19 | -18.9% | +1.8% |
-| 9 | ev_ebitda | value | +0.10 | -12.1% | +0.7% |
+| 9 | ev_ebitda | value | +0.10 | -12.1% | +0.7% | ^2
 | 10 | ou_process_trade | meanrev | -0.03 | -5.1% | -0.1% |
+
+^1 **Vol proxy cluster:** 5 additional strategies (covered_call_proxy,
+cash_secured_put_proxy, wheel_strategy_proxy, iron_condor_systematic_proxy,
+short_strangle_proxy) produce this identical Sharpe. All 6 share the same
+vol-scaled equity overlay until the real options engine ships in Phase 4.
+See [ADR-002](docs/adr/002-proxy-suffix-convention.md).
+
+^2 **Value proxy cluster:** 3 additional strategies (fcf_yield, pb_value,
+pe_value) produce this identical Sharpe. All 4 use the same long-term-reversal
+value proxy until real fundamental data feeds ship in Phase 3.
 
 **Top 5 by Calmar (return/max-drawdown):**
 
 | # | Strategy | Family | Calmar | Max DD | Ann. Return |
 |---|----------|--------|-------:|-------:|------------:|
-| 1 | vol_targeting | volatility | 0.45 | -10.0% | +4.7% |
+| 1 | vol_targeting ^1 | volatility | 0.45 | -10.0% | +4.7% |
 | 2 | vix_roll_short | volatility | 0.36 | -15.7% | +5.8% |
 | 3 | gap_fill | meanrev | 0.28 | -2.8% | +0.4% |
 | 4 | vrp_harvest | volatility | 0.24 | -12.0% | +2.1% |

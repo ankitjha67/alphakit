@@ -115,6 +115,35 @@ converge on identical signals with this data.
 4. Results are deterministic and reproducible
 5. No strategy crashes on edge cases in the data
 
+## Fixture data limitations
+
+The synthetic fixture generator (`alphakit.data.fixtures.generator`) uses
+per-ticker drift/vol profiles with a shared market factor and GARCH-like
+vol clustering. This design has **structural limitations** that make
+certain strategy families unable to produce positive returns:
+
+**Strategies that cannot work on fixture data by construction:**
+
+| Strategy type | Required data property | Fixture limitation |
+|---------------|----------------------|-------------------|
+| Carry (FX, bond, equity) | Real interest rate / yield differentials | Fixtures have no rate data; "FX pairs" are synthetic price series with similar drift |
+| Pairs / cointegration | Genuine long-run equilibrium relationships | Factor model produces correlated but not cointegrated series; Engle-Granger / Johansen tests fit noise |
+| Short-term reversal | Bid-ask bounce, microstructure mean-reversion | Returns are conditionally independent (GARCH vol, but no serial correlation in direction) |
+| Overnight / intraday | Intraday vs. overnight return decomposition | Only daily bars exist; overnight signal is undefined |
+| Fundamental value | Earnings, book value, cash flow multiples | No fundamental data; all value strategies collapse to price-only proxies |
+
+**Reframing negative Sharpes:** The 19 strategies with Sharpe < -0.5 are
+**not broken strategies** — they are strategies whose alpha source does
+not exist in the fixture data. On real market data with actual carry
+differentials, cointegration relationships, and microstructure effects,
+these strategies would be expected to produce materially different (and
+in many cases positive) Sharpe ratios consistent with their published
+papers.
+
+The negative Sharpes on fixture data represent the cost of trading
+(5 bps commission) plus the cost of fitting noise (false signals from
+cointegration tests on non-cointegrated data, etc.).
+
 ## What these benchmarks do NOT prove
 
 1. That any strategy produces real alpha
