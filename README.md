@@ -33,8 +33,50 @@ failure modes, and unit + integration tests.
 - **Failure modes documented.** "Dies in 2022 rate shock" beats silence.
 - **One interface, multiple engines.** `StrategyProtocol` runs on the internal vectorized
   engine, vectorbt, backtrader, and (Phase 2+) LEAN.
-- **Modular install.** `pip install alphakit[crypto]` does not pull equities or rates deps.
+- **Modular install.** Install only the families you need (see below).
 - **Tested.** ≥85% coverage is a CI hard gate.
+
+## Installation
+
+AlphaKit is a monorepo of independently-installable sub-packages. The root
+`pyproject.toml` is for local `uv` development only — it is **not**
+pip-installable.
+
+**Install everything from a release tag:**
+
+```bash
+# Linux / macOS
+curl -sSL https://raw.githubusercontent.com/ankitjha67/alphakit/v0.1.1/scripts/install_from_git.sh \
+  | bash -s -- v0.1.1
+
+# Or clone and run locally
+git clone https://github.com/ankitjha67/alphakit.git && cd alphakit
+bash scripts/install_from_git.sh v0.1.1
+```
+
+**Install only what you need:**
+
+```bash
+TAG=v0.1.1
+REPO=https://github.com/ankitjha67/alphakit.git
+
+# Core (required by all strategy packages)
+pip install "alphakit-core @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-core"
+
+# One strategy family
+pip install "alphakit-strategies-trend @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-strategies-trend"
+
+# Backtest bridge
+pip install "alphakit-bridges @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-bridges"
+```
+
+**Local development (requires [uv](https://docs.astral.sh/uv/)):**
+
+```bash
+git clone https://github.com/ankitjha67/alphakit.git && cd alphakit
+uv sync   # resolves all workspace packages locally
+uv run pytest
+```
 
 ## Quickstart
 

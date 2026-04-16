@@ -1,0 +1,102 @@
+name: Verify Install
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to test (e.g. v0.1.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify-install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "ref=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install sub-packages in dependency order
+        run: |
+          TAG="${{ steps.tag.outputs.ref }}"
+          REPO="https://github.com/ankitjha67/alphakit.git"
+
+          for pkg in core data bridges \
+                     strategies-trend strategies-meanrev strategies-carry \
+                     strategies-value strategies-volatility bench; do
+            echo "::group::Installing alphakit-${pkg}"
+            pip install "alphakit-${pkg} @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-${pkg}"
+            echo "::endgroup::"
+          done
+
+      - name: Verify imports — one strategy per family
+        run: |
+          python -c "
+          from alphakit.core.protocols import StrategyProtocol, BacktestResult
+          print('core: OK')
+
+          from alphakit.strategies.trend.tsmom_12_1 import TimeSeriesMomentum12m1m
+          assert isinstance(TimeSeriesMomentum12m1m(), StrategyProtocol)
+          print('trend: OK')
+
+          from alphakit.strategies.meanrev.bollinger_reversion import BollingerReversion
+          assert isinstance(BollingerReversion(), StrategyProtocol)
+          print('meanrev: OK')
+
+          from alphakit.strategies.carry.fx_carry_g10 import FXCarryG10
+          assert isinstance(FXCarryG10(), StrategyProtocol)
+          print('carry: OK')
+
+          from alphakit.strategies.value.pe_value import PEValue
+          assert isinstance(PEValue(), StrategyProtocol)
+          print('value: OK')
+
+          from alphakit.strategies.volatility.vol_targeting import VolTargeting
+          assert isinstance(VolTargeting(), StrategyProtocol)
+          print('volatility: OK')
+
+          from alphakit.bench.discovery import discover_slugs
+          assert len(discover_slugs()) == 60
+          print(f'discovery: 60 slugs OK')
+          "
+
+      - name: Run minimal backtest on fixture data
+        run: |
+          python -c "
+          from alphakit.data.fixtures.generator import generate_fixture_prices
+          from alphakit.bridges.vectorbt_bridge import run
+          from alphakit.strategies.trend.tsmom_12_1 import TimeSeriesMomentum12m1m
+
+          prices = generate_fixture_prices(['SPY', 'EFA', 'AGG'], start='2020-01-01', end='2024-12-31')
+          result = run(strategy=TimeSeriesMomentum12m1m(), prices=prices)
+
+          assert result.meta['strategy'] == 'tsmom_12_1'
+          assert result.metrics['sharpe'] is not None
+          print(f'Backtest OK: Sharpe={result.metrics[\"sharpe\"]:.4f}')
+          "

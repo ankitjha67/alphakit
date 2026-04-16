@@ -1,6 +1,13 @@
 [project]
+# -------------------------------------------------------------------------
+# WARNING: This root package is NOT pip-installable outside the uv workspace.
+# It exists only for local development with `uv sync`. To install AlphaKit
+# in a fresh environment, use the per-subpackage install script:
+#   bash scripts/install_from_git.sh v0.1.1
+# See README.md for details.
+# -------------------------------------------------------------------------
 name = "alphakit"
-version = "0.0.1"
+version = "0.1.0"
 description = "The most comprehensive open-source quant strategy library."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -28,6 +35,8 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
     "Topic :: Scientific/Engineering",
 ]
+# These deps resolve via [tool.uv.sources] workspace mapping during `uv sync`.
+# They are NOT resolvable by pip outside the workspace. This is intentional.
 dependencies = [
     "alphakit-core",
     "alphakit-data",
@@ -84,15 +93,8 @@ Repository = "https://github.com/ankitjha67/alphakit"
 Issues = "https://github.com/ankitjha67/alphakit/issues"
 Changelog = "https://github.com/ankitjha67/alphakit/blob/main/CHANGELOG.md"
 
-[build-system]
-requires = ["hatchling>=1.25"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["_alphakit_meta"]  # meta-package stub; real code lives in sub-packages
-
-[tool.hatch.build.targets.sdist]
-include = ["pyproject.toml", "README.md", "LICENSE", "CHANGELOG.md", "_alphakit_meta/"]
+# No [build-system] — this root is not a distributable package.
+# Sub-packages under packages/ are independently buildable with hatchling.
 
 # ---------------------------------------------------------------------------
 # uv workspace
