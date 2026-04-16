@@ -80,10 +80,9 @@ class PairsDistance:
             return pd.DataFrame(0.0, index=prices.index, columns=prices.columns)
 
         weights = pd.DataFrame(0.0, index=prices.index, columns=prices.columns)
-        cols = list(prices.columns)
 
         # Normalize prices by rolling formation-period start
-        log_p = np.log(prices)
+        log_p = pd.DataFrame(np.log(prices.to_numpy()), index=prices.index, columns=prices.columns)
         norm = log_p - log_p.rolling(window=self.formation_period, min_periods=self.formation_period).mean()
 
         for i in range(n_assets):

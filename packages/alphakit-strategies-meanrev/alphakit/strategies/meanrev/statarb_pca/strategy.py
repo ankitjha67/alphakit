@@ -26,8 +26,6 @@ Rules
 
 from __future__ import annotations
 
-from typing import cast
-
 import numpy as np
 import pandas as pd
 
@@ -102,7 +100,7 @@ class StatArbPCA:
             # PCA via SVD
             ret_centered = ret_clean - ret_clean.mean(axis=0)
             try:
-                _, s, vt = np.linalg.svd(ret_centered, full_matrices=False)
+                _, _s, vt = np.linalg.svd(ret_centered, full_matrices=False)
             except np.linalg.LinAlgError:
                 continue
 
@@ -147,4 +145,4 @@ class StatArbPCA:
         if self.long_only:
             weights = weights.clip(lower=0.0)
 
-        return cast(pd.DataFrame, weights)
+        return weights

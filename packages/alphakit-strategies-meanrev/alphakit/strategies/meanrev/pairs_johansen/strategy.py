@@ -92,7 +92,7 @@ class PairsJohansen:
             if cov.ndim < 2:
                 continue
             try:
-                eigenvalues, eigenvectors = np.linalg.eigh(cov)
+                _eigenvalues, eigenvectors = np.linalg.eigh(cov)
             except np.linalg.LinAlgError:
                 continue
             # First eigenvector (smallest eigenvalue = most stationary)

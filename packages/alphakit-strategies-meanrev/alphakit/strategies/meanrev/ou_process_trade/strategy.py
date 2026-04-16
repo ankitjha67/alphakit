@@ -23,8 +23,6 @@ For each asset:
 
 from __future__ import annotations
 
-from typing import cast
-
 import numpy as np
 import pandas as pd
 
@@ -100,10 +98,10 @@ class OUProcessTrade:
         weights = pd.DataFrame(0.0, index=prices.index, columns=prices.columns)
         log_prices = np.log(prices.to_numpy())
 
-        for col_idx, col in enumerate(prices.columns):
+        for col_idx, _col in enumerate(prices.columns):
             for i in range(self.lookback, len(prices)):
                 window = log_prices[i - self.lookback : i + 1, col_idx]
-                theta, mu, half_life = self._estimate_ou(window)
+                _theta, mu, half_life = self._estimate_ou(window)
 
                 if half_life > self.max_half_life or half_life <= 0:
                     continue
@@ -124,4 +122,4 @@ class OUProcessTrade:
         if self.long_only:
             weights = weights.clip(lower=0.0)
 
-        return cast(pd.DataFrame, weights)
+        return weights
