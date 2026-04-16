@@ -20,6 +20,7 @@ members = [
     "alphakit-bridges",
     "alphakit-core",
     "alphakit-data",
+    "alphakit-strategies-carry",
     "alphakit-strategies-meanrev",
     "alphakit-strategies-trend",
 ]
@@ -186,12 +187,14 @@ dependencies = [
     { name = "alphakit-bridges" },
     { name = "alphakit-core" },
     { name = "alphakit-data" },
+    { name = "alphakit-strategies-carry" },
     { name = "alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-trend" },
 ]
 
 [package.optional-dependencies]
 all = [
+    { name = "alphakit-strategies-carry" },
     { name = "alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-trend" },
     { name = "ccxt" },
@@ -201,6 +204,9 @@ all = [
     { name = "scikit-learn", version = "1.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "stable-baselines3" },
     { name = "xgboost" },
+]
+carry = [
+    { name = "alphakit-strategies-carry" },
 ]
 crypto = [
     { name = "ccxt" },
@@ -248,6 +254,8 @@ requires-dist = [
     { name = "alphakit-bridges", editable = "packages/alphakit-bridges" },
     { name = "alphakit-core", editable = "packages/alphakit-core" },
     { name = "alphakit-data", editable = "packages/alphakit-data" },
+    { name = "alphakit-strategies-carry", editable = "packages/alphakit-strategies-carry" },
+    { name = "alphakit-strategies-carry", marker = "extra == 'carry'", editable = "packages/alphakit-strategies-carry" },
     { name = "alphakit-strategies-meanrev", editable = "packages/alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-meanrev", marker = "extra == 'meanrev'", editable = "packages/alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-trend", editable = "packages/alphakit-strategies-trend" },
@@ -360,6 +368,26 @@ requires-dist = [
     { name = "yfinance", marker = "extra == 'yfinance'", specifier = ">=0.2" },
 ]
 provides-extras = ["yfinance", "ccxt", "fred"]
+
+[[package]]
+name = "alphakit-strategies-carry"
+version = "0.0.1"
+source = { editable = "packages/alphakit-strategies-carry" }
+dependencies = [
+    { name = "alphakit-core" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alphakit-core", editable = "packages/alphakit-core" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "pandas", specifier = ">=2.2" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
 
 [[package]]
 name = "alphakit-strategies-meanrev"
