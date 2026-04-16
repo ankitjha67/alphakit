@@ -22,6 +22,7 @@ Design notes
 from __future__ import annotations
 
 from datetime import datetime
+from math import nan
 from typing import Any, Protocol, runtime_checkable
 
 import pandas as pd
@@ -34,6 +35,10 @@ class BacktestResult(BaseModel):
     All engine bridges (internal, vectorbt, backtrader, LEAN) are required to
     normalise their native output into this structure so that strategies,
     notebooks and the benchmark runner can treat every engine identically.
+
+    Headline metrics are exposed both via the ``metrics`` dict and via
+    top-level property accessors (``result.sharpe``, ``result.max_dd``).
+    Missing metrics return ``nan``, never raise.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
@@ -48,10 +53,54 @@ class BacktestResult(BaseModel):
     """Target weights per symbol over time (time × symbols)."""
 
     metrics: dict[str, float] = Field(default_factory=dict)
-    """Headline metrics (sharpe, max_dd, calmar, ...). See ``alphakit.core.metrics``."""
+    """Headline metrics (sharpe, max_drawdown, calmar, ...).
+
+    Advanced users can access the full dict directly. Common metrics are
+    also exposed as top-level properties below.
+    """
 
     meta: dict[str, Any] = Field(default_factory=dict)
     """Free-form metadata: engine name, version, commit_sha, runtime."""
+
+    @property
+    def sharpe(self) -> float:
+        """Sharpe ratio — convenience accessor for metrics['sharpe']."""
+        return self.metrics.get("sharpe", nan)
+
+    @property
+    def sortino(self) -> float:
+        """Sortino ratio — convenience accessor for metrics['sortino']."""
+        return self.metrics.get("sortino", nan)
+
+    @property
+    def calmar(self) -> float:
+        """Calmar ratio — convenience accessor for metrics['calmar']."""
+        return self.metrics.get("calmar", nan)
+
+    @property
+    def max_dd(self) -> float:
+        """Max drawdown — convenience accessor for metrics['max_drawdown']."""
+        return self.metrics.get("max_drawdown", nan)
+
+    @property
+    def final_equity(self) -> float:
+        """Final equity — convenience accessor for metrics['final_equity']."""
+        return self.metrics.get("final_equity", nan)
+
+    @property
+    def total_return(self) -> float:
+        """Total return — convenience accessor for metrics['total_return']."""
+        return self.metrics.get("total_return", nan)
+
+    @property
+    def annualized_return(self) -> float:
+        """Annualised return — convenience accessor."""
+        return self.metrics.get("annualized_return", nan)
+
+    @property
+    def annualized_vol(self) -> float:
+        """Annualised volatility — convenience accessor."""
+        return self.metrics.get("annualized_vol", nan)
 
 
 @runtime_checkable

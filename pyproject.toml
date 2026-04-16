@@ -219,11 +219,14 @@ follow_imports = "skip"
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests", "packages"]
+# importlib avoids test-module name collisions across packages
+# (e.g. packages/*/tests/test_foo.py vs tests/test_foo.py).
 addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
     "--showlocals",
+    "--import-mode=importlib",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

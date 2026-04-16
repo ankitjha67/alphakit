@@ -22,10 +22,10 @@ def test_readme_quickstart() -> None:
     # 3. Run a vectorized backtest
     result = run(strategy=strategy, prices=prices)
 
-    # 4. Inspect metrics — must use dict access, not attribute access
-    sharpe = result.metrics["sharpe"]
-    max_dd = result.metrics["max_drawdown"]
-    ann_ret = result.metrics["annualized_return"]
+    # 4. Inspect metrics — natural property access as shown in README
+    sharpe = result.sharpe
+    max_dd = result.max_dd
+    ann_ret = result.annualized_return
 
     assert isinstance(sharpe, float)
     assert isinstance(max_dd, float)

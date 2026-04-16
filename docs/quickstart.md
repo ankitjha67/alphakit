@@ -79,11 +79,11 @@ result = vectorbt_bridge.run(
 )
 
 # 4. Inspect the headline metrics.
-print(f"Sharpe:        {result.metrics['sharpe']:.2f}")
-print(f"Sortino:       {result.metrics['sortino']:.2f}")
-print(f"Calmar:        {result.metrics['calmar']:.2f}")
-print(f"Max DD:        {result.metrics['max_drawdown']:.1%}")
-print(f"Final equity:  {result.metrics['final_equity']:.0f}")
+print(f"Sharpe:        {result.sharpe:.2f}")
+print(f"Sortino:       {result.sortino:.2f}")
+print(f"Calmar:        {result.calmar:.2f}")
+print(f"Max DD:        {result.max_dd:.1%}")
+print(f"Final equity:  {result.final_equity:.0f}")
 ```
 
 ## What just happened?

@@ -95,9 +95,9 @@ strategy = TimeSeriesMomentum12m1m()
 result = run(strategy=strategy, prices=prices)
 
 # 4. Inspect metrics
-print(f"Sharpe:        {result.metrics['sharpe']:.2f}")
-print(f"Max DD:        {result.metrics['max_drawdown']:.1%}")
-print(f"Annual Return: {result.metrics['annualized_return']:.1%}")
+print(f"Sharpe:        {result.sharpe:.2f}")
+print(f"Max DD:        {result.max_dd:.1%}")
+print(f"Annual Return: {result.annualized_return:.1%}")
 ```
 
 See [docs/quickstart.md](docs/quickstart.md) for the full walkthrough and
