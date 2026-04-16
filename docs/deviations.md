@@ -8,6 +8,27 @@ can evaluate which results to trust and which to discount.
 See [ADR-001](adr/001-carry-data-deferred.md) for the architectural
 decision behind carry-data proxies.
 
+See [benchmark_notes.md](benchmark_notes.md) for honest benchmark analysis.
+
+## Benchmark Summary Table (v0.1.0, synthetic data)
+
+| Strategy | Family | Shipped Sharpe | Paper Sharpe | Delta | Notes |
+|----------|--------|---------------:|-------------:|------:|-------|
+| vol_targeting | volatility | +0.66 | ~0.7-1.0 | ~-0.2 | Direct impl, no proxy needed |
+| vix_roll_short | volatility | +0.58 | ~1.0+ | ~-0.4 | Proxy; real VIX futures would differ |
+| sma_cross_50_200 | trend | +0.45 | ~0.3-0.5 | ~0.0 | Reasonable match |
+| dual_momentum_gem | trend | +0.44 | ~0.5-0.7 | ~-0.2 | Reasonable on synthetic data |
+| gap_fill | meanrev | +0.31 | ~0.4+ | ~-0.1 | Needs real intraday data for accuracy |
+| vrp_harvest | volatility | +0.29 | ~0.5-0.8 | ~-0.3 | Vol term structure proxy |
+| crypto_funding_carry | carry | +0.29 | ~0.5+ | ~-0.2 | No real funding rates in fixtures |
+| xs_momentum_jt | trend | +0.19 | ~0.5-0.7 | ~-0.4 | Cross-sectional weaker on 6 assets |
+| ev_ebitda | value | +0.10 | ~0.3-0.5 | ~-0.3 | Return-based proxy, no fundamentals |
+| short_term_reversal_1m | meanrev | -1.26 | ~0.5+ | ~-1.8 | Synthetic data has no reversal signal |
+| bond_carry_roll | carry | -1.24 | ~0.4-0.6 | ~-1.7 | No yield curve data in fixtures |
+
+Paper Sharpe values are approximate ranges from original publications.
+Delta is rough (synthetic data ≠ real data). See benchmark_notes.md for details.
+
 ---
 
 ## Trend family

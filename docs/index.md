@@ -3,9 +3,11 @@
 > The most comprehensive, researcher-defensible, multi-asset,
 > plug-and-play open-source quant strategy library.
 
-[![CI](https://img.shields.io/badge/CI-pending-lightgrey)](https://github.com/ankitjha67/alphakit/actions)
-[![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](https://github.com/ankitjha67/alphakit)
-[![PyPI](https://img.shields.io/badge/pypi-v0.0.1-blue)](https://pypi.org/project/alphakit/)
+[![Release](https://img.shields.io/badge/release-v0.1.0-blue)](https://github.com/ankitjha67/alphakit/releases/tag/v0.1.0)
+[![Strategies](https://img.shields.io/badge/strategies-60-brightgreen)](https://github.com/ankitjha67/alphakit)
+[![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/ankitjha67/alphakit/actions)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25-brightgreen)](https://github.com/ankitjha67/alphakit)
+[![PyPI](https://img.shields.io/badge/pypi-v0.1.0-blue)](https://pypi.org/project/alphakit/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](https://github.com/ankitjha67/alphakit/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 

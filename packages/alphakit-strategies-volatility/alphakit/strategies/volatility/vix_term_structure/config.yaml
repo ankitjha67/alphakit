@@ -5,6 +5,7 @@ universe:
   - SPY
   - EFA
   - AGG
-short_vol_window: 5\nlong_vol_window: 60
+short_vol_window: 5
+long_vol_window: 60
 long_only: false
 rebalance: daily

@@ -37,6 +37,7 @@ dependencies = [
     "alphakit-strategies-carry",
     "alphakit-strategies-value",
     "alphakit-strategies-volatility",
+    "alphakit-bench",
 ]
 
 [project.optional-dependencies]
@@ -96,11 +97,13 @@ members = [
     "packages/alphakit-strategies-carry",
     "packages/alphakit-strategies-value",
     "packages/alphakit-strategies-volatility",
+    "packages/alphakit-bench",
 ]
 
 [tool.uv.sources]
 alphakit-core = { workspace = true }
 alphakit-data = { workspace = true }
+alphakit-bench = { workspace = true }
 alphakit-bridges = { workspace = true }
 alphakit-strategies-trend = { workspace = true }
 alphakit-strategies-meanrev = { workspace = true }
@@ -178,6 +181,7 @@ mypy_path = [
     "packages/alphakit-strategies-carry",
     "packages/alphakit-strategies-value",
     "packages/alphakit-strategies-volatility",
+    "packages/alphakit-bench",
 ]
 
 [[tool.mypy.overrides]]

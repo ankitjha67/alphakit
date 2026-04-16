@@ -5,6 +5,7 @@ universe:
   - SPY
   - EFA
   - AGG
-vol_lookback: 20\nvol_threshold: 0.20
+vol_lookback: 20
+vol_threshold: 0.20
 long_only: false
 rebalance: daily
