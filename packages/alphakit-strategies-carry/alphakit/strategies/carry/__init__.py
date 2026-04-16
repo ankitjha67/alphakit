@@ -10,8 +10,16 @@ See ADR-001 (docs/adr/001-carry-data-deferred.md) for rationale.
 
 from __future__ import annotations
 
+from alphakit.strategies.carry.bond_carry_roll.strategy import BondCarryRoll
+from alphakit.strategies.carry.dividend_yield.strategy import DividendYield
+from alphakit.strategies.carry.equity_carry.strategy import EquityCarry
+from alphakit.strategies.carry.fx_carry_em.strategy import FXCarryEM
 from alphakit.strategies.carry.fx_carry_g10.strategy import FXCarryG10
 
 __all__: list[str] = [
+    "BondCarryRoll",
+    "DividendYield",
+    "EquityCarry",
+    "FXCarryEM",
     "FXCarryG10",
 ]
