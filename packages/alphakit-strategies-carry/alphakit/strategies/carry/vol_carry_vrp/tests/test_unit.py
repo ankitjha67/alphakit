@@ -51,8 +51,8 @@ def test_empty_input() -> None:
 def test_warmup_weights_are_zero() -> None:
     prices = _volatile_panel()
     weights = VolCarryVRP(fast_vol_window=5, slow_vol_window=20).generate_signals(prices)
-    # pct_change → 1 NaN row, then rolling(20) needs 20 → first 21 rows zero
-    assert (weights.iloc[: 20 + 1] == 0.0).all().all()
+    # pct_change → 1 NaN row, then rolling(20, min_periods=20) → first valid at index 20
+    assert (weights.iloc[:20] == 0.0).all().all()
 
 
 def test_generates_signals() -> None:
