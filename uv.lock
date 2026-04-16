@@ -185,7 +185,7 @@ wheels = [
 [[package]]
 name = "alphakit"
 version = "0.0.1"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "alphakit-bench" },
     { name = "alphakit-bridges" },
