@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to test (e.g. v0.1.1)"
+        description: "Git ref to test — tag (v0.1.1) or branch name"
         required: true
         type: string
 
@@ -61,29 +61,41 @@ jobs:
           from alphakit.core.protocols import StrategyProtocol, BacktestResult
           print('core: OK')
 
+          def check_protocol(cls, family):
+              inst = cls()
+              if not isinstance(inst, StrategyProtocol):
+                  raise RuntimeError(
+                      f'{cls.__name__}() does not satisfy StrategyProtocol. '
+                      f'Family: {family}. Has name={hasattr(inst, \"name\")}, '
+                      f'generate_signals={hasattr(inst, \"generate_signals\")}.'
+                  )
+              print(f'{family}: OK ({cls.__name__})')
+
           from alphakit.strategies.trend.tsmom_12_1 import TimeSeriesMomentum12m1m
-          assert isinstance(TimeSeriesMomentum12m1m(), StrategyProtocol)
-          print('trend: OK')
+          check_protocol(TimeSeriesMomentum12m1m, 'trend')
 
           from alphakit.strategies.meanrev.bollinger_reversion import BollingerReversion
-          assert isinstance(BollingerReversion(), StrategyProtocol)
-          print('meanrev: OK')
+          check_protocol(BollingerReversion, 'meanrev')
 
           from alphakit.strategies.carry.fx_carry_g10 import FXCarryG10
-          assert isinstance(FXCarryG10(), StrategyProtocol)
-          print('carry: OK')
+          check_protocol(FXCarryG10, 'carry')
 
           from alphakit.strategies.value.pe_value import PEValue
-          assert isinstance(PEValue(), StrategyProtocol)
-          print('value: OK')
+          check_protocol(PEValue, 'value')
 
           from alphakit.strategies.volatility.vol_targeting import VolTargeting
-          assert isinstance(VolTargeting(), StrategyProtocol)
-          print('volatility: OK')
+          check_protocol(VolTargeting, 'volatility')
 
           from alphakit.bench.discovery import discover_slugs
-          assert len(discover_slugs()) == 60
-          print(f'discovery: 60 slugs OK')
+          slugs = discover_slugs()
+          if len(slugs) != 60:
+              raise RuntimeError(
+                  f'Discovery returned {len(slugs)} strategies, expected 60. '
+                  f'First 10 found: {sorted(slugs)[:10]}. '
+                  f'This indicates alphakit.bench.discovery is not finding '
+                  f'strategies in the pip-installed layout.'
+              )
+          print(f'discovery: {len(slugs)} slugs OK')
           "
 
       - name: Run minimal backtest on fixture data
@@ -92,11 +104,23 @@ jobs:
           from alphakit.data.fixtures.generator import generate_fixture_prices
           from alphakit.bridges.vectorbt_bridge import run
           from alphakit.strategies.trend.tsmom_12_1 import TimeSeriesMomentum12m1m
+          import math
 
           prices = generate_fixture_prices(['SPY', 'EFA', 'AGG'], start='2020-01-01', end='2024-12-31')
           result = run(strategy=TimeSeriesMomentum12m1m(), prices=prices)
 
-          assert result.meta['strategy'] == 'tsmom_12_1'
-          assert result.metrics['sharpe'] is not None
-          print(f'Backtest OK: Sharpe={result.metrics[\"sharpe\"]:.4f}')
+          if result.meta.get('strategy') != 'tsmom_12_1':
+              raise RuntimeError(
+                  f'Backtest meta[\"strategy\"] = {result.meta.get(\"strategy\")!r}, '
+                  f'expected \"tsmom_12_1\". Full meta: {result.meta}'
+              )
+
+          sharpe = result.metrics.get('sharpe')
+          if sharpe is None or not math.isfinite(sharpe):
+              raise RuntimeError(
+                  f'Backtest Sharpe is {sharpe!r} (expected finite float). '
+                  f'Full metrics: {result.metrics}'
+              )
+
+          print(f'Backtest OK: Sharpe={sharpe:.4f}')
           "
