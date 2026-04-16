@@ -33,11 +33,12 @@ dependencies = [
     "alphakit-data",
     "alphakit-bridges",
     "alphakit-strategies-trend",
+    "alphakit-strategies-meanrev",
 ]
 
 [project.optional-dependencies]
 trend = ["alphakit-strategies-trend"]
-meanrev = []
+meanrev = ["alphakit-strategies-meanrev"]
 carry = []
 value = []
 volatility = []
@@ -88,6 +89,7 @@ members = [
     "packages/alphakit-data",
     "packages/alphakit-bridges",
     "packages/alphakit-strategies-trend",
+    "packages/alphakit-strategies-meanrev",
 ]
 
 [tool.uv.sources]
@@ -95,6 +97,7 @@ alphakit-core = { workspace = true }
 alphakit-data = { workspace = true }
 alphakit-bridges = { workspace = true }
 alphakit-strategies-trend = { workspace = true }
+alphakit-strategies-meanrev = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Ruff
@@ -162,6 +165,7 @@ mypy_path = [
     "packages/alphakit-data",
     "packages/alphakit-bridges",
     "packages/alphakit-strategies-trend",
+    "packages/alphakit-strategies-meanrev",
 ]
 
 [[tool.mypy.overrides]]
