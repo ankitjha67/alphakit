@@ -1,40 +1,67 @@
 """Strategy discovery — find and instantiate strategies by slug or family.
 
-Uses the filesystem layout convention:
-  packages/alphakit-strategies-{family}/alphakit/strategies/{family}/{slug}/
+Works in both development (uv workspace) and installed (pip) layouts by
+using importlib/pkgutil to walk the ``alphakit.strategies`` namespace
+package rather than hardcoding filesystem paths.
 
-Each strategy directory must contain:
+Each strategy sub-module must contain:
   - __init__.py exporting the strategy class
-  - config.yaml with universe, parameters, and rebalance frequency
   - strategy.py with the implementation
+  - config.yaml with universe, parameters, and rebalance frequency
 """
 
 from __future__ import annotations
 
 import importlib
+import importlib.resources
+import pkgutil
 from pathlib import Path
 from typing import Any
 
 import yaml
 from alphakit.core.protocols import StrategyProtocol
 
-# Root of the monorepo packages directory
-_PACKAGES_ROOT = Path(__file__).resolve().parents[4] / "packages"
-
 FAMILIES = ("trend", "meanrev", "carry", "value", "volatility")
 
 
+def _family_module(family: str) -> Any:
+    """Import ``alphakit.strategies.{family}`` or return None."""
+    try:
+        return importlib.import_module(f"alphakit.strategies.{family}")
+    except ImportError:
+        return None
+
+
 def _strategy_dirs() -> list[tuple[str, str, Path]]:
-    """Yield (family, slug, path) for every strategy directory."""
+    """Return (family, slug, path) for every installed strategy.
+
+    Uses pkgutil.iter_modules on each family's ``__path__`` to discover
+    strategy sub-packages. This works in both workspace-dev and pip-installed
+    layouts because Python sets ``__path__`` correctly in both cases.
+    """
     results: list[tuple[str, str, Path]] = []
     for family in FAMILIES:
-        pkg_name = f"alphakit-strategies-{family}"
-        family_dir = _PACKAGES_ROOT / pkg_name / "alphakit" / "strategies" / family
-        if not family_dir.is_dir():
+        fam_mod = _family_module(family)
+        if fam_mod is None:
             continue
-        for child in sorted(family_dir.iterdir()):
-            if child.is_dir() and (child / "strategy.py").exists():
-                results.append((family, child.name, child))
+        for _importer, slug, ispkg in pkgutil.iter_modules(fam_mod.__path__):
+            if not ispkg:
+                continue
+            # Verify this sub-package has a strategy.py
+            slug_mod_path = f"alphakit.strategies.{family}.{slug}"
+            try:
+                slug_mod = importlib.import_module(slug_mod_path)
+            except ImportError:
+                continue
+            # Get the filesystem path from the module's __path__ or __file__
+            if hasattr(slug_mod, "__path__"):
+                pkg_path = Path(slug_mod.__path__[0])
+            elif hasattr(slug_mod, "__file__") and slug_mod.__file__:
+                pkg_path = Path(slug_mod.__file__).parent
+            else:
+                continue
+            if (pkg_path / "strategy.py").exists():
+                results.append((family, slug, pkg_path))
     return results
 
 
@@ -48,11 +75,26 @@ def discover_slugs(family: str | None = None) -> list[str]:
 
 
 def load_config(family: str, slug: str) -> dict[str, Any]:
-    """Load a strategy's config.yaml as a dict."""
-    pkg_name = f"alphakit-strategies-{family}"
-    config_path = (
-        _PACKAGES_ROOT / pkg_name / "alphakit" / "strategies" / family / slug / "config.yaml"
-    )
+    """Load a strategy's config.yaml as a dict.
+
+    Locates the config file via the installed module's ``__path__`` rather
+    than hardcoding a monorepo layout.
+    """
+    mod_path = f"alphakit.strategies.{family}.{slug}"
+    try:
+        mod = importlib.import_module(mod_path)
+    except ImportError as exc:
+        raise FileNotFoundError(
+            f"Cannot import {mod_path} to locate config.yaml"
+        ) from exc
+
+    if hasattr(mod, "__path__"):
+        config_path = Path(mod.__path__[0]) / "config.yaml"
+    elif hasattr(mod, "__file__") and mod.__file__:
+        config_path = Path(mod.__file__).parent / "config.yaml"
+    else:
+        raise FileNotFoundError(f"Cannot determine path for {mod_path}")
+
     if not config_path.exists():
         raise FileNotFoundError(f"No config.yaml for {family}/{slug} at {config_path}")
     with open(config_path) as f:
@@ -92,14 +134,21 @@ def find_strategy(slug: str) -> tuple[str, str]:
 
 
 def benchmark_results_path(family: str, slug: str) -> Path:
-    """Return the path to a strategy's benchmark_results.json."""
-    pkg_name = f"alphakit-strategies-{family}"
-    return (
-        _PACKAGES_ROOT
-        / pkg_name
-        / "alphakit"
-        / "strategies"
-        / family
-        / slug
-        / "benchmark_results.json"
-    )
+    """Return the path to a strategy's benchmark_results.json.
+
+    Locates the file via the installed module's path, so it works in
+    both workspace-dev and pip-installed layouts.
+    """
+    mod_path = f"alphakit.strategies.{family}.{slug}"
+    try:
+        mod = importlib.import_module(mod_path)
+    except ImportError as exc:
+        raise FileNotFoundError(
+            f"Cannot import {mod_path} to locate benchmark_results.json"
+        ) from exc
+
+    if hasattr(mod, "__path__"):
+        return Path(mod.__path__[0]) / "benchmark_results.json"
+    if hasattr(mod, "__file__") and mod.__file__:
+        return Path(mod.__file__).parent / "benchmark_results.json"
+    raise FileNotFoundError(f"Cannot determine path for {mod_path}")
