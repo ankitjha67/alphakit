@@ -82,22 +82,22 @@ uv run pytest
 
 ```python
 from alphakit.strategies.trend.tsmom_12_1 import TimeSeriesMomentum12m1m
-from alphakit.bridges.internal import run_backtest
-from alphakit.data.synthetic import multi_asset_panel
+from alphakit.bridges.vectorbt_bridge import run
+from alphakit.data.fixtures.generator import generate_fixture_prices
 
 # 1. Generate (or load) a multi-asset price panel
-prices = multi_asset_panel(symbols=["SPY", "EFA", "EEM", "AGG", "GLD", "DBC"], years=20)
+prices = generate_fixture_prices(symbols=["SPY", "EFA", "EEM", "AGG", "GLD", "DBC"])
 
 # 2. Instantiate the strategy with default config
-strategy = TimeSeriesMomentum12m1m(lookback_months=12, skip_months=1, vol_target_annual=0.10)
+strategy = TimeSeriesMomentum12m1m()
 
 # 3. Run a vectorized backtest
-result = run_backtest(strategy=strategy, prices=prices)
+result = run(strategy=strategy, prices=prices)
 
 # 4. Inspect metrics
-print(f"Sharpe:        {result.metrics.sharpe:.2f}")
-print(f"Max DD:        {result.metrics.max_drawdown:.1%}")
-print(f"Annual Return: {result.metrics.annualized_return:.1%}")
+print(f"Sharpe:        {result.metrics['sharpe']:.2f}")
+print(f"Max DD:        {result.metrics['max_drawdown']:.1%}")
+print(f"Annual Return: {result.metrics['annualized_return']:.1%}")
 ```
 
 See [docs/quickstart.md](docs/quickstart.md) for the full walkthrough and
