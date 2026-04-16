@@ -149,3 +149,88 @@ decision behind carry-data proxies.
   uniformly across all assets.
 - **Impact**: Loses the asset-class-specific carry definitions that
   are central to the KMPV framework.
+
+---
+
+## Value family
+
+All value strategies use long-term price reversal as the primary
+value proxy. This is academically documented (DeBondt & Thaler 1985)
+but is NOT equivalent to using actual fundamental ratios.
+
+### pb_value
+- **Paper**: Fama & French (1992)
+- **Ideal**: Cross-sectional rank by book-to-market ratio (B/M)
+- **Phase 1**: 3-year trailing return reversal as P/B proxy.
+- **Impact**: Reversal captures value broadly but conflates with
+  long-term mean reversion and distress.
+
+### pe_value
+- **Paper**: Basu (1977)
+- **Ideal**: Cross-sectional rank by earnings yield (E/P)
+- **Phase 1**: Same reversal proxy as pb_value.
+- **Impact**: Cannot distinguish low P/E from negative earnings.
+
+### ev_ebitda
+- **Paper**: Loughran & Wellman (2011)
+- **Ideal**: Cross-sectional rank by EBITDA/EV
+- **Phase 1**: Same reversal proxy.
+- **Impact**: Enterprise value requires debt data; EBITDA requires
+  income statement. Reversal proxy misses both.
+
+### fcf_yield
+- **Paper**: Lakonishok, Shleifer & Vishny (1994)
+- **Ideal**: Cross-sectional rank by FCF/Price
+- **Phase 1**: Same reversal proxy.
+- **Impact**: FCF requires cash flow statement data.
+
+### shareholder_yield
+- **Paper**: Faber (2013)
+- **Ideal**: (Dividends + buybacks + debt paydown) / market cap
+- **Phase 1**: Fraction of positive monthly returns over 1 year.
+- **Impact**: Return regularity is a rough proxy for stable payouts
+  but misses actual capital allocation decisions.
+
+### magic_formula
+- **Paper**: Greenblatt (2006)
+- **Ideal**: Combined rank of EBIT/EV + ROIC
+- **Phase 1**: Combined reversal (value) + vol-adjusted return
+  (quality) ranking.
+- **Impact**: Neither component uses accounting data. The composite
+  captures "cheap + strong" in price space, not earnings space.
+
+### piotroski_fscore_proxy ⚠️ SEVERE DEVIATION (ADR-002)
+- **Paper**: Piotroski (2000)
+- **Ideal**: 9-point score from profitability, leverage/liquidity,
+  and operating efficiency — all computed from financial statements
+- **Phase 1**: 9 price-derived signals (momentum, vol, trend,
+  drawdown). This is NOT the F-Score.
+- **Impact**: Zero correlation expected between proxy and true
+  F-Score. The proxy is a standalone price-based quality composite.
+  The slug `piotroski_fscore` is reserved for Phase 4.
+
+### altman_zscore_proxy ⚠️ SEVERE DEVIATION (ADR-002)
+- **Paper**: Altman (1968)
+- **Ideal**: Z = 1.2×WC/TA + 1.4×RE/TA + 3.3×EBIT/TA +
+  0.6×MVE/BVL + 0.999×Sales/TA — all accounting ratios
+- **Phase 1**: Composite of drawdown severity + volatility +
+  trend + return. This is NOT the Z-Score.
+- **Impact**: Cannot detect actual balance sheet deterioration.
+  Drawdown ≠ insolvency. The slug `altman_zscore` is reserved
+  for Phase 4.
+
+### quality_value
+- **Paper**: Asness, Frazzini & Pedersen (2019)
+- **Ideal**: Quality = profitability + growth + safety + payout,
+  combined with HML value factor
+- **Phase 1**: Quality = low-vol + momentum. Value = reversal.
+- **Impact**: "Quality" proxy captures defensive momentum, not
+  actual fundamental quality metrics.
+
+### country_cape_rotation
+- **Paper**: Faber (2014)
+- **Ideal**: Trailing 10-year Shiller CAPE by country
+- **Phase 1**: Negative trailing 10-year return as CAPE proxy.
+- **Impact**: Long-term return reversal is a reasonable CAPE proxy
+  (low past returns → low valuations), but misses earnings normalization
+  and composition changes. Mildest deviation in the value family.
