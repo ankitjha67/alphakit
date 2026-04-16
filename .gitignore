@@ -94,3 +94,6 @@ logs/
 *.ckpt
 *.onnx
 *.safetensors
+
+# Benchmark runner test artifacts (fix properly in v0.1.1 — see issue)
+*.json.bak
