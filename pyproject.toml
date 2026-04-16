@@ -84,6 +84,16 @@ Repository = "https://github.com/ankitjha67/alphakit"
 Issues = "https://github.com/ankitjha67/alphakit/issues"
 Changelog = "https://github.com/ankitjha67/alphakit/blob/main/CHANGELOG.md"
 
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["_alphakit_meta"]  # meta-package stub; real code lives in sub-packages
+
+[tool.hatch.build.targets.sdist]
+include = ["pyproject.toml", "README.md", "LICENSE", "CHANGELOG.md", "_alphakit_meta/"]
+
 # ---------------------------------------------------------------------------
 # uv workspace
 # ---------------------------------------------------------------------------
