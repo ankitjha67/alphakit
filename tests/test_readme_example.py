@@ -9,9 +9,9 @@ from __future__ import annotations
 
 def test_readme_quickstart() -> None:
     """Run the exact code from the README ## Quickstart section."""
-    from alphakit.strategies.trend.tsmom_12_1 import TimeSeriesMomentum12m1m
     from alphakit.bridges.vectorbt_bridge import run
     from alphakit.data.fixtures.generator import generate_fixture_prices
+    from alphakit.strategies.trend.tsmom_12_1 import TimeSeriesMomentum12m1m
 
     # 1. Generate a multi-asset price panel
     prices = generate_fixture_prices(symbols=["SPY", "EFA", "EEM", "AGG", "GLD", "DBC"])

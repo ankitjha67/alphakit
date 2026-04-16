@@ -53,5 +53,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options-based strategies use `_proxy` suffix (ADR-002). Phase 4 ships real options engine.
 - 17/60 strategies show positive Sharpe on synthetic data. See benchmark_notes.md.
 
+### Compatibility
+- **Officially tested:** Python 3.10, 3.11, 3.12 (CI matrix on ubuntu + macos).
+- **Unofficial:** Python 3.13 and 3.14 are known to install and run basic
+  backtests, but are not part of the CI matrix. Dependency wheels (numpy,
+  pandas, vectorbt) may not be available on all platforms for 3.14.
+
 [0.1.0]: https://github.com/ankitjha67/alphakit/releases/tag/v0.1.0
 [Unreleased]: https://github.com/ankitjha67/alphakit/compare/v0.1.0...HEAD
