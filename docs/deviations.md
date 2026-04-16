@@ -234,3 +234,77 @@ but is NOT equivalent to using actual fundamental ratios.
 - **Impact**: Long-term return reversal is a reasonable CAPE proxy
   (low past returns → low valuations), but misses earnings normalization
   and composition changes. Mildest deviation in the value family.
+
+---
+
+## Volatility family
+
+### vol_targeting
+- **Paper**: Moreira & Muir (2017)
+- **Ideal**: Scale position by target_vol / realized_vol
+- **Phase 1**: Direct implementation — no proxy needed.
+- **Impact**: None. This strategy works with close-only data.
+
+### vix_term_structure
+- **Paper**: Simon & Campasano (2014)
+- **Ideal**: Trade VIX futures based on term structure slope
+- **Phase 1**: Realized vol term structure (5d vs 60d) as VIX proxy.
+- **Impact**: Realized vol is not VIX. VIX is forward-looking
+  (implied vol); realized vol is backward-looking.
+
+### vix_roll_short
+- **Paper**: Alexander & Korovilas (2012)
+- **Ideal**: Short VIX futures roll yield
+- **Phase 1**: Long equity scaled by inverse of realized vol.
+- **Impact**: Does not capture actual VIX futures roll mechanics.
+  WARNING: XIV-style blowup risk (Feb 2018: 96% loss in one day).
+
+### leveraged_etf_decay
+- **Paper**: Cheng & Madhavan (2009)
+- **Ideal**: Short paired leveraged + inverse ETFs
+- **Phase 1**: Short exposure proportional to trailing variance.
+- **Impact**: Actual decay requires daily-rebalanced ETF mechanics.
+  Proxy captures vol-drag concept but not exact compounding.
+
+### covered_call_proxy ⚠️ SEVERE DEVIATION (ADR-002)
+- **Paper**: Whaley (2002) — BXM buy-write index
+- **Ideal**: Long stock + short ATM call options
+- **Phase 1**: Long equity with vol-scaled position sizing. This is
+  NOT an options strategy. No actual premium collection.
+- **Impact**: Zero correlation with actual covered-call P&L profile.
+  Slug `covered_call` reserved for Phase 4.
+
+### cash_secured_put_proxy ⚠️ SEVERE DEVIATION (ADR-002)
+- **Paper**: Ungar & Moran (2009) — PUT index
+- **Ideal**: Short ATM put options, cash-secured
+- **Phase 1**: Same vol-scaled equity overlay as covered_call_proxy.
+- **Impact**: Same as covered_call_proxy. No actual put selling.
+
+### wheel_strategy_proxy ⚠️ SEVERE DEVIATION (ADR-002)
+- **Paper**: Practitioner folklore (no formal DOI)
+- **Ideal**: CSP → assignment → CC → called away loop
+- **Phase 1**: Vol-scaled equity overlay. No assignment mechanics.
+- **Impact**: Cannot model the wheel's sequential options flow.
+
+### iron_condor_systematic_proxy ⚠️ SEVERE DEVIATION (ADR-002)
+- **Paper**: Israelov & Nielsen (2014)
+- **Ideal**: Sell 1σ strangles, capped profit/loss
+- **Phase 1**: Vol-scaled equity overlay. No spread payoff profile.
+- **Impact**: Iron condor has defined max loss; proxy does not.
+
+### short_strangle_proxy ⚠️ SEVERE DEVIATION (ADR-002)
+- **Paper**: Israelov & Nielsen (2014)
+- **Ideal**: Short strangles with unlimited tail risk
+- **Phase 1**: Vol-scaled equity overlay.
+- **Impact**: Cannot model the unlimited-loss tail risk of actual
+  strangles. Proxy understates tail exposure.
+
+### vrp_harvest
+- **Paper**: Carr & Wu (2009)
+- **Ideal**: Short variance swaps
+- **Phase 1**: Long equity when realized vol term structure is in
+  contango (slow > fast), scaled by target_vol/realized_vol.
+- **Impact**: Reasonable proxy — the VRP is fundamentally about
+  the gap between implied and realized vol. Using realized vol
+  term structure captures the directional signal but not the
+  exact premium magnitude.

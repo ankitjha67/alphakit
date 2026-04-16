@@ -36,6 +36,7 @@ dependencies = [
     "alphakit-strategies-meanrev",
     "alphakit-strategies-carry",
     "alphakit-strategies-value",
+    "alphakit-strategies-volatility",
 ]
 
 [project.optional-dependencies]
@@ -43,7 +44,7 @@ trend = ["alphakit-strategies-trend"]
 meanrev = ["alphakit-strategies-meanrev"]
 carry = ["alphakit-strategies-carry"]
 value = ["alphakit-strategies-value"]
-volatility = []
+volatility = ["alphakit-strategies-volatility"]
 options = []
 rates = []
 commodity = []
@@ -94,6 +95,7 @@ members = [
     "packages/alphakit-strategies-meanrev",
     "packages/alphakit-strategies-carry",
     "packages/alphakit-strategies-value",
+    "packages/alphakit-strategies-volatility",
 ]
 
 [tool.uv.sources]
@@ -104,6 +106,7 @@ alphakit-strategies-trend = { workspace = true }
 alphakit-strategies-meanrev = { workspace = true }
 alphakit-strategies-carry = { workspace = true }
 alphakit-strategies-value = { workspace = true }
+alphakit-strategies-volatility = { workspace = true }
 
 # ---------------------------------------------------------------------------
 # Ruff
@@ -174,6 +177,7 @@ mypy_path = [
     "packages/alphakit-strategies-meanrev",
     "packages/alphakit-strategies-carry",
     "packages/alphakit-strategies-value",
+    "packages/alphakit-strategies-volatility",
 ]
 
 [[tool.mypy.overrides]]
