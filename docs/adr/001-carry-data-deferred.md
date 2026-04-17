@@ -1,8 +1,16 @@
 # ADR-001: Carry-family data gap handled via price-derived proxies
 
-- **Status**: Accepted
+- **Status**: Superseded by ADR-003 (2026-04-17)
 - **Date**: 2026-04-16
 - **Deciders**: Project maintainers
+
+> **Supersede notice (2026-04-17).** ADR-003 introduces a multi-feed
+> data architecture that directly addresses the data-gap pattern this
+> ADR described. The Phase 1 proxy-based carry strategies remain in
+> place under ADR-002's naming convention; new Phase 2+ strategies
+> must use the `FeedRegistry` / `DataFeedProtocol.fetch_chain` path
+> rather than adding new price-derived proxies. The original content
+> below is retained unchanged for historical reference.
 
 ## Context
 

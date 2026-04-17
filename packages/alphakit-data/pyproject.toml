@@ -14,8 +14,6 @@ dependencies = [
 
 [project.optional-dependencies]
 yfinance = ["yfinance>=0.2"]
-ccxt = ["ccxt>=4.0"]
-fred = ["fredapi>=0.5"]
 
 [build-system]
 requires = ["hatchling>=1.25"]

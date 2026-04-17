@@ -1,47 +1,51 @@
-"""YFinance data adapter with local parquet cache.
+"""YFinance equities adapter.
 
-Fetches daily adjusted close prices via yfinance, caches to
-~/.alphakit/cache/ as parquet files with 7-day TTL.
+Fetches daily adjusted-close prices for equities and ETFs via
+``yfinance``. All cross-cutting concerns (caching, rate limiting,
+offline fallback) live in the shared infrastructure modules and are
+wired in here via decorators and guard calls:
 
-Security note: yfinance makes HTTPS requests to Yahoo Finance API.
-No credentials are required. Cache files are stored locally.
+* :func:`alphakit.data.cache.cached_feed` — 24-hour parquet cache.
+* :func:`alphakit.data.rate_limit.acquire` — per-feed token bucket.
+* :func:`alphakit.data.offline.is_offline` + :func:`offline_fixture`
+  — route to deterministic fixture data when ``ALPHAKIT_OFFLINE=1``.
+
+The adapter registers itself with :class:`FeedRegistry` at import time
+under ``name="yfinance"``. Strategies never import this module
+directly; they call ``FeedRegistry.get("yfinance").fetch(...)``.
+
+Security note: ``yfinance`` makes HTTPS requests to Yahoo Finance. No
+credentials are required. Cache files are stored locally.
 """
 
 from __future__ import annotations
 
-import hashlib
-import time
+import contextlib
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
+from alphakit.core.data import OptionChain
+from alphakit.core.protocols import raise_chain_not_supported
+from alphakit.data.cache import cached_feed
+from alphakit.data.offline import is_offline, offline_fixture
+from alphakit.data.rate_limit import acquire as ratelimit_acquire
+from alphakit.data.registry import FeedRegistry
+
+_CACHE_TTL_SECONDS = 86_400  # 24 hours
 
 
 class YFinanceAdapter:
-    """Fetch equity/ETF prices via yfinance with parquet cache.
+    """Fetch equity/ETF prices via yfinance.
 
-    Parameters
-    ----------
-    cache_dir
-        Directory for parquet cache files.
-    ttl_days
-        Cache time-to-live in days. Default 7.
+    yfinance does expose some options data, but Phase 2 sources option
+    chains from dedicated feeds (synthetic, Polygon placeholder).
+    ``fetch_chain`` therefore raises ``NotImplementedError`` via the
+    shared helper.
     """
 
     name: str = "yfinance"
 
-    def __init__(
-        self,
-        *,
-        cache_dir: str | Path | None = None,
-        ttl_days: int = 7,
-    ) -> None:
-        if cache_dir is None:
-            self.cache_dir = Path.home() / ".alphakit" / "cache" / "yfinance"
-        else:
-            self.cache_dir = Path(cache_dir)
-        self.ttl_days = ttl_days
-
+    @cached_feed(ttl_seconds=_CACHE_TTL_SECONDS)
     def fetch(
         self,
         symbols: list[str],
@@ -49,17 +53,17 @@ class YFinanceAdapter:
         end: datetime,
         frequency: str = "1d",
     ) -> pd.DataFrame:
-        """Fetch adjusted close prices for symbols.
+        """Return a wide DataFrame of adjusted-close prices.
 
-        Returns a DataFrame indexed by date with one column per symbol.
-        Uses parquet cache when available and fresh.
+        Offline mode (``ALPHAKIT_OFFLINE=1``) bypasses the network and
+        returns fixture-generated prices shaped identically to the
+        live response.
         """
-        cache_key = self._cache_key(symbols, start, end, frequency)
-        cached = self._load_cache(cache_key)
-        if cached is not None:
-            return cached
+        if is_offline():
+            return offline_fixture(symbols, start, end, frequency)
 
-        # Import yfinance lazily
+        ratelimit_acquire("yfinance")
+
         try:
             import yfinance as yf
         except ImportError as exc:
@@ -67,7 +71,6 @@ class YFinanceAdapter:
                 "yfinance is required. Install with: pip install 'alphakit-data[yfinance]'"
             ) from exc
 
-        # Batch download
         data = yf.download(
             tickers=symbols,
             start=start.strftime("%Y-%m-%d"),
@@ -77,7 +80,6 @@ class YFinanceAdapter:
             progress=False,
         )
 
-        # Extract adjusted close prices
         if isinstance(data.columns, pd.MultiIndex):
             prices = data["Close"]
         else:
@@ -87,31 +89,16 @@ class YFinanceAdapter:
         prices = prices.dropna(how="all")
         prices.index = pd.DatetimeIndex(prices.index)
         prices.index.name = None
-
-        self._save_cache(cache_key, prices)
         return pd.DataFrame(prices)
 
-    def _cache_key(
-        self,
-        symbols: list[str],
-        start: datetime,
-        end: datetime,
-        frequency: str,
-    ) -> str:
-        raw = f"{sorted(symbols)}|{start}|{end}|{frequency}"
-        return hashlib.sha256(raw.encode()).hexdigest()[:16]
+    def fetch_chain(self, underlying: str, as_of: datetime) -> OptionChain:
+        """yfinance does not serve option chains in this adapter."""
+        raise_chain_not_supported(self.name)
 
-    def _load_cache(self, key: str) -> pd.DataFrame | None:
-        path = self.cache_dir / f"{key}.parquet"
-        if not path.exists():
-            return None
-        age_days = (time.time() - path.stat().st_mtime) / 86400
-        if age_days > self.ttl_days:
-            path.unlink()
-            return None
-        return pd.read_parquet(path)
 
-    def _save_cache(self, key: str, df: pd.DataFrame) -> None:
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        path = self.cache_dir / f"{key}.parquet"
-        df.to_parquet(path, engine="pyarrow")
+# Register at import time so strategies and the benchmark runner can
+# reach the adapter via FeedRegistry.get("yfinance"). Re-imports under
+# pytest's --import-mode=importlib would trigger a duplicate-name error
+# which we intentionally swallow.
+with contextlib.suppress(ValueError):
+    FeedRegistry.register(YFinanceAdapter())
