@@ -388,6 +388,7 @@ dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pandas" },
+    { name = "pyarrow" },
 ]
 
 [package.optional-dependencies]
@@ -400,6 +401,7 @@ requires-dist = [
     { name = "alphakit-core", editable = "packages/alphakit-core" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.2" },
+    { name = "pyarrow", specifier = ">=14.0" },
     { name = "yfinance", marker = "extra == 'yfinance'", specifier = ">=0.2" },
 ]
 provides-extras = ["yfinance"]
