@@ -49,9 +49,7 @@ class QualityValue:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
@@ -66,7 +64,9 @@ class QualityValue:
         value_rank = value_proxy.rank(axis=1, method="average", ascending=True)
 
         # Quality rank: low-vol + positive momentum
-        vol = daily_ret.rolling(window=self.quality_lookback, min_periods=self.quality_lookback).std(ddof=1)
+        vol = daily_ret.rolling(
+            window=self.quality_lookback, min_periods=self.quality_lookback
+        ).std(ddof=1)
         low_vol_rank = (-vol).rank(axis=1, method="average", ascending=True)
         mom = prices.pct_change(periods=self.quality_lookback)
         mom_rank = mom.rank(axis=1, method="average", ascending=True)

@@ -64,8 +64,7 @@ class YFinanceAdapter:
             import yfinance as yf
         except ImportError as exc:
             raise ImportError(
-                "yfinance is required. Install with: "
-                "pip install 'alphakit-data[yfinance]'"
+                "yfinance is required. Install with: pip install 'alphakit-data[yfinance]'"
             ) from exc
 
         # Batch download
@@ -90,7 +89,7 @@ class YFinanceAdapter:
         prices.index.name = None
 
         self._save_cache(cache_key, prices)
-        return prices
+        return pd.DataFrame(prices)
 
     def _cache_key(
         self,

@@ -106,8 +106,12 @@ def main() -> int:
         for fam, slug in work:
             try:
                 r = _run_one(
-                    slug, fam, args.commission_bps,
-                    args.data_start, args.in_sample_end, args.oos_end,
+                    slug,
+                    fam,
+                    args.commission_bps,
+                    args.data_start,
+                    args.in_sample_end,
+                    args.oos_end,
                 )
                 results[slug] = r
                 sharpe = r["metrics"]["sharpe"]
@@ -119,8 +123,13 @@ def main() -> int:
         with ProcessPoolExecutor(max_workers=args.workers) as pool:
             futures = {
                 pool.submit(
-                    _run_one, slug, fam, args.commission_bps,
-                    args.data_start, args.in_sample_end, args.oos_end,
+                    _run_one,
+                    slug,
+                    fam,
+                    args.commission_bps,
+                    args.data_start,
+                    args.in_sample_end,
+                    args.oos_end,
                 ): (fam, slug)
                 for fam, slug in work
             }

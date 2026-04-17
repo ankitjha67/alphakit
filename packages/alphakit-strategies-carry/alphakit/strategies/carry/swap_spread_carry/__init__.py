@@ -2,6 +2,7 @@
 
 DOI: 10.1093/rfs/hhl026
 """
+
 from __future__ import annotations
 
 from alphakit.strategies.carry.swap_spread_carry.strategy import SwapSpreadCarry

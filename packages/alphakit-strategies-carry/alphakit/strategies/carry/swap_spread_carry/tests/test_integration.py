@@ -1,4 +1,5 @@
 """Integration test for swap_spread_carry."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -15,8 +16,10 @@ def _panel(seed: int = 42, years: float = 3) -> pd.DataFrame:
     idx = pd.date_range("2018-01-01", periods=n, freq="B")
     cfgs = {"US2Y": (0.0001, 0.003), "US10Y": (0.0002, 0.005), "US30Y": (0.0003, 0.006)}
     return pd.DataFrame(
-        {sym: 100.0 * np.exp(np.cumsum(rng.normal(d, v, size=n)))
-         for sym, (d, v) in cfgs.items()}, index=idx)
+        {sym: 100.0 * np.exp(np.cumsum(rng.normal(d, v, size=n))) for sym, (d, v) in cfgs.items()},
+        index=idx,
+    )
+
 
 @pytest.mark.integration
 def test_swap_spread_carry_runs() -> None:
@@ -26,6 +29,7 @@ def test_swap_spread_carry_runs() -> None:
     assert result.meta["strategy"] == "swap_spread_carry"
     for key in ("sharpe", "sortino", "calmar", "max_drawdown"):
         assert np.isfinite(result.metrics[key])
+
 
 @pytest.mark.integration
 def test_swap_spread_carry_deterministic() -> None:

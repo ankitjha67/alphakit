@@ -1,4 +1,5 @@
 """Unit tests for repo_carry."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -21,8 +22,10 @@ def _mean_reverting_panel(symbols: list[str], years: float = 2, seed: int = 42) 
         data[sym] = np.maximum(x, 1.0)
     return pd.DataFrame(data, index=idx)
 
+
 def test_satisfies_protocol() -> None:
     assert isinstance(RepoCarry(), StrategyProtocol)
+
 
 def test_metadata() -> None:
     s = RepoCarry()
@@ -30,6 +33,7 @@ def test_metadata() -> None:
     assert s.family == "carry"
     assert s.lookback == 60
     assert s.threshold == 1.0
+
 
 @pytest.mark.parametrize(
     ("kwargs", "match"),
@@ -42,14 +46,17 @@ def test_rejects_bad_args(kwargs: dict[str, object], match: str) -> None:
     with pytest.raises(ValueError, match=match):
         RepoCarry(**kwargs)  # type: ignore[arg-type]
 
+
 def test_empty_input() -> None:
     empty = pd.DataFrame(index=pd.DatetimeIndex([]), columns=["US10Y"], dtype=float)
     assert RepoCarry().generate_signals(empty).empty
+
 
 def test_warmup_weights_are_zero() -> None:
     prices = _mean_reverting_panel(["US10Y", "US2Y"])
     weights = RepoCarry(lookback=60).generate_signals(prices)
     assert (weights.iloc[:59] == 0.0).all().all()
+
 
 def test_generates_signals() -> None:
     prices = _mean_reverting_panel(["US10Y", "US2Y"], years=3)
@@ -57,10 +64,12 @@ def test_generates_signals() -> None:
     mature = weights.iloc[65:]
     assert (mature != 0).any().any()
 
+
 def test_long_only_mode() -> None:
     prices = _mean_reverting_panel(["US10Y", "US2Y"])
     weights = RepoCarry(threshold=0.8, long_only=True).generate_signals(prices)
     assert (weights >= 0).all().all()
+
 
 def test_weights_bounded() -> None:
     prices = _mean_reverting_panel(["US10Y", "US2Y"])
@@ -68,6 +77,7 @@ def test_weights_bounded() -> None:
     n = len(prices.columns)
     assert weights.min().min() >= -1.0 / n - 1e-10
     assert weights.max().max() <= 1.0 / n + 1e-10
+
 
 def test_deterministic() -> None:
     prices = _mean_reverting_panel(["US10Y", "US2Y"])

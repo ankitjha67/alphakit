@@ -112,9 +112,7 @@ class BenchmarkRunner:
         )
 
         # Slice to OOS period for metrics
-        oos_mask = (full_result.returns.index >= oos_start) & (
-            full_result.returns.index <= oos_end
-        )
+        oos_mask = (full_result.returns.index >= oos_start) & (full_result.returns.index <= oos_end)
         oos_returns = full_result.returns[oos_mask]
         oos_weights = full_result.weights[oos_mask]
 
@@ -133,11 +131,7 @@ class BenchmarkRunner:
         calmar = calmar_ratio(returns_arr)
         mdd = max_drawdown(returns_arr)
         ann_ret = float(np.mean(returns_arr) * 252) if len(returns_arr) > 0 else 0.0
-        ann_vol = (
-            float(np.std(returns_arr, ddof=1) * np.sqrt(252))
-            if len(returns_arr) > 1
-            else 0.0
-        )
+        ann_vol = float(np.std(returns_arr, ddof=1) * np.sqrt(252)) if len(returns_arr) > 1 else 0.0
 
         # Extended metrics
         to = metrics.turnover_annual(oos_weights)
@@ -163,9 +157,7 @@ class BenchmarkRunner:
                 "turnover_annual": round(to, 2),
                 "capacity_usd_bn": round(cap, 1),
             },
-            "regime_performance": {
-                k: round(v, 4) for k, v in regime.items()
-            },
+            "regime_performance": {k: round(v, 4) for k, v in regime.items()},
             "transaction_costs_assumed_bps": self.commission_bps,
             "commit_sha": _get_commit_sha(),
             "engine": "vectorbt",

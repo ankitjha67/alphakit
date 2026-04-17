@@ -61,17 +61,13 @@ class GapFill:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
         daily_ret = prices.pct_change()
         rolling_mean = daily_ret.rolling(window=self.lookback, min_periods=self.lookback).mean()
-        rolling_std = daily_ret.rolling(window=self.lookback, min_periods=self.lookback).std(
-            ddof=1
-        )
+        rolling_std = daily_ret.rolling(window=self.lookback, min_periods=self.lookback).std(ddof=1)
 
         # Gap Z-score: how unusual is today's return?
         gap_z = (daily_ret - rolling_mean) / rolling_std.replace(0.0, np.nan)

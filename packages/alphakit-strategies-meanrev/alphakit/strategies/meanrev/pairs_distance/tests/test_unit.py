@@ -80,9 +80,9 @@ def test_generates_nonzero_weights() -> None:
 
 def test_long_only_mode() -> None:
     prices = _panel()
-    weights = PairsDistance(
-        formation_period=60, threshold=1.5, long_only=True
-    ).generate_signals(prices)
+    weights = PairsDistance(formation_period=60, threshold=1.5, long_only=True).generate_signals(
+        prices
+    )
     assert (weights >= 0).all().all()
 
 

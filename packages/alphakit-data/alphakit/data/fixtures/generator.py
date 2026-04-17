@@ -96,9 +96,7 @@ def generate_fixture_prices(
         # Add occasional vol clusters (GARCH-like)
         vol_state = np.ones(n_days)
         for t in range(1, n_days):
-            vol_state[t] = 0.94 * vol_state[t - 1] + 0.06 * (returns[t - 1] ** 2) / (
-                daily_vol**2
-            )
+            vol_state[t] = 0.94 * vol_state[t - 1] + 0.06 * (returns[t - 1] ** 2) / (daily_vol**2)
         vol_state = np.clip(vol_state, 0.5, 3.0)
         returns = returns * np.sqrt(vol_state)
 

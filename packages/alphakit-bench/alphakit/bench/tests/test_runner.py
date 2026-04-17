@@ -31,9 +31,14 @@ class TestBenchmarkRunner:
         result = runner.run_single("tsmom_12_1")
         metrics = result["metrics"]
         for key in (
-            "sharpe", "sortino", "calmar", "max_drawdown",
-            "annualized_return", "annualized_vol",
-            "turnover_annual", "capacity_usd_bn",
+            "sharpe",
+            "sortino",
+            "calmar",
+            "max_drawdown",
+            "annualized_return",
+            "annualized_vol",
+            "turnover_annual",
+            "capacity_usd_bn",
         ):
             assert key in metrics
             assert isinstance(metrics[key], float)

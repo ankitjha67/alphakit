@@ -16,10 +16,7 @@ def _panel(seed: int = 42, years: float = 3) -> pd.DataFrame:
     idx = pd.date_range("2018-01-01", periods=n, freq="B")
     cfgs = {"BTC": (0.001, 0.03), "ETH": (0.0008, 0.035), "SOL": (0.0005, 0.04)}
     return pd.DataFrame(
-        {
-            sym: 100.0 * np.exp(np.cumsum(rng.normal(d, v, size=n)))
-            for sym, (d, v) in cfgs.items()
-        },
+        {sym: 100.0 * np.exp(np.cumsum(rng.normal(d, v, size=n))) for sym, (d, v) in cfgs.items()},
         index=idx,
     )
 
