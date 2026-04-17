@@ -57,10 +57,7 @@ class FeedRegistry:
             lists every registered name to make typos easy to spot.
         """
         if name not in cls._feeds:
-            raise KeyError(
-                f"No feed registered under {name!r}. "
-                f"Registered: {sorted(cls._feeds)}"
-            )
+            raise KeyError(f"No feed registered under {name!r}. Registered: {sorted(cls._feeds)}")
         return cls._feeds[name]
 
     @classmethod

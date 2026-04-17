@@ -73,9 +73,7 @@ class _TokenBucket:
         self._monotonic: Callable[[], float] = (
             monotonic if monotonic is not None else time.monotonic
         )
-        self._sleep: Callable[[float], None] = (
-            sleeper if sleeper is not None else time.sleep
-        )
+        self._sleep: Callable[[float], None] = sleeper if sleeper is not None else time.sleep
         self._last: float = self._monotonic()
         self._lock = threading.Lock()
 
@@ -107,9 +105,7 @@ def _env_limit(feed_name: str) -> int:
         try:
             value = int(raw)
         except ValueError as exc:
-            raise ValueError(
-                f"Invalid rate-limit env var {key}={raw!r}; must be int"
-            ) from exc
+            raise ValueError(f"Invalid rate-limit env var {key}={raw!r}; must be int") from exc
         if value <= 0:
             raise ValueError(f"Rate limit {key}={raw!r} must be positive")
         return value

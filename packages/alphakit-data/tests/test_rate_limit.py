@@ -94,9 +94,7 @@ def test_negative_env_var_raises(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_default_fallback_for_unknown_feed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv(
-        "ALPHAKIT_RATELIMIT_SOME_NEW_FEED_PER_MINUTE", raising=False
-    )
+    monkeypatch.delenv("ALPHAKIT_RATELIMIT_SOME_NEW_FEED_PER_MINUTE", raising=False)
     assert _env_limit("some-new-feed") == _DEFAULT_FALLBACK
 
 

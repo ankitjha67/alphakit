@@ -44,9 +44,7 @@ def test_miss_returns_none(tmp_path: Path) -> None:
     assert cache.get("missing", ttl_seconds=3600) is None
 
 
-def test_ttl_expiry_deletes_and_returns_none(
-    tmp_path: Path, sample_df: pd.DataFrame
-) -> None:
+def test_ttl_expiry_deletes_and_returns_none(tmp_path: Path, sample_df: pd.DataFrame) -> None:
     cache = FeedCache(tmp_path)
     key = "abc123"
     cache.put(key, sample_df)
@@ -74,9 +72,7 @@ def test_sentinel_nul_disables_cache(sample_df: pd.DataFrame) -> None:
     assert cache.get("k", ttl_seconds=3600) is None
 
 
-def test_unwritable_path_raises_feed_error_on_put(
-    tmp_path: Path, sample_df: pd.DataFrame
-) -> None:
+def test_unwritable_path_raises_feed_error_on_put(tmp_path: Path, sample_df: pd.DataFrame) -> None:
     # A cache_dir whose parent is a regular file can never be mkdir'd.
     # This reliably forces an OSError regardless of whether the test
     # process is running as root.
@@ -97,9 +93,7 @@ def test_unwritable_path_get_is_silent_miss(tmp_path: Path) -> None:
         assert cache.get("k", ttl_seconds=3600) is None
 
 
-def test_corrupt_file_removed_and_warns(
-    tmp_path: Path, sample_df: pd.DataFrame
-) -> None:
+def test_corrupt_file_removed_and_warns(tmp_path: Path, sample_df: pd.DataFrame) -> None:
     cache = FeedCache(tmp_path)
     key = "abc"
     # Write non-parquet bytes where a cache entry should be.
@@ -154,9 +148,7 @@ def test_key_varies_by_feed_name() -> None:
     assert k_a != k_b
 
 
-def test_cached_feed_decorator_caches_and_reuses(
-    tmp_path: Path, sample_df: pd.DataFrame
-) -> None:
+def test_cached_feed_decorator_caches_and_reuses(tmp_path: Path, sample_df: pd.DataFrame) -> None:
     calls: list[int] = []
 
     class Adapter:
@@ -182,9 +174,7 @@ def test_cached_feed_decorator_caches_and_reuses(
     pd.testing.assert_frame_equal(out1, out2)
 
 
-def test_cached_feed_respects_disabled_sentinel(
-    tmp_path: Path, sample_df: pd.DataFrame
-) -> None:
+def test_cached_feed_respects_disabled_sentinel(tmp_path: Path, sample_df: pd.DataFrame) -> None:
     calls: list[int] = []
 
     class Adapter:

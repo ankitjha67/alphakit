@@ -37,9 +37,7 @@ def raise_chain_not_supported(feed_name: str) -> NoReturn:
     delegate its ``fetch_chain`` body to this helper so the error
     message format stays consistent across the ecosystem.
     """
-    raise NotImplementedError(
-        f"{feed_name!r} does not support option chains"
-    )
+    raise NotImplementedError(f"{feed_name!r} does not support option chains")
 
 
 class BacktestResult(BaseModel):

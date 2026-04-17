@@ -163,9 +163,7 @@ class FeedCache:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             df.to_parquet(path, engine="pyarrow")
         except OSError as exc:
-            raise FeedError(
-                f"Could not write cache to {path}: {exc}"
-            ) from exc
+            raise FeedError(f"Could not write cache to {path}: {exc}") from exc
 
     @classmethod
     def _warn_read(cls, path: Path, reason: str) -> None:
@@ -175,8 +173,7 @@ class FeedCache:
             return None
         cls._read_warned.add(key)
         warnings.warn(
-            f"FeedCache could not read {path}: {reason}. "
-            "Falling back to a live fetch.",
+            f"FeedCache could not read {path}: {reason}. Falling back to a live fetch.",
             stacklevel=3,
         )
         return None
@@ -211,9 +208,7 @@ def cached_feed(
         ``FeedCache()`` (the user-configured cache).
     """
 
-    factory: Callable[[], FeedCache] = (
-        cache_factory if cache_factory is not None else FeedCache
-    )
+    factory: Callable[[], FeedCache] = cache_factory if cache_factory is not None else FeedCache
 
     def decorator(func: F) -> F:
         @functools.wraps(func)
