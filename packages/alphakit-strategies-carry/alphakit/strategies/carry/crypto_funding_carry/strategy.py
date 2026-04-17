@@ -56,9 +56,7 @@ class CryptoFundingCarry:
         if slow_period <= 0:
             raise ValueError(f"slow_period must be positive, got {slow_period}")
         if fast_period >= slow_period:
-            raise ValueError(
-                f"fast_period ({fast_period}) must be < slow_period ({slow_period})"
-            )
+            raise ValueError(f"fast_period ({fast_period}) must be < slow_period ({slow_period})")
         if threshold <= 0.0:
             raise ValueError(f"threshold must be positive, got {threshold}")
         self.fast_period = fast_period
@@ -72,9 +70,7 @@ class CryptoFundingCarry:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 

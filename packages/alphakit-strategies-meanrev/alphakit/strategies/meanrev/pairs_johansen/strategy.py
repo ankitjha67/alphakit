@@ -66,9 +66,7 @@ class PairsJohansen:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
@@ -107,8 +105,12 @@ class PairsJohansen:
 
         # Z-score of spread
         spread_s = pd.Series(spread_arr, index=prices.index)
-        s_mean = spread_s.rolling(window=self.zscore_lookback, min_periods=self.zscore_lookback).mean()
-        s_std = spread_s.rolling(window=self.zscore_lookback, min_periods=self.zscore_lookback).std(ddof=1)
+        s_mean = spread_s.rolling(
+            window=self.zscore_lookback, min_periods=self.zscore_lookback
+        ).mean()
+        s_std = spread_s.rolling(window=self.zscore_lookback, min_periods=self.zscore_lookback).std(
+            ddof=1
+        )
         zscore = ((spread_s - s_mean) / s_std.replace(0.0, np.nan)).to_numpy()
 
         for t in range(warmup, n_rows):

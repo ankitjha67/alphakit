@@ -46,9 +46,7 @@ class AltmanZScoreProxy:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
@@ -69,7 +67,9 @@ class AltmanZScoreProxy:
         # Normalize each component cross-sectionally via rank
         s1 = (-drawdown).rank(axis=1, method="average", ascending=True)  # less drawdown = healthier
         s2 = (-vol_12m).rank(axis=1, method="average", ascending=True)  # lower vol = healthier
-        s3 = (prices / sma_200).rank(axis=1, method="average", ascending=True)  # above SMA = healthier
+        s3 = (prices / sma_200).rank(
+            axis=1, method="average", ascending=True
+        )  # above SMA = healthier
         s4 = ret_12m.rank(axis=1, method="average", ascending=True)  # higher return = healthier
 
         health_score = s1 + s2 + s3 + s4

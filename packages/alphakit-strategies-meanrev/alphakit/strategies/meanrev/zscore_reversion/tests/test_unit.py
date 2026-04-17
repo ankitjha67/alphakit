@@ -9,9 +9,7 @@ from alphakit.core.protocols import StrategyProtocol
 from alphakit.strategies.meanrev.zscore_reversion.strategy import ZScoreReversion
 
 
-def _mean_reverting_panel(
-    symbols: list[str], years: float = 2, seed: int = 42
-) -> pd.DataFrame:
+def _mean_reverting_panel(symbols: list[str], years: float = 2, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     n = round(years * 252)
     idx = pd.date_range("2018-01-01", periods=n, freq="B")

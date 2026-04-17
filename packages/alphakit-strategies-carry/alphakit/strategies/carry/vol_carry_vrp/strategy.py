@@ -57,8 +57,7 @@ class VolCarryVRP:
             raise ValueError(f"slow_vol_window must be > 1, got {slow_vol_window}")
         if fast_vol_window >= slow_vol_window:
             raise ValueError(
-                f"fast_vol_window ({fast_vol_window}) must be < "
-                f"slow_vol_window ({slow_vol_window})"
+                f"fast_vol_window ({fast_vol_window}) must be < slow_vol_window ({slow_vol_window})"
             )
         self.fast_vol_window = fast_vol_window
         self.slow_vol_window = slow_vol_window
@@ -70,9 +69,7 @@ class VolCarryVRP:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 

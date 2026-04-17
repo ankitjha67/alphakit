@@ -9,9 +9,7 @@ from alphakit.core.protocols import StrategyProtocol
 from alphakit.strategies.meanrev.ou_process_trade.strategy import OUProcessTrade
 
 
-def _mean_reverting_panel(
-    symbols: list[str], years: float = 2, seed: int = 42
-) -> pd.DataFrame:
+def _mean_reverting_panel(symbols: list[str], years: float = 2, seed: int = 42) -> pd.DataFrame:
     """OU-like synthetic prices with known mean-reverting behavior."""
     rng = np.random.default_rng(seed)
     n = round(years * 252)

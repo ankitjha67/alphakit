@@ -81,9 +81,7 @@ class PairsEngleGranger:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
@@ -96,9 +94,7 @@ class PairsEngleGranger:
 
         for i in range(n_assets):
             for j in range(i + 1, n_assets):
-                beta = self._rolling_beta(
-                    price_np[:, i], price_np[:, j], self.formation_period
-                )
+                beta = self._rolling_beta(price_np[:, i], price_np[:, j], self.formation_period)
                 spread = price_np[:, i] - beta * price_np[:, j]
 
                 # Z-score of spread
@@ -112,7 +108,8 @@ class PairsEngleGranger:
                 zscore = ((spread_series - s_mean) / s_std.replace(0.0, np.nan)).to_numpy()
 
                 sig_i = np.where(
-                    zscore >= self.threshold, -1.0,
+                    zscore >= self.threshold,
+                    -1.0,
                     np.where(zscore <= -self.threshold, 1.0, 0.0),
                 )
                 sig_j = -sig_i * np.where(np.isnan(beta), 0.0, beta)

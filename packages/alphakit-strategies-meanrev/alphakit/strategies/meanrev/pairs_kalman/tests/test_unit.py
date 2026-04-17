@@ -74,18 +74,14 @@ def test_warmup_weights_are_zero() -> None:
 
 def test_generates_nonzero_weights() -> None:
     prices = _panel()
-    weights = PairsKalman(
-        zscore_lookback=20, threshold=1.5
-    ).generate_signals(prices)
+    weights = PairsKalman(zscore_lookback=20, threshold=1.5).generate_signals(prices)
     mature = weights.iloc[20:]
     assert (mature != 0).any().any(), "Expected non-zero weights after warmup"
 
 
 def test_long_only_mode() -> None:
     prices = _panel()
-    weights = PairsKalman(
-        threshold=1.5, long_only=True
-    ).generate_signals(prices)
+    weights = PairsKalman(threshold=1.5, long_only=True).generate_signals(prices)
     assert (weights >= 0).all().all()
 
 

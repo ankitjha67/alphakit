@@ -15,8 +15,17 @@ def _fx_panel(seed: int = 42, years: float = 3) -> pd.DataFrame:
     n = round(years * 252)
     idx = pd.date_range("2018-01-01", periods=n, freq="B")
     # 9 G10 currencies with different drifts (carry proxy)
-    syms = ["AUDUSD", "CADUSD", "CHFUSD", "EURUSD", "GBPUSD",
-            "JPYUSD", "NOKUSD", "NZDUSD", "SEKUSD"]
+    syms = [
+        "AUDUSD",
+        "CADUSD",
+        "CHFUSD",
+        "EURUSD",
+        "GBPUSD",
+        "JPYUSD",
+        "NOKUSD",
+        "NZDUSD",
+        "SEKUSD",
+    ]
     data = {}
     for i, sym in enumerate(syms):
         drift = 0.0003 * (i - 4)  # range: -0.0012 to +0.0012

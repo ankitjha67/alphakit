@@ -62,7 +62,9 @@ def test_single_asset_returns_zero() -> None:
 
 def test_warmup_weights_are_zero() -> None:
     prices = _panel()
-    weights = StatArbPCA(n_factors=2, formation_period=60, zscore_lookback=20).generate_signals(prices)
+    weights = StatArbPCA(n_factors=2, formation_period=60, zscore_lookback=20).generate_signals(
+        prices
+    )
     warmup = 60 + 20 + 1
     assert (weights.iloc[:warmup] == 0.0).all().all()
 
@@ -76,7 +78,9 @@ def test_generates_nonzero_weights() -> None:
 
 def test_long_only_mode() -> None:
     prices = _panel()
-    weights = StatArbPCA(n_factors=2, formation_period=60, threshold=1.5, long_only=True).generate_signals(prices)
+    weights = StatArbPCA(
+        n_factors=2, formation_period=60, threshold=1.5, long_only=True
+    ).generate_signals(prices)
     assert (weights >= -1e-10).all().all()
 
 

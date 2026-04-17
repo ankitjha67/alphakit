@@ -209,6 +209,10 @@ module = [
     "backtrader.*",
     "pandas_market_calendars",
     "pandas_market_calendars.*",
+    "yfinance",
+    "yfinance.*",
+    "yaml",
+    "yaml.*",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"

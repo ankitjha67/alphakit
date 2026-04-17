@@ -67,11 +67,7 @@ def _strategy_dirs() -> list[tuple[str, str, Path]]:
 
 def discover_slugs(family: str | None = None) -> list[str]:
     """Return all strategy slugs, optionally filtered by family."""
-    return [
-        slug
-        for fam, slug, _ in _strategy_dirs()
-        if family is None or fam == family
-    ]
+    return [slug for fam, slug, _ in _strategy_dirs() if family is None or fam == family]
 
 
 def load_config(family: str, slug: str) -> dict[str, Any]:
@@ -84,9 +80,7 @@ def load_config(family: str, slug: str) -> dict[str, Any]:
     try:
         mod = importlib.import_module(mod_path)
     except ImportError as exc:
-        raise FileNotFoundError(
-            f"Cannot import {mod_path} to locate config.yaml"
-        ) from exc
+        raise FileNotFoundError(f"Cannot import {mod_path} to locate config.yaml") from exc
 
     if hasattr(mod, "__path__"):
         config_path = Path(mod.__path__[0]) / "config.yaml"
@@ -120,9 +114,7 @@ def instantiate(family: str, slug: str) -> StrategyProtocol:
             instance = cls()
             if isinstance(instance, StrategyProtocol):
                 return instance
-    raise RuntimeError(
-        f"No StrategyProtocol-conforming class found in {module_path}.__all__"
-    )
+    raise RuntimeError(f"No StrategyProtocol-conforming class found in {module_path}.__all__")
 
 
 def find_strategy(slug: str) -> tuple[str, str]:

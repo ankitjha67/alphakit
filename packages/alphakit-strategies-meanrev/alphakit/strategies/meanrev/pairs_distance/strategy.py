@@ -69,9 +69,7 @@ class PairsDistance:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
@@ -83,7 +81,10 @@ class PairsDistance:
 
         # Normalize prices by rolling formation-period start
         log_p = pd.DataFrame(np.log(prices.to_numpy()), index=prices.index, columns=prices.columns)
-        norm = log_p - log_p.rolling(window=self.formation_period, min_periods=self.formation_period).mean()
+        norm = (
+            log_p
+            - log_p.rolling(window=self.formation_period, min_periods=self.formation_period).mean()
+        )
 
         for i in range(n_assets):
             for j in range(i + 1, n_assets):
@@ -98,7 +99,9 @@ class PairsDistance:
 
                 z_np = zscore.to_numpy()
                 # Spread too high → short i, long j
-                sig_i = np.where(z_np >= self.threshold, -1.0, np.where(z_np <= -self.threshold, 1.0, 0.0))
+                sig_i = np.where(
+                    z_np >= self.threshold, -1.0, np.where(z_np <= -self.threshold, 1.0, 0.0)
+                )
                 sig_j = -sig_i
 
                 weights.iloc[:, i] += sig_i

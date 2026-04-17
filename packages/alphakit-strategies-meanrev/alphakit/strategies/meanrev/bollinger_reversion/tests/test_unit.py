@@ -23,9 +23,7 @@ def _panel(drifts: dict[str, float], years: float = 1, noise: float = 0.0) -> pd
     )
 
 
-def _mean_reverting_panel(
-    symbols: list[str], years: float = 2, seed: int = 42
-) -> pd.DataFrame:
+def _mean_reverting_panel(symbols: list[str], years: float = 2, seed: int = 42) -> pd.DataFrame:
     """Synthetic prices that oscillate around a stable mean — ideal for Bollinger."""
     rng = np.random.default_rng(seed)
     n = round(years * 252)

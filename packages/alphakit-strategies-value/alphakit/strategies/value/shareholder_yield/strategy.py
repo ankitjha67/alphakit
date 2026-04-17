@@ -40,9 +40,7 @@ class ShareholderYield:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
@@ -53,9 +51,9 @@ class ShareholderYield:
         # Shareholder yield proxy: fraction of positive monthly returns
         # in the lookback window (steady positive returns ≈ dividends + buybacks)
         monthly_ret = prices.pct_change(periods=21)
-        positive_frac = monthly_ret.rolling(
-            window=self.lookback, min_periods=self.lookback
-        ).apply(lambda x: float(np.mean(x > 0)), raw=True)
+        positive_frac = monthly_ret.rolling(window=self.lookback, min_periods=self.lookback).apply(
+            lambda x: float(np.mean(x > 0)), raw=True
+        )
 
         ranks = positive_frac.rank(axis=1, method="average", ascending=True)
         rank_mean = ranks.mean(axis=1)

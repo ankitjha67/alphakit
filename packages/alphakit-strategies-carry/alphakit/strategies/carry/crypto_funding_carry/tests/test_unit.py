@@ -1,4 +1,5 @@
 """Unit tests for crypto_funding_carry."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -16,8 +17,10 @@ def _crypto_panel(seed: int = 42, years: float = 3) -> pd.DataFrame:
     prices = 100.0 * np.exp(np.cumsum(rets, axis=0))
     return pd.DataFrame(prices, index=idx, columns=["BTC", "ETH"])
 
+
 def test_satisfies_protocol() -> None:
     assert isinstance(CryptoFundingCarry(), StrategyProtocol)
+
 
 def test_metadata() -> None:
     s = CryptoFundingCarry()
@@ -26,6 +29,7 @@ def test_metadata() -> None:
     assert s.fast_period == 5
     assert s.slow_period == 30
     assert s.threshold == 0.005
+
 
 @pytest.mark.parametrize(
     ("kwargs", "match"),
@@ -40,9 +44,11 @@ def test_rejects_bad_args(kwargs: dict[str, object], match: str) -> None:
     with pytest.raises(ValueError, match=match):
         CryptoFundingCarry(**kwargs)  # type: ignore[arg-type]
 
+
 def test_empty_input() -> None:
     empty = pd.DataFrame(index=pd.DatetimeIndex([]), columns=["BTC"], dtype=float)
     assert CryptoFundingCarry().generate_signals(empty).empty
+
 
 def test_warmup_weights_are_zero() -> None:
     prices = _crypto_panel()
@@ -50,16 +56,19 @@ def test_warmup_weights_are_zero() -> None:
     # rolling(30, min_periods=30) → first valid at index 29, so first 29 rows zero
     assert (weights.iloc[:29] == 0.0).all().all()
 
+
 def test_volatile_data_generates_signals() -> None:
     prices = _crypto_panel(years=3)
     weights = CryptoFundingCarry(threshold=0.003).generate_signals(prices)
     mature = weights.iloc[35:]
     assert (mature != 0).any().any(), "Expected non-zero signals"
 
+
 def test_long_only_mode() -> None:
     prices = _crypto_panel()
     weights = CryptoFundingCarry(threshold=0.003, long_only=True).generate_signals(prices)
     assert (weights >= 0).all().all()
+
 
 def test_weights_bounded() -> None:
     prices = _crypto_panel()
@@ -67,6 +76,7 @@ def test_weights_bounded() -> None:
     n = len(prices.columns)
     assert weights.min().min() >= -1.0 / n - 1e-10
     assert weights.max().max() <= 1.0 / n + 1e-10
+
 
 def test_deterministic() -> None:
     prices = _crypto_panel()

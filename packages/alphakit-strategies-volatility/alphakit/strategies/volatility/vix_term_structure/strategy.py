@@ -54,9 +54,7 @@ class VIXTermStructure:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
@@ -72,9 +70,13 @@ class VIXTermStructure:
         # Contango (long_vol > short_vol) → long equity (vol selling)
         # Backwardation (short_vol > long_vol) → short equity (vol buying)
         signal = pd.DataFrame(
-            np.where(long_vol.to_numpy() > short_vol.to_numpy(), 1.0,
-                     np.where(short_vol.to_numpy() > long_vol.to_numpy(), -1.0, 0.0)),
-            index=prices.index, columns=prices.columns,
+            np.where(
+                long_vol.to_numpy() > short_vol.to_numpy(),
+                1.0,
+                np.where(short_vol.to_numpy() > long_vol.to_numpy(), -1.0, 0.0),
+            ),
+            index=prices.index,
+            columns=prices.columns,
         )
         if self.long_only:
             signal = signal.clip(lower=0.0)

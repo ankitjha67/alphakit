@@ -44,8 +44,7 @@ class VRPHarvest:
             raise ValueError(f"slow_vol_window must be > 1, got {slow_vol_window}")
         if fast_vol_window >= slow_vol_window:
             raise ValueError(
-                f"fast_vol_window ({fast_vol_window}) must be < "
-                f"slow_vol_window ({slow_vol_window})"
+                f"fast_vol_window ({fast_vol_window}) must be < slow_vol_window ({slow_vol_window})"
             )
         if target_vol <= 0.0:
             raise ValueError(f"target_vol must be positive, got {target_vol}")
@@ -60,9 +59,7 @@ class VRPHarvest:
         if prices.empty:
             return pd.DataFrame(index=prices.index, columns=prices.columns, dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
-            raise TypeError(
-                f"prices must have a DatetimeIndex, got {type(prices.index).__name__}"
-            )
+            raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         if (prices <= 0).any().any():
             raise ValueError("prices must be strictly positive")
 
