@@ -23,10 +23,21 @@ from __future__ import annotations
 
 from datetime import datetime
 from math import nan
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, NoReturn, Protocol, runtime_checkable
 
 import pandas as pd
+from alphakit.core.data import OptionChain
 from pydantic import BaseModel, ConfigDict, Field
+
+
+def raise_chain_not_supported(feed_name: str) -> NoReturn:
+    """Standard refusal used by feeds that don't serve option chains.
+
+    Every non-options ``DataFeedProtocol`` implementation should
+    delegate its ``fetch_chain`` body to this helper so the error
+    message format stays consistent across the ecosystem.
+    """
+    raise NotImplementedError(f"{feed_name!r} does not support option chains")
 
 
 class BacktestResult(BaseModel):
@@ -195,5 +206,17 @@ class DataFeedProtocol(Protocol):
         The returned DataFrame is always timestamp-indexed with one column
         per symbol containing adjusted close prices. Adapters that expose
         full OHLCV return a ``MultiIndex`` on columns (``symbol``, ``field``).
+        """
+        ...
+
+    def fetch_chain(self, underlying: str, as_of: datetime) -> OptionChain:
+        """Return an option-chain snapshot for ``underlying`` at ``as_of``.
+
+        Feeds that do not provide options data (FRED, vanilla yfinance,
+        CFTC, EIA, …) implement this by raising
+        :class:`NotImplementedError` via
+        :func:`alphakit.core.protocols.raise_chain_not_supported`.
+        Options-capable feeds (Polygon, the synthetic-chain generator)
+        return a real :class:`OptionChain`.
         """
         ...
