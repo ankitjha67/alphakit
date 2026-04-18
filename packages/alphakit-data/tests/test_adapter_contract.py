@@ -39,6 +39,7 @@ import pytest
 # contract tests run. When a new adapter lands, add it to this block.
 from alphakit.data.equities.yfinance_adapter import YFinanceAdapter
 from alphakit.data.errors import OfflineModeError
+from alphakit.data.futures.eia_adapter import EIAAdapter
 from alphakit.data.futures.yfinance_futures_adapter import YFinanceFuturesAdapter
 from alphakit.data.rates.fred_adapter import FREDAdapter
 from alphakit.data.registry import FeedRegistry
@@ -146,6 +147,41 @@ def _install_fred_mock(
     monkeypatch.setitem(sys.modules, "fredapi", fake)
 
 
+def _install_eia_mock(
+    monkeypatch: pytest.MonkeyPatch,
+    call_log: list[str],
+    payload_variant: int,
+) -> None:
+    """Install a fake ``requests`` module with a ``get`` returning EIA v2 JSON."""
+    fake = types.ModuleType("requests")
+
+    class FakeResponse:
+        def __init__(self, data: dict[str, Any]) -> None:
+            self._data = data
+
+        def json(self) -> dict[str, Any]:
+            return self._data
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(_url: str, params: dict[str, Any] | None = None, **_kwargs: Any) -> FakeResponse:
+        call_log.append("http")
+        return FakeResponse(
+            {
+                "response": {
+                    "data": [
+                        {"period": "2024-01-02", "value": str(100.0 + payload_variant)},
+                        {"period": "2024-01-03", "value": str(101.0 + payload_variant)},
+                    ]
+                }
+            }
+        )
+
+    fake.get = fake_get  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "requests", fake)
+
+
 HARNESSES: dict[str, Harness] = {
     "yfinance": Harness(
         module_path="alphakit.data.equities.yfinance_adapter",
@@ -165,6 +201,13 @@ HARNESSES: dict[str, Harness] = {
         fetch_args=(["DGS10"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_fred_mock,
         extra_env={"FRED_API_KEY": "test-key-not-real"},
+    ),
+    "eia": Harness(
+        module_path="alphakit.data.futures.eia_adapter",
+        offline_behavior="raise",
+        fetch_args=(["PET.WTISPLC.W"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
+        install_http_mock=_install_eia_mock,
+        extra_env={"EIA_API_KEY": "test-key-not-real"},
     ),
 }
 
@@ -195,6 +238,8 @@ def _ensure_adapters_registered() -> Iterator[None]:
         FeedRegistry.register(YFinanceFuturesAdapter())
     with contextlib.suppress(ValueError):
         FeedRegistry.register(FREDAdapter())
+    with contextlib.suppress(ValueError):
+        FeedRegistry.register(EIAAdapter())
     yield
 
 
