@@ -39,6 +39,7 @@ import pytest
 # contract tests run. When a new adapter lands, add it to this block.
 from alphakit.data.equities.yfinance_adapter import YFinanceAdapter
 from alphakit.data.errors import OfflineModeError
+from alphakit.data.futures.yfinance_futures_adapter import YFinanceFuturesAdapter
 from alphakit.data.rates.fred_adapter import FREDAdapter
 from alphakit.data.registry import FeedRegistry
 
@@ -90,6 +91,37 @@ def _install_yfinance_mock(
     monkeypatch.setitem(sys.modules, "yfinance", fake)
 
 
+def _install_yfinance_futures_mock(
+    monkeypatch: pytest.MonkeyPatch,
+    call_log: list[str],
+    payload_variant: int,
+) -> None:
+    """Install a fake ``yfinance`` module returning OHLCV bars.
+
+    The fake lives in ``sys.modules["yfinance"]`` just like the equities
+    adapter's fake; whichever adapter's ``fetch`` runs next will pick up
+    whichever fake was installed most recently, which is fine because
+    contract tests monkeypatch the module per-test.
+    """
+    fake = types.ModuleType("yfinance")
+
+    def fake_download(**_kwargs: Any) -> pd.DataFrame:
+        call_log.append("http")
+        return pd.DataFrame(
+            {
+                "Open": [70.0 + payload_variant, 71.0 + payload_variant],
+                "High": [72.0 + payload_variant, 73.0 + payload_variant],
+                "Low": [69.0 + payload_variant, 70.0 + payload_variant],
+                "Close": [71.0 + payload_variant, 72.0 + payload_variant],
+                "Volume": [1000, 2000],
+            },
+            index=pd.DatetimeIndex(["2024-01-02", "2024-01-03"]),
+        )
+
+    fake.download = fake_download  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "yfinance", fake)
+
+
 def _install_fred_mock(
     monkeypatch: pytest.MonkeyPatch,
     call_log: list[str],
@@ -120,6 +152,12 @@ HARNESSES: dict[str, Harness] = {
         offline_behavior="fixture",
         fetch_args=(["SPY"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_yfinance_mock,
+    ),
+    "yfinance-futures": Harness(
+        module_path="alphakit.data.futures.yfinance_futures_adapter",
+        offline_behavior="fixture",
+        fetch_args=(["CL=F"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
+        install_http_mock=_install_yfinance_futures_mock,
     ),
     "fred": Harness(
         module_path="alphakit.data.rates.fred_adapter",
@@ -153,6 +191,8 @@ def _ensure_adapters_registered() -> Iterator[None]:
     """
     with contextlib.suppress(ValueError):
         FeedRegistry.register(YFinanceAdapter())
+    with contextlib.suppress(ValueError):
+        FeedRegistry.register(YFinanceFuturesAdapter())
     with contextlib.suppress(ValueError):
         FeedRegistry.register(FREDAdapter())
     yield
