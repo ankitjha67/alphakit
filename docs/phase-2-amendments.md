@@ -89,3 +89,21 @@ For each registered adapter, the test verifies:
 Impact: adds ~10-15 tests (parametrized across all registered
 adapters). No scope change; architectural gap filled as part of
 2B's implementation.
+
+---
+
+## 2026-04-17 — Session 2B: mypy overrides landed per-adapter, not bulk
+
+Context: Session 2B's plan called for a single pyproject.toml update
+in Commit 7 to add fredapi and requests to mypy's
+ignore_missing_imports list. In practice each mypy override was added
+in the commit that introduced the adapter using it (fredapi in the
+FRED commit, requests in the EIA commit), because mypy --strict must
+pass in isolation on every intermediate commit, not just the tip of
+the branch.
+
+No scope change. Commit 7 still covers the remaining pyproject work
+(optional-deps for alphakit-data, types-requests for dev).
+
+Pattern to continue: mypy overrides land in the commit that introduces
+them, not in a trailing "enables" commit.
