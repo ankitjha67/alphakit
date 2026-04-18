@@ -213,6 +213,8 @@ module = [
     "yfinance.*",
     "yaml",
     "yaml.*",
+    "fredapi",
+    "fredapi.*",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"

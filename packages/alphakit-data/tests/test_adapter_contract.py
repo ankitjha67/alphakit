@@ -24,7 +24,7 @@ import contextlib
 import sys
 import types
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -39,6 +39,7 @@ import pytest
 # contract tests run. When a new adapter lands, add it to this block.
 from alphakit.data.equities.yfinance_adapter import YFinanceAdapter
 from alphakit.data.errors import OfflineModeError
+from alphakit.data.rates.fred_adapter import FREDAdapter
 from alphakit.data.registry import FeedRegistry
 
 
@@ -63,6 +64,12 @@ class Harness:
     canned response so the caching behavioural test can distinguish
     the first vs second fetch payload."""
 
+    extra_env: dict[str, str] = field(default_factory=dict)
+    """Extra environment variables to set before online-scenario tests.
+    Adapters that require an API key (e.g. ``FRED_API_KEY``,
+    ``EIA_API_KEY``) list a dummy value here so Scenario B can exercise
+    the full fetch pipeline without raising ``FeedNotConfiguredError``."""
+
 
 def _install_yfinance_mock(
     monkeypatch: pytest.MonkeyPatch,
@@ -83,12 +90,43 @@ def _install_yfinance_mock(
     monkeypatch.setitem(sys.modules, "yfinance", fake)
 
 
+def _install_fred_mock(
+    monkeypatch: pytest.MonkeyPatch,
+    call_log: list[str],
+    payload_variant: int,
+) -> None:
+    """Install a fake ``fredapi`` module exposing a ``Fred`` class."""
+    fake = types.ModuleType("fredapi")
+
+    class FakeFred:
+        def __init__(self, api_key: str | None = None) -> None:
+            self._api_key = api_key
+
+        def get_series(self, series_id: str, **_kwargs: Any) -> pd.Series:
+            call_log.append("http")
+            return pd.Series(
+                [100.0 + payload_variant, 101.0 + payload_variant],
+                index=pd.DatetimeIndex(["2024-01-02", "2024-01-03"]),
+                name=series_id,
+            )
+
+    fake.Fred = FakeFred  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "fredapi", fake)
+
+
 HARNESSES: dict[str, Harness] = {
     "yfinance": Harness(
         module_path="alphakit.data.equities.yfinance_adapter",
         offline_behavior="fixture",
         fetch_args=(["SPY"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_yfinance_mock,
+    ),
+    "fred": Harness(
+        module_path="alphakit.data.rates.fred_adapter",
+        offline_behavior="raise",
+        fetch_args=(["DGS10"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
+        install_http_mock=_install_fred_mock,
+        extra_env={"FRED_API_KEY": "test-key-not-real"},
     ),
 }
 
@@ -115,6 +153,8 @@ def _ensure_adapters_registered() -> Iterator[None]:
     """
     with contextlib.suppress(ValueError):
         FeedRegistry.register(YFinanceAdapter())
+    with contextlib.suppress(ValueError):
+        FeedRegistry.register(FREDAdapter())
     yield
 
 
@@ -177,6 +217,8 @@ def test_adapter_online_calls_ratelimit_before_http(
     harness = HARNESSES[name]
     monkeypatch.delenv("ALPHAKIT_OFFLINE", raising=False)
     monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
+    for env_key, env_value in harness.extra_env.items():
+        monkeypatch.setenv(env_key, env_value)
 
     call_log: list[str] = []
 
@@ -225,6 +267,8 @@ def test_adapter_caches_fetch_results(
     harness = HARNESSES[name]
     monkeypatch.delenv("ALPHAKIT_OFFLINE", raising=False)
     monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
+    for env_key, env_value in harness.extra_env.items():
+        monkeypatch.setenv(env_key, env_value)
     monkeypatch.setattr(f"{harness.module_path}.ratelimit_acquire", lambda _n: None)
 
     adapter = FeedRegistry.get(name)
