@@ -15,6 +15,9 @@ dependencies = [
 
 [project.optional-dependencies]
 yfinance = ["yfinance>=0.2"]
+fred = ["fredapi>=0.5"]
+eia = ["requests>=2.31"]
+all-free-feeds = ["yfinance>=0.2", "fredapi>=0.5", "requests>=2.31"]
 
 [build-system]
 requires = ["hatchling>=1.25"]
