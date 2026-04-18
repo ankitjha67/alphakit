@@ -107,3 +107,36 @@ No scope change. Commit 7 still covers the remaining pyproject work
 
 Pattern to continue: mypy overrides land in the commit that introduces
 them, not in a trailing "enables" commit.
+
+---
+
+## 2026-04-17 — Session 2B: malformed-response regression tests deferred
+
+Context: Session 2B's adversarial review question (b) identified that
+while all four adapters (FRED, yfinance-futures, EIA, CFTC COT)
+correctly propagate exceptions from malformed upstream responses
+(HTML-for-JSON, HTTP 500, corrupt ZIP, empty DataFrame), parametrized
+regression tests with known-bad payloads do not exist.
+
+Decision: Defer to Phase 3.
+
+Rationale:
+- Current behavior is correct — errors propagate with library-native
+  messages, do not get swallowed or silently coerced.
+- Explicit empty-data handling IS tested (EIA empty response
+  test_fetch_handles_empty_response_data, CFTC market-code filter
+  test_fetch_filters_by_market_code).
+- Phase 3 scope naturally includes real Polygon integration plus
+  broader adapter hardening.
+- Blocking Session 2C on a ~20-test addition costs roughly half a
+  day without proportional risk reduction.
+
+Phase 3 scope addition: parametrized regression tests across all
+registered adapters covering:
+- HTML-for-JSON returns (FRED via fredapi, EIA via requests)
+- HTTP error codes including 429, 500, 503 (EIA via requests)
+- Corrupt ZIP payloads (CFTC COT via urllib + zipfile)
+- Empty upstream responses (yfinance, yfinance-futures)
+- Schema mismatches (adapter expects column X, upstream returns Y)
+
+No Phase 2 scope change. Session 2C unblocked.
