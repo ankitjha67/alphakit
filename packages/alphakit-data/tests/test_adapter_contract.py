@@ -41,6 +41,7 @@ from alphakit.data.equities.yfinance_adapter import YFinanceAdapter
 from alphakit.data.errors import OfflineModeError
 from alphakit.data.futures.eia_adapter import EIAAdapter
 from alphakit.data.futures.yfinance_futures_adapter import YFinanceFuturesAdapter
+from alphakit.data.positioning.cftc_cot_adapter import CFTCCOTAdapter
 from alphakit.data.rates.fred_adapter import FREDAdapter
 from alphakit.data.registry import FeedRegistry
 
@@ -182,6 +183,35 @@ def _install_eia_mock(
     monkeypatch.setitem(sys.modules, "requests", fake)
 
 
+def _install_cftc_cot_mock(
+    monkeypatch: pytest.MonkeyPatch,
+    call_log: list[str],
+    payload_variant: int,
+) -> None:
+    """Replace ``cftc_cot_adapter.urlopen`` with a fake returning a COT-shaped ZIP."""
+    import io
+    import zipfile
+
+    def fake_urlopen(_url: str, timeout: float | None = None) -> io.BytesIO:
+        call_log.append("http")
+        csv = (
+            "Report_Date_as_YYYY-MM-DD,CFTC_Contract_Market_Code,"
+            "NonComm_Positions_Long_All,NonComm_Positions_Short_All,"
+            "Comm_Positions_Long_All,Comm_Positions_Short_All\n"
+            f"2024-01-02,067651,{100 + payload_variant},{200 + payload_variant},"
+            f"{300 + payload_variant},{400 + payload_variant}\n"
+            f"2024-01-09,067651,{110 + payload_variant},{210 + payload_variant},"
+            f"{310 + payload_variant},{410 + payload_variant}\n"
+        )
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("deacot2024.txt", csv)
+        buf.seek(0)
+        return buf
+
+    monkeypatch.setattr("alphakit.data.positioning.cftc_cot_adapter.urlopen", fake_urlopen)
+
+
 HARNESSES: dict[str, Harness] = {
     "yfinance": Harness(
         module_path="alphakit.data.equities.yfinance_adapter",
@@ -208,6 +238,12 @@ HARNESSES: dict[str, Harness] = {
         fetch_args=(["PET.WTISPLC.W"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_eia_mock,
         extra_env={"EIA_API_KEY": "test-key-not-real"},
+    ),
+    "cftc-cot": Harness(
+        module_path="alphakit.data.positioning.cftc_cot_adapter",
+        offline_behavior="raise",
+        fetch_args=(["067651"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
+        install_http_mock=_install_cftc_cot_mock,
     ),
 }
 
@@ -240,6 +276,8 @@ def _ensure_adapters_registered() -> Iterator[None]:
         FeedRegistry.register(FREDAdapter())
     with contextlib.suppress(ValueError):
         FeedRegistry.register(EIAAdapter())
+    with contextlib.suppress(ValueError):
+        FeedRegistry.register(CFTCCOTAdapter())
     yield
 
 
