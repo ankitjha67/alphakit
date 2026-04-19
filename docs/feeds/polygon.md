@@ -63,9 +63,11 @@ When the real Polygon integration ships:
 1. Install the Polygon client dependency (via a new optional-deps
    group on `alphakit-data`).
 2. Set `POLYGON_API_KEY` in your environment.
-3. Swap strategy-level `FeedRegistry.get("synthetic-options")` calls
-   to `FeedRegistry.get("polygon")`. Because strategies depend only
-   on the `DataFeedProtocol` interface, no strategy code changes.
+3. Flip the configured feed name from `"synthetic-options"` to
+   `"polygon"` at the `FeedRegistry.get(...)` call site. Strategies
+   depend only on the `DataFeedProtocol` interface and the
+   `OptionChain` schema — both feeds implement them identically, so
+   no strategy logic or schema changes are required.
 4. Re-run the benchmark runner to regenerate
    `benchmark_results_real.json` against live Polygon chains.
 

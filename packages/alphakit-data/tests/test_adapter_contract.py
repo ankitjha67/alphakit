@@ -337,7 +337,10 @@ HARNESSES: dict[str, Harness] = {
     "polygon": Harness(
         # Polygon is a Phase 2 placeholder (ADR-004): both fetch and
         # fetch_chain raise. install_http_mock is unused because no
-        # fetch-path test runs against it.
+        # fetch-path test runs against it. chain_setup deletes
+        # POLYGON_API_KEY so the missing-key branch fires regardless
+        # of what the surrounding shell / CI secret context happens
+        # to have exported.
         module_path="alphakit.data.options.polygon_adapter",
         offline_behavior="raise",
         fetch_args=(["SPY"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
@@ -347,6 +350,7 @@ HARNESSES: dict[str, Harness] = {
         fetch_error_type=NotImplementedError,
         chain_error_type=PolygonNotConfiguredError,
         chain_error_match="POLYGON_API_KEY",
+        chain_setup=lambda m: m.delenv("POLYGON_API_KEY", raising=False),
     ),
     "synthetic-options": Harness(
         module_path="alphakit.data.options.synthetic",
@@ -555,7 +559,10 @@ def test_adapter_fetch_raises_when_unsupported(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", _REGISTERED)
-def test_adapter_fetch_chain_raises_when_unsupported(name: str) -> None:
+def test_adapter_fetch_chain_raises_when_unsupported(
+    name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """``fetch_chain`` must raise when ``implements_chain`` is ``False``.
 
     Most Phase 2B free-feed adapters raise via
@@ -567,6 +574,7 @@ def test_adapter_fetch_chain_raises_when_unsupported(name: str) -> None:
     harness = HARNESSES[name]
     if harness.implements_chain:
         pytest.skip(f"{name!r} implements fetch_chain; covered by the returns-OptionChain test")
+    harness.chain_setup(monkeypatch)
     adapter = FeedRegistry.get(name)
     underlying, as_of = harness.chain_args
     if harness.chain_error_match is None:

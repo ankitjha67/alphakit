@@ -36,15 +36,17 @@ markets. Every Phase 2 options strategy's `paper.md` includes a
 substituting for.
 
 The Phase 3 upgrade path is registry-local: once the real Polygon
-integration ships, strategies swap
-`FeedRegistry.get("synthetic-options")` for
-`FeedRegistry.get("polygon")` and re-run the benchmark runner. No
-strategy code changes because both feeds implement the same
-`DataFeedProtocol` and return the same `OptionChain` schema. The
-`benchmark_results_synthetic.json` files remain in place as the
-offline-reproducible baseline; `benchmark_results_real.json` will be
-generated from live chains for strategies where production accuracy
-matters.
+integration ships, the configured feed name swaps from
+`"synthetic-options"` to `"polygon"` at the `FeedRegistry.get(...)`
+call site — a one-line edit in each options strategy's integration
+wiring (or a config-level flip once that wiring reads from a
+settings file, which is a Phase 3 convenience, not a prerequisite).
+No strategy logic or schema changes are required, because both
+feeds implement the same `DataFeedProtocol` and return the same
+`OptionChain` schema. The `benchmark_results_synthetic.json` files
+remain in place as the offline-reproducible baseline;
+`benchmark_results_real.json` will be generated from live chains
+for strategies where production accuracy matters.
 
 ## Known strategy clusters
 

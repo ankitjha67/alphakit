@@ -139,6 +139,10 @@ def implied_vol(
     a, b = lower, upper
     fa = objective(a)
     fb = objective(b)
+    if abs(fa) < tol:
+        return a
+    if abs(fb) < tol:
+        return b
     if fa * fb > 0.0:
         raise ValueError(
             f"implied_vol: target price {price} not bracketed in "
@@ -190,4 +194,7 @@ def implied_vol(
         if abs(fb) < tol or abs(b - a) < tol:
             return b
 
-    return b
+    raise RuntimeError(
+        f"implied_vol did not converge within {max_iter} iterations "
+        f"(tol={tol}); last iterate sigma={b}, residual={fb:.4g}"
+    )

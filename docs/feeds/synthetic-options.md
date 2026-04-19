@@ -59,12 +59,15 @@ Friday. A Python `set` collapses these coincidences to unique dates;
 the grid is then sorted ascending.
 
 Concrete examples (at the top of a month versus after that month's
-third Friday):
+third Friday). Columns show **new dates contributed by each list in
+order**: weeklies first (all 4 are new), then monthlies (6 minus
+overlap with the weekly set), then quarterlies (4 minus overlap with
+the monthly set already counted).
 
-| `as_of`          | weekly-only | monthly-only | quarterly-only | dedup count |
-|------------------|-------------|--------------|----------------|-------------|
-| 2024-01-02 (Tue) | 3           | 5            | 2              | 11          |
-| 2024-01-22 (Mon) | 3           | 5            | 2              | 11          |
+| `as_of`          | weekly new | monthly new | quarterly new | dedup count |
+|------------------|------------|-------------|---------------|-------------|
+| 2024-01-02 (Tue) | 4          | 5           | 2             | 11          |
+| 2024-01-22 (Mon) | 4          | 5           | 2             | 11          |
 
 Total-quote count range: `11-14 expiries × 9 strikes × 2 rights` =
 **198–252 quotes per chain**. The upper bound is only reached when

@@ -15,8 +15,11 @@ def test_polygon_fetch_chain_raises_when_not_configured(
     """Without ``POLYGON_API_KEY`` the placeholder directs to synthetic-options."""
     monkeypatch.delenv("POLYGON_API_KEY", raising=False)
     adapter = PolygonAdapter()
-    with pytest.raises(PolygonNotConfiguredError, match="POLYGON_API_KEY"):
+    with pytest.raises(PolygonNotConfiguredError, match="POLYGON_API_KEY") as excinfo:
         adapter.fetch_chain("SPY", datetime(2024, 1, 2))
+    # Placeholder contract (ADR-004): message must direct callers at the
+    # synthetic-options substitute, not just state that the key is missing.
+    assert "synthetic-options" in str(excinfo.value)
 
 
 def test_polygon_fetch_chain_raises_not_implemented_when_configured(

@@ -31,10 +31,11 @@ Planned (later sessions):
 
 ## First-run experience (no keys configured)
 
-Two of the five 2B adapters work out of the box: `yfinance`,
-`yfinance-futures`, and `cftc-cot` need no credentials. A new user who
-runs the Phase 2 equity/trend backtests end-to-end never has to touch
-an API-key prompt.
+Three of the five 2B adapters work out of the box: `yfinance`,
+`yfinance-futures`, and `cftc-cot` need no credentials. The Phase
+2C `synthetic-options` feed is also credential-free and runs fully
+offline. A new user who runs the Phase 2 equity/trend/options
+backtests end-to-end never has to touch an API-key prompt.
 
 Adding FRED or EIA costs ~30 seconds each:
 

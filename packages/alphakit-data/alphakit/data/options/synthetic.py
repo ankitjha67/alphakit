@@ -254,10 +254,26 @@ class SyntheticOptionsFeed:
 
     @staticmethod
     def _extract_series(df: pd.DataFrame, underlying: str) -> pd.Series:
-        """Pull the underlying column; fall back to the first column for single-symbol fetches."""
+        """Pull the underlying column from the feed-response DataFrame.
+
+        Exact match on ``underlying`` wins. Otherwise the adapter only
+        falls back to ``iloc[:, 0]`` when the DataFrame has exactly one
+        column — ambiguous OHLCV-shaped inputs raise, because silently
+        pricing the chain against, say, an ``Open`` column when the
+        feed returned OHLCV would distort every quote without
+        surfacing the mistake.
+        """
         if underlying in df.columns:
-            return df[underlying]
-        return df.iloc[:, 0]
+            series = df[underlying]
+            return series if isinstance(series, pd.Series) else series.iloc[:, 0]
+        if df.shape[1] == 1:
+            return df.iloc[:, 0]
+        raise ValueError(
+            f"synthetic-options: underlying {underlying!r} not in price-feed columns "
+            f"{list(df.columns)!r}; cannot disambiguate the price series. "
+            "Provide an underlying feed that returns a single close-price column "
+            "named after the underlying symbol."
+        )
 
     @staticmethod
     def _build_quote(

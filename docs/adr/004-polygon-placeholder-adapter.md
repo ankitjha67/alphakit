@@ -66,9 +66,10 @@ ships as a stub. It implements `DataFeedProtocol` with `name="polygon"`.
 
 The adapter registers with `FeedRegistry` under `name="polygon"` at
 import time. Both error paths are covered by direct tests in
-`tests/test_polygon_adapter.py`; the shared contract test verifies
-the adapter's harness entry (`implements_fetch=False`,
-`implements_chain=False`, `chain_error_type=PolygonNotConfiguredError`).
+`packages/alphakit-data/tests/test_polygon_adapter.py`; the shared
+contract test verifies the adapter's harness entry
+(`implements_fetch=False`, `implements_chain=False`,
+`chain_error_type=PolygonNotConfiguredError`).
 
 A companion `docs/feeds/polygon.md` explains what Polygon provides,
 the current placeholder status, what Phase 3 will add, and how to
