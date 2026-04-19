@@ -38,9 +38,10 @@ import pytest
 # be referenced explicitly here to populate the registry before the
 # contract tests run. When a new adapter lands, add it to this block.
 from alphakit.data.equities.yfinance_adapter import YFinanceAdapter
-from alphakit.data.errors import OfflineModeError
+from alphakit.data.errors import OfflineModeError, PolygonNotConfiguredError
 from alphakit.data.futures.eia_adapter import EIAAdapter
 from alphakit.data.futures.yfinance_futures_adapter import YFinanceFuturesAdapter
+from alphakit.data.options.polygon_adapter import PolygonAdapter
 from alphakit.data.positioning.cftc_cot_adapter import CFTCCOTAdapter
 from alphakit.data.rates.fred_adapter import FREDAdapter
 from alphakit.data.registry import FeedRegistry
@@ -283,6 +284,20 @@ HARNESSES: dict[str, Harness] = {
         implements_fetch=True,
         implements_chain=False,
     ),
+    "polygon": Harness(
+        # Polygon is a Phase 2 placeholder (ADR-004): both fetch and
+        # fetch_chain raise. install_http_mock is unused because no
+        # fetch-path test runs against it.
+        module_path="alphakit.data.options.polygon_adapter",
+        offline_behavior="raise",
+        fetch_args=(["SPY"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
+        install_http_mock=lambda _m, _l, _v: None,
+        implements_fetch=False,
+        implements_chain=False,
+        fetch_error_type=NotImplementedError,
+        chain_error_type=PolygonNotConfiguredError,
+        chain_error_match="POLYGON_API_KEY",
+    ),
 }
 
 
@@ -316,6 +331,8 @@ def _ensure_adapters_registered() -> Iterator[None]:
         FeedRegistry.register(EIAAdapter())
     with contextlib.suppress(ValueError):
         FeedRegistry.register(CFTCCOTAdapter())
+    with contextlib.suppress(ValueError):
+        FeedRegistry.register(PolygonAdapter())
     yield
 
 
@@ -456,6 +473,23 @@ def test_adapter_caches_fetch_results(
         f"{name!r} second fetch should be a cache hit; call_log_second={call_log_second}"
     )
     pd.testing.assert_frame_equal(df_first, df_second)
+
+
+@pytest.mark.parametrize("name", _REGISTERED)
+def test_adapter_fetch_raises_when_unsupported(name: str) -> None:
+    """``fetch`` must raise when ``implements_fetch`` is ``False``.
+
+    Placeholder adapters like Polygon advertise a ``fetch`` method so
+    they satisfy the Protocol but refuse to do anything useful. This
+    test pins down that refusal.
+    """
+    harness = HARNESSES[name]
+    if harness.implements_fetch:
+        pytest.skip(f"{name!r} implements fetch; covered by offline / ratelimit / cache tests")
+    adapter = FeedRegistry.get(name)
+    symbols, start, end = harness.fetch_args
+    with pytest.raises(harness.fetch_error_type):
+        adapter.fetch(symbols, start, end)
 
 
 @pytest.mark.parametrize("name", _REGISTERED)
