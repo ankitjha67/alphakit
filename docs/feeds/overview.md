@@ -8,28 +8,34 @@ at the current phase.
 
 ## Registered feeds
 
-| Name               | Status | API Key         | Rate Limit (default) | Offline behaviour                     | Phase added |
-|--------------------|--------|-----------------|----------------------|---------------------------------------|-------------|
-| `yfinance`         | real   | —               | 60 req/min           | routes to fixture (close-price panel) | 1 / 2A      |
-| `yfinance-futures` | real   | —               | 60 req/min           | routes to fixture (close-price panel) | 2B          |
-| `fred`             | real   | `FRED_API_KEY`  | 120 req/min          | raises `OfflineModeError`             | 2B          |
-| `eia`              | real   | `EIA_API_KEY`   | 80 req/min           | raises `OfflineModeError`             | 2B          |
-| `cftc-cot`         | real   | —               | 10 req/min           | raises `OfflineModeError`             | 2B          |
+| Name                | Status      | API Key            | Rate Limit (default) | Offline behaviour                     | Phase added |
+|---------------------|-------------|--------------------|----------------------|---------------------------------------|-------------|
+| `yfinance`          | real        | —                  | 60 req/min           | routes to fixture (close-price panel) | 1 / 2A      |
+| `yfinance-futures`  | real        | —                  | 60 req/min           | routes to fixture (close-price panel) | 2B          |
+| `fred`              | real        | `FRED_API_KEY`     | 120 req/min          | raises `OfflineModeError`             | 2B          |
+| `eia`               | real        | `EIA_API_KEY`      | 80 req/min           | raises `OfflineModeError`             | 2B          |
+| `cftc-cot`          | real        | —                  | 10 req/min           | raises `OfflineModeError`             | 2B          |
+| `polygon`           | placeholder | `POLYGON_API_KEY`* | —                    | raises `PolygonNotConfiguredError`    | 2C          |
+| `synthetic-options` | synthetic   | —                  | —                    | works fully offline (chain-only)      | 2C          |
+
+\* `POLYGON_API_KEY` is documented for the Phase 3 upgrade path. In
+Phase 2 the adapter is a stub: with the key set, `fetch_chain` still
+raises `NotImplementedError`; without the key it raises
+`PolygonNotConfiguredError` directing callers to `synthetic-options`.
 
 Planned (later sessions):
 
 | Name                | Status      | Notes                                                  | Phase |
 |---------------------|-------------|--------------------------------------------------------|-------|
-| `polygon`           | placeholder | Raises `PolygonNotConfiguredError` until a real wiring | 2C    |
-| `synthetic-options` | real        | Black-Scholes + realized-vol synthetic option chains   | 2C    |
 | `ccxt`              | planned     | Crypto exchange data                                   | 3     |
 
 ## First-run experience (no keys configured)
 
-Two of the five 2B adapters work out of the box: `yfinance`,
-`yfinance-futures`, and `cftc-cot` need no credentials. A new user who
-runs the Phase 2 equity/trend backtests end-to-end never has to touch
-an API-key prompt.
+Three of the five 2B adapters work out of the box: `yfinance`,
+`yfinance-futures`, and `cftc-cot` need no credentials. The Phase
+2C `synthetic-options` feed is also credential-free and runs fully
+offline. A new user who runs the Phase 2 equity/trend/options
+backtests end-to-end never has to touch an API-key prompt.
 
 Adding FRED or EIA costs ~30 seconds each:
 

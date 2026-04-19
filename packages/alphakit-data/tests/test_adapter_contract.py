@@ -29,18 +29,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-import pytest
-
 # Adapter modules — each ``from ... import`` below loads the adapter
 # module, which triggers its module-level ``FeedRegistry.register()``
 # call. Python doesn't auto-import sub-packages, so every adapter must
 # be referenced explicitly here to populate the registry before the
 # contract tests run. When a new adapter lands, add it to this block.
+import numpy as np
+import pandas as pd
+import pytest
+from alphakit.core.data import OptionChain
 from alphakit.data.equities.yfinance_adapter import YFinanceAdapter
-from alphakit.data.errors import OfflineModeError
+from alphakit.data.errors import OfflineModeError, PolygonNotConfiguredError
 from alphakit.data.futures.eia_adapter import EIAAdapter
 from alphakit.data.futures.yfinance_futures_adapter import YFinanceFuturesAdapter
+from alphakit.data.options.polygon_adapter import PolygonAdapter
+from alphakit.data.options.synthetic import SyntheticOptionsFeed
 from alphakit.data.positioning.cftc_cot_adapter import CFTCCOTAdapter
 from alphakit.data.rates.fred_adapter import FREDAdapter
 from alphakit.data.registry import FeedRegistry
@@ -72,6 +75,44 @@ class Harness:
     Adapters that require an API key (e.g. ``FRED_API_KEY``,
     ``EIA_API_KEY``) list a dummy value here so Scenario B can exercise
     the full fetch pipeline without raising ``FeedNotConfiguredError``."""
+
+    implements_fetch: bool = True
+    """``True`` if ``fetch`` returns a price panel; ``False`` if it
+    raises ``NotImplementedError`` (e.g. Polygon placeholder,
+    synthetic-options which is chain-only). Adapters with
+    ``implements_fetch=False`` opt out of the offline/caching/rate-limit
+    scenarios, which all assume a working ``fetch``."""
+
+    implements_chain: bool = False
+    """``True`` if ``fetch_chain`` returns an ``OptionChain``; ``False``
+    if it raises. Session 2C's synthetic-options feed flips this on so
+    the chain-return + determinism contract tests run against it."""
+
+    fetch_error_type: type[BaseException] = NotImplementedError
+    """Exception type raised by ``fetch`` when ``implements_fetch`` is
+    ``False``. Used by :func:`test_adapter_fetch_raises_when_unsupported`."""
+
+    chain_error_type: type[BaseException] = NotImplementedError
+    """Exception type raised by ``fetch_chain`` when ``implements_chain``
+    is ``False``. Polygon uses ``PolygonNotConfiguredError``; every other
+    non-options adapter uses the default ``NotImplementedError`` via
+    :func:`raise_chain_not_supported`."""
+
+    chain_error_match: str | None = None
+    """Regex matched against the ``fetch_chain`` error message. ``None``
+    skips the match (Polygon's configuration-error message is
+    stylistically different from the ``f"{name!r}"`` pattern that
+    ``raise_chain_not_supported`` emits)."""
+
+    chain_setup: Callable[[pytest.MonkeyPatch], None] = field(
+        default=lambda _m: None,
+    )
+    """Optional hook called before every chain-contract test. Used by
+    the synthetic-options feed to inject a deterministic fake
+    underlying so chain tests don't hit yfinance."""
+
+    chain_args: tuple[str, datetime] = ("SPY", datetime(2024, 1, 2))
+    """Arguments passed as ``adapter.fetch_chain(underlying, as_of)``."""
 
 
 def _install_yfinance_mock(
@@ -212,18 +253,60 @@ def _install_cftc_cot_mock(
     monkeypatch.setattr("alphakit.data.positioning.cftc_cot_adapter.urlopen", fake_urlopen)
 
 
+def _install_synthetic_underlying(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Swap the registered synthetic-options feed's underlying for a fixed price series.
+
+    The path mirrors the production lookup (``SyntheticOptionsFeed``
+    reads ``self._explicit_underlying`` first, falling through to
+    ``FeedRegistry.get("yfinance")`` only if unset). We set the private
+    attribute directly so chain-contract tests don't depend on
+    yfinance — and ``monkeypatch.setattr`` restores the ``None``
+    default at test teardown.
+    """
+    n = 320  # comfortably above MIN_HISTORY_BARS=252
+    rng = np.random.default_rng(42)
+    daily_log_returns = rng.standard_normal(n) * 0.013  # ≈ 20 % annualised
+    values = 100.0 * np.exp(np.cumsum(daily_log_returns))
+    index = pd.date_range(end="2024-01-02", periods=n, freq="D")
+    frame = pd.DataFrame({"SPY": values}, index=index)
+
+    class _FakeUnderlying:
+        name = "fake-underlying"
+
+        def fetch(
+            self,
+            symbols: list[str],
+            start: datetime,
+            end: datetime,
+            frequency: str = "1d",
+        ) -> pd.DataFrame:
+            symbol = symbols[0]
+            renamed: pd.DataFrame = frame.rename(columns={"SPY": symbol}).copy()
+            return renamed
+
+        def fetch_chain(self, underlying: str, as_of: datetime) -> OptionChain:
+            raise NotImplementedError
+
+    feed = FeedRegistry.get("synthetic-options")
+    monkeypatch.setattr(feed, "_explicit_underlying", _FakeUnderlying())
+
+
 HARNESSES: dict[str, Harness] = {
     "yfinance": Harness(
         module_path="alphakit.data.equities.yfinance_adapter",
         offline_behavior="fixture",
         fetch_args=(["SPY"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_yfinance_mock,
+        implements_fetch=True,
+        implements_chain=False,
     ),
     "yfinance-futures": Harness(
         module_path="alphakit.data.futures.yfinance_futures_adapter",
         offline_behavior="fixture",
         fetch_args=(["CL=F"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_yfinance_futures_mock,
+        implements_fetch=True,
+        implements_chain=False,
     ),
     "fred": Harness(
         module_path="alphakit.data.rates.fred_adapter",
@@ -231,6 +314,8 @@ HARNESSES: dict[str, Harness] = {
         fetch_args=(["DGS10"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_fred_mock,
         extra_env={"FRED_API_KEY": "test-key-not-real"},
+        implements_fetch=True,
+        implements_chain=False,
     ),
     "eia": Harness(
         module_path="alphakit.data.futures.eia_adapter",
@@ -238,12 +323,44 @@ HARNESSES: dict[str, Harness] = {
         fetch_args=(["PET.WTISPLC.W"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_eia_mock,
         extra_env={"EIA_API_KEY": "test-key-not-real"},
+        implements_fetch=True,
+        implements_chain=False,
     ),
     "cftc-cot": Harness(
         module_path="alphakit.data.positioning.cftc_cot_adapter",
         offline_behavior="raise",
         fetch_args=(["067651"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
         install_http_mock=_install_cftc_cot_mock,
+        implements_fetch=True,
+        implements_chain=False,
+    ),
+    "polygon": Harness(
+        # Polygon is a Phase 2 placeholder (ADR-004): both fetch and
+        # fetch_chain raise. install_http_mock is unused because no
+        # fetch-path test runs against it. chain_setup deletes
+        # POLYGON_API_KEY so the missing-key branch fires regardless
+        # of what the surrounding shell / CI secret context happens
+        # to have exported.
+        module_path="alphakit.data.options.polygon_adapter",
+        offline_behavior="raise",
+        fetch_args=(["SPY"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
+        install_http_mock=lambda _m, _l, _v: None,
+        implements_fetch=False,
+        implements_chain=False,
+        fetch_error_type=NotImplementedError,
+        chain_error_type=PolygonNotConfiguredError,
+        chain_error_match="POLYGON_API_KEY",
+        chain_setup=lambda m: m.delenv("POLYGON_API_KEY", raising=False),
+    ),
+    "synthetic-options": Harness(
+        module_path="alphakit.data.options.synthetic",
+        offline_behavior="raise",
+        fetch_args=(["SPY"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
+        install_http_mock=lambda _m, _l, _v: None,
+        implements_fetch=False,
+        implements_chain=True,
+        fetch_error_type=NotImplementedError,
+        chain_setup=_install_synthetic_underlying,
     ),
 }
 
@@ -278,6 +395,10 @@ def _ensure_adapters_registered() -> Iterator[None]:
         FeedRegistry.register(EIAAdapter())
     with contextlib.suppress(ValueError):
         FeedRegistry.register(CFTCCOTAdapter())
+    with contextlib.suppress(ValueError):
+        FeedRegistry.register(PolygonAdapter())
+    with contextlib.suppress(ValueError):
+        FeedRegistry.register(SyntheticOptionsFeed())
     yield
 
 
@@ -309,6 +430,8 @@ def test_adapter_offline_behavior(
 ) -> None:
     """Scenario A: ``ALPHAKIT_OFFLINE=1`` routes to fixture or raises."""
     harness = HARNESSES[name]
+    if not harness.implements_fetch:
+        pytest.skip(f"{name!r} does not implement fetch; offline behaviour N/A")
     monkeypatch.setenv("ALPHAKIT_OFFLINE", "1")
     monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
     # Belt-and-suspenders: break the HTTP stack so any accidental
@@ -338,6 +461,8 @@ def test_adapter_online_calls_ratelimit_before_http(
 ) -> None:
     """Scenario B: online fetch calls ``ratelimit_acquire(name)`` before HTTP."""
     harness = HARNESSES[name]
+    if not harness.implements_fetch:
+        pytest.skip(f"{name!r} does not implement fetch; rate-limit path N/A")
     monkeypatch.delenv("ALPHAKIT_OFFLINE", raising=False)
     monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
     for env_key, env_value in harness.extra_env.items():
@@ -368,6 +493,9 @@ def test_adapter_online_calls_ratelimit_before_http(
 @pytest.mark.parametrize("name", _REGISTERED)
 def test_adapter_fetch_has_cached_feed_marker(name: str) -> None:
     """F3a: ``@cached_feed`` wraps fetch → ``__wrapped__`` attribute present."""
+    harness = HARNESSES[name]
+    if not harness.implements_fetch:
+        pytest.skip(f"{name!r} does not implement fetch; cache marker N/A")
     adapter = FeedRegistry.get(name)
     assert hasattr(adapter.fetch, "__wrapped__"), (
         f"{name!r} adapter.fetch missing __wrapped__; is @cached_feed applied?"
@@ -388,6 +516,8 @@ def test_adapter_caches_fetch_results(
     returns A and never triggers the second mock.
     """
     harness = HARNESSES[name]
+    if not harness.implements_fetch:
+        pytest.skip(f"{name!r} does not implement fetch; caching N/A")
     monkeypatch.delenv("ALPHAKIT_OFFLINE", raising=False)
     monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
     for env_key, env_value in harness.extra_env.items():
@@ -412,14 +542,88 @@ def test_adapter_caches_fetch_results(
 
 
 @pytest.mark.parametrize("name", _REGISTERED)
-def test_adapter_fetch_chain_raises_when_unsupported(name: str) -> None:
-    """``fetch_chain`` must either raise or return an OptionChain.
+def test_adapter_fetch_raises_when_unsupported(name: str) -> None:
+    """``fetch`` must raise when ``implements_fetch`` is ``False``.
 
-    All Phase 2B free-feed adapters raise via
-    ``raise_chain_not_supported``. When Session 2C adds options-capable
-    adapters (synthetic, Polygon), extend the harness with an
-    ``implements_chain`` flag and branch here.
+    Placeholder adapters like Polygon advertise a ``fetch`` method so
+    they satisfy the Protocol but refuse to do anything useful. This
+    test pins down that refusal.
     """
+    harness = HARNESSES[name]
+    if harness.implements_fetch:
+        pytest.skip(f"{name!r} implements fetch; covered by offline / ratelimit / cache tests")
     adapter = FeedRegistry.get(name)
-    with pytest.raises(NotImplementedError, match=f"{name!r}"):
-        adapter.fetch_chain("SPY", datetime(2024, 1, 2))
+    symbols, start, end = harness.fetch_args
+    with pytest.raises(harness.fetch_error_type):
+        adapter.fetch(symbols, start, end)
+
+
+@pytest.mark.parametrize("name", _REGISTERED)
+def test_adapter_fetch_chain_raises_when_unsupported(
+    name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``fetch_chain`` must raise when ``implements_chain`` is ``False``.
+
+    Most Phase 2B free-feed adapters raise via
+    ``raise_chain_not_supported`` (a ``NotImplementedError`` whose
+    message contains ``f"{name!r}"``). Session 2C's Polygon placeholder
+    raises ``PolygonNotConfiguredError`` with a differently-formatted
+    message — hence the optional ``chain_error_match``.
+    """
+    harness = HARNESSES[name]
+    if harness.implements_chain:
+        pytest.skip(f"{name!r} implements fetch_chain; covered by the returns-OptionChain test")
+    harness.chain_setup(monkeypatch)
+    adapter = FeedRegistry.get(name)
+    underlying, as_of = harness.chain_args
+    if harness.chain_error_match is None:
+        with pytest.raises(harness.chain_error_type):
+            adapter.fetch_chain(underlying, as_of)
+    else:
+        with pytest.raises(harness.chain_error_type, match=harness.chain_error_match):
+            adapter.fetch_chain(underlying, as_of)
+
+
+@pytest.mark.parametrize("name", _REGISTERED)
+def test_adapter_fetch_chain_returns_option_chain(
+    name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Chain-capable adapters must return a well-formed ``OptionChain``."""
+    harness = HARNESSES[name]
+    if not harness.implements_chain:
+        pytest.skip(f"{name!r} does not implement fetch_chain")
+    harness.chain_setup(monkeypatch)
+    adapter = FeedRegistry.get(name)
+    underlying, as_of = harness.chain_args
+    chain = adapter.fetch_chain(underlying, as_of)
+    assert isinstance(chain, OptionChain)
+    assert chain.underlying == underlying
+    assert chain.spot > 0.0
+    assert type(chain.quotes) is tuple
+    assert len(chain.quotes) > 0
+
+
+@pytest.mark.parametrize("name", _REGISTERED)
+def test_adapter_fetch_chain_is_deterministic(
+    name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two calls with the same inputs must return byte-identical chains.
+
+    Backtest reproducibility depends on this: an RNG call snuck into a
+    pricing path would turn the same underlying+as_of into two
+    different chains across runs, silently invalidating every saved
+    benchmark.
+    """
+    harness = HARNESSES[name]
+    if not harness.implements_chain:
+        pytest.skip(f"{name!r} does not implement fetch_chain")
+    harness.chain_setup(monkeypatch)
+    adapter = FeedRegistry.get(name)
+    underlying, as_of = harness.chain_args
+    chain_a = adapter.fetch_chain(underlying, as_of)
+    chain_b = adapter.fetch_chain(underlying, as_of)
+    assert chain_a == chain_b
+    assert chain_a.quotes == chain_b.quotes

@@ -160,6 +160,14 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "N802"]
 "**/__init__.py" = ["F401"]
+# Black-Scholes helpers use canonical math symbols (S, K, T) that map
+# directly to the published literature (Hull, Haug). Overruling
+# N803/N806 here keeps the source readable for anyone cross-referencing
+# a derivatives textbook.
+"packages/alphakit-data/alphakit/data/options/bs.py" = ["N803", "N806"]
+"packages/alphakit-data/alphakit/data/options/synthetic.py" = ["N803", "N806"]
+"packages/alphakit-data/tests/test_bs.py" = ["N803", "N806"]
+"packages/alphakit-data/tests/test_synthetic_options.py" = ["N803", "N806"]
 
 # ---------------------------------------------------------------------------
 # Black
