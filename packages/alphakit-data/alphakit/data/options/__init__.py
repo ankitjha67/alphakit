@@ -7,4 +7,4 @@ strategies can resolve them by name from a single entry point.
 
 from __future__ import annotations
 
-from alphakit.data.options import polygon_adapter  # registers at import
+from alphakit.data.options import polygon_adapter, synthetic  # registers at import
