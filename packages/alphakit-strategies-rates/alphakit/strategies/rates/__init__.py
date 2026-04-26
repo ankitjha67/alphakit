@@ -26,6 +26,7 @@ from alphakit.strategies.rates.curve_steepener_2s10s.strategy import CurveSteepe
 from alphakit.strategies.rates.duration_targeted_momentum.strategy import (
     DurationTargetedMomentum,
 )
+from alphakit.strategies.rates.real_yield_momentum.strategy import RealYieldMomentum
 
 __all__ = [
     "BondCarryRolldown",
@@ -35,4 +36,5 @@ __all__ = [
     "CurveFlattener2s10s",
     "CurveSteepener2s10s",
     "DurationTargetedMomentum",
+    "RealYieldMomentum",
 ]
