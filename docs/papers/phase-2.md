@@ -45,6 +45,7 @@ drop entries for `fed_funds_surprise` and `fra_ois_spread`).
 |---|---|---|---|---|---|---|---|
 | [`bond_tsmom_12_1`](../../packages/alphakit-strategies-rates/alphakit/strategies/rates/bond_tsmom_12_1/) | Moskowitz/Ooi/Pedersen 2012 | Asness/Moskowitz/Pedersen 2013 §V | [10.1111/jofi.12021](https://doi.org/10.1111/jofi.12021) | fred (DGS10) or yfinance (TLT) | deferred to 2H | 0.4–0.6 (single-asset OOS) | [`known_failures.md`](../../packages/alphakit-strategies-rates/alphakit/strategies/rates/bond_tsmom_12_1/known_failures.md) |
 | [`curve_steepener_2s10s`](../../packages/alphakit-strategies-rates/alphakit/strategies/rates/curve_steepener_2s10s/) | Litterman/Scheinkman 1991 | Cochrane/Piazzesi 2005 | [10.1257/0002828053828581](https://doi.org/10.1257/0002828053828581) | fred (DGS2+DGS10) or yfinance (SHY+TLT) | deferred to 2H | 0.3–0.7 (regime-conditional) | [`known_failures.md`](../../packages/alphakit-strategies-rates/alphakit/strategies/rates/curve_steepener_2s10s/known_failures.md) |
+| [`curve_flattener_2s10s`](../../packages/alphakit-strategies-rates/alphakit/strategies/rates/curve_flattener_2s10s/) | Litterman/Scheinkman 1991 | Cochrane/Piazzesi 2005 | [10.1257/0002828053828581](https://doi.org/10.1257/0002828053828581) | fred (DGS2+DGS10) or yfinance (SHY+TLT) | deferred to 2H | 0.3–0.7 (regime-conditional, mirror of steepener; ρ ≈ −1.0) | [`known_failures.md`](../../packages/alphakit-strategies-rates/alphakit/strategies/rates/curve_flattener_2s10s/known_failures.md) |
 
 ---
 
