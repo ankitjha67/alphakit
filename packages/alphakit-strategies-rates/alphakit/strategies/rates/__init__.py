@@ -27,6 +27,7 @@ from alphakit.strategies.rates.duration_targeted_momentum.strategy import (
     DurationTargetedMomentum,
 )
 from alphakit.strategies.rates.real_yield_momentum.strategy import RealYieldMomentum
+from alphakit.strategies.rates.yield_curve_pca_trade.strategy import YieldCurvePCATrade
 
 __all__ = [
     "BondCarryRolldown",
@@ -37,4 +38,5 @@ __all__ = [
     "CurveSteepener2s10s",
     "DurationTargetedMomentum",
     "RealYieldMomentum",
+    "YieldCurvePCATrade",
 ]
