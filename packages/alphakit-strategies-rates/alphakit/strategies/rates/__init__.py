@@ -28,6 +28,9 @@ from alphakit.strategies.rates.duration_targeted_momentum.strategy import (
     DurationTargetedMomentum,
 )
 from alphakit.strategies.rates.g10_bond_carry.strategy import G10BondCarry
+from alphakit.strategies.rates.global_inflation_momentum.strategy import (
+    GlobalInflationMomentum,
+)
 from alphakit.strategies.rates.real_yield_momentum.strategy import RealYieldMomentum
 from alphakit.strategies.rates.swap_spread_mean_rev.strategy import SwapSpreadMeanRev
 from alphakit.strategies.rates.yield_curve_pca_trade.strategy import YieldCurvePCATrade
@@ -42,6 +45,7 @@ __all__ = [
     "CurveSteepener2s10s",
     "DurationTargetedMomentum",
     "G10BondCarry",
+    "GlobalInflationMomentum",
     "RealYieldMomentum",
     "SwapSpreadMeanRev",
     "YieldCurvePCATrade",
