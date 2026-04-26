@@ -140,3 +140,48 @@ registered adapters covering:
 - Schema mismatches (adapter expects column X, upstream returns Y)
 
 No Phase 2 scope change. Session 2C unblocked.
+
+---
+
+## 2026-04-18 — Session 2C: macOS verify-install transient network flake
+
+Context: First dispatch of verify-install.yml against main after
+Session 2C merge (run #10) failed on the macos-latest/3.11 leg only.
+Failure was a TCP connect timeout to github.com:443 during git clone
+inside pip install — the install step never reached the wheel build,
+let alone tests. Other 5 matrix legs passed in 50-80s.
+
+Re-run of failed jobs (run #11) was 6/6 green against the same
+commit. No code change needed.
+
+Pattern: macOS GitHub Actions runners occasionally exhibit transient
+network failures during pip install from git sources. Diagnosis
+heuristic: if exactly one matrix leg fails on a network operation
+that other legs completed, suspect runner flake before assuming
+code regression.
+
+Action: Re-run failed jobs first; only investigate code if the same
+leg fails on re-run with a different error.
+
+No scope change.
+
+---
+
+## 2026-04-18 — Session 2C: GitHub Actions Node.js 20 deprecation warning
+
+Context: verify-install.yml run #11 surfaced a deprecation warning:
+actions/checkout@v4 and actions/setup-python@v5 run on Node.js 20.
+GitHub will force Node.js 24 by June 2 2026 and remove Node.js 20
+on Sept 16 2026.
+
+Decision: Defer fix to a Phase 2 housekeeping pass. Workflows still
+run correctly today; the warning is informational, not blocking.
+Available bumps: actions/checkout@v5 (or pin to a v4 tag that
+explicitly supports Node 24) and actions/setup-python@v6.
+
+Trigger: bump actions before Session 2H if the deprecation banner
+becomes more aggressive, otherwise bundle into Session 2H's CI
+cleanup.
+
+Phase 2 housekeeping ticket added (informally tracked here, not
+filed as GitHub issue per silent-build discipline).
