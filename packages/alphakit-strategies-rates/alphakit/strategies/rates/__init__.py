@@ -15,4 +15,6 @@ the full audit trail.
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from alphakit.strategies.rates.bond_tsmom_12_1.strategy import BondTSMOM12m1m
+
+__all__ = ["BondTSMOM12m1m"]

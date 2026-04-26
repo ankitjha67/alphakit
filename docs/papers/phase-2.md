@@ -43,6 +43,7 @@ drop entries for `fed_funds_surprise` and `fra_ois_spread`).
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|
+| [`bond_tsmom_12_1`](../../packages/alphakit-strategies-rates/alphakit/strategies/rates/bond_tsmom_12_1/) | Moskowitz/Ooi/Pedersen 2012 | Asness/Moskowitz/Pedersen 2013 §V | [10.1111/jofi.12021](https://doi.org/10.1111/jofi.12021) | fred (DGS10) or yfinance (TLT) | deferred to 2H | 0.4–0.6 (single-asset OOS) | [`known_failures.md`](../../packages/alphakit-strategies-rates/alphakit/strategies/rates/bond_tsmom_12_1/known_failures.md) |
 
 ---
 
