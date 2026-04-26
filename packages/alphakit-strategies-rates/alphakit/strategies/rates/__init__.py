@@ -16,11 +16,13 @@ the full audit trail.
 from __future__ import annotations
 
 from alphakit.strategies.rates.bond_tsmom_12_1.strategy import BondTSMOM12m1m
+from alphakit.strategies.rates.curve_butterfly_2s5s10s.strategy import CurveButterfly2s5s10s
 from alphakit.strategies.rates.curve_flattener_2s10s.strategy import CurveFlattener2s10s
 from alphakit.strategies.rates.curve_steepener_2s10s.strategy import CurveSteepener2s10s
 
 __all__ = [
     "BondTSMOM12m1m",
+    "CurveButterfly2s5s10s",
     "CurveFlattener2s10s",
     "CurveSteepener2s10s",
 ]
