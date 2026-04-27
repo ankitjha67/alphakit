@@ -46,6 +46,7 @@ dependencies = [
     "alphakit-strategies-carry",
     "alphakit-strategies-value",
     "alphakit-strategies-volatility",
+    "alphakit-strategies-rates",
     "alphakit-bench",
 ]
 
@@ -56,7 +57,7 @@ carry = ["alphakit-strategies-carry"]
 value = ["alphakit-strategies-value"]
 volatility = ["alphakit-strategies-volatility"]
 options = []
-rates = []
+rates = ["alphakit-strategies-rates"]
 commodity = []
 macro = []
 ml = ["scikit-learn>=1.3", "xgboost>=2.0", "lightgbm>=4.0"]

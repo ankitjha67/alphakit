@@ -249,3 +249,103 @@ a derivatives data feed; neither is on the Phase 2 roadmap.
 
 Manifest impact: rates family ships 13 strategies after both
 Session 2D drops. Total Phase 2 strategy count drops from 65 to 63.
+
+---
+
+## 2026-04-26 — Session 2D: signal-contract clarifications across rates strategies
+
+Context: implementing 13 rates strategies surfaced several
+contract-level conventions that go beyond the bare
+`StrategyProtocol.generate_signals(prices: DataFrame) -> DataFrame`
+shape documented in `alphakit.core.protocols`. These are not
+deviations from the protocol — they are *extensions* that downstream
+families (commodity, options, macro) should follow for consistency.
+
+### 1. Discrete vs vol-scaled signals on single-asset trades
+
+`bond_tsmom_12_1` was originally specified in the Session 2D brief
+to return ``pd.Series of {-1, 0, +1}``, but the protocol requires
+``pd.DataFrame``. Resolution: return a *single-column DataFrame*
+on the discrete ``{-1.0, 0.0, +1.0}`` grid. This preserves both:
+
+* the protocol contract (DataFrame return), and
+* the discrete-signal economic content (no vol-targeting on a
+  single asset; vol-targeting is deferred to a portfolio overlay).
+
+This pattern applies to single-asset momentum/sign strategies
+generally. Phase 1 `tsmom_12_1` (trend) returns vol-scaled weights
+because it operates on a multi-asset panel and applies cross-asset
+vol-scaling internally; the rates-family analogue does not, by
+design.
+
+### 2. Column-naming conventions for multi-leg strategies
+
+Several rates strategies require structured multi-column inputs
+that exceed "free-form list of asset symbols":
+
+* **2-column ordered** (steepener / flattener / carry-rolldown /
+  swap-spread): first column is "short-end / Treasury", second
+  column is "long-end / target / swap". Validated at runtime via
+  ``prices.shape[1] == 2`` plus column-order semantics in the
+  docstring.
+* **3-column ordered** (curve-butterfly): ``[short, belly, long]``.
+* **N-column with per-column duration mapping**
+  (duration-targeted-momentum, g10-bond-carry): a
+  ``durations: dict[str, float]`` map validates that every input
+  column has a configured duration.
+* **2K-column with prefix-pairing** (global-inflation-momentum):
+  ``CPI_<country>`` paired with ``BOND_<country>``. Validated by
+  splitting columns into two sets and requiring exact match.
+* **N>=4 free-named panel** (yield-curve-pca-trade): requires
+  ``n_pcs < n_assets``; column names are flexible because PCA
+  works on the covariance regardless.
+
+Each strategy raises ``ValueError`` with a descriptive message on
+contract violation. Future families (commodity, options, macro)
+should follow the same pattern: validate column count and naming
+at the top of `generate_signals`, raise descriptive errors, document
+the convention in the strategy docstring AND in the README.
+
+### 3. Strategies that take informational columns with zero weight
+
+`bond_carry_rolldown` and `global_inflation_momentum` accept
+columns that are *informational only* and always carry zero weight
+in the output:
+
+* `bond_carry_rolldown`: the short-end column is informational
+  (used to compute the slope proxy); only the target-bond column
+  ever carries non-zero weight.
+* `global_inflation_momentum`: `CPI_<country>` columns are
+  informational (used to compute inflation momentum); only
+  `BOND_<country>` columns carry non-zero weight.
+
+This is a legitimate pattern: the strategy needs the auxiliary data
+to compute the signal but does not take a position on it. The
+protocol still preserves shape (output DataFrame columns match
+input), with informational columns explicitly zero. Future
+strategies that need exogenous signal inputs (e.g. macro state
+variables) should follow this pattern rather than introducing a
+side-channel constructor parameter.
+
+### 4. Methodology bug caught and fixed mid-session
+
+The initial `curve_steepener_2s10s` draft inverted the steepener
+mechanic — the position is **long short-end / short long-end**,
+not the reverse. The error was caught during code-review of the
+strategy.py docstring before commit and fixed in-place. The fix
+was confirmed across the four downstream strategies that share the
+mean-reversion-on-log-spread mechanic (flattener, butterfly,
+swap-spread mean-rev, breakeven rotation) — each was derived from
+the corrected sign convention.
+
+Action item for Phase 2 housekeeping: file a one-page "fixed-income
+trade-direction reference" under `docs/` summarising the
+steepener/flattener/butterfly/carry/basis directions of trade so
+that future implementations can cross-reference rather than
+re-derive. Bundled into Session 2H cleanup.
+
+### Impact
+
+These are extensions, not deviations. No changes to
+`alphakit.core.protocols.StrategyProtocol`. Contract-level patterns
+documented here for downstream families to follow.

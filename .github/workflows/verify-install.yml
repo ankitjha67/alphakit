@@ -49,7 +49,8 @@ jobs:
 
           for pkg in core data bridges \
                      strategies-trend strategies-meanrev strategies-carry \
-                     strategies-value strategies-volatility bench; do
+                     strategies-value strategies-volatility strategies-rates \
+                     bench; do
             echo "::group::Installing alphakit-${pkg}"
             pip install "alphakit-${pkg} @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-${pkg}"
             echo "::endgroup::"
@@ -86,11 +87,14 @@ jobs:
           from alphakit.strategies.volatility.vol_targeting import VolTargeting
           check_protocol(VolTargeting, 'volatility')
 
+          from alphakit.strategies.rates.bond_tsmom_12_1 import BondTSMOM12m1m
+          check_protocol(BondTSMOM12m1m, 'rates')
+
           from alphakit.bench.discovery import discover_slugs
           slugs = discover_slugs()
-          if len(slugs) != 60:
+          if len(slugs) != 73:
               raise RuntimeError(
-                  f'Discovery returned {len(slugs)} strategies, expected 60. '
+                  f'Discovery returned {len(slugs)} strategies, expected 73. '
                   f'First 10 found: {sorted(slugs)[:10]}. '
                   f'This indicates alphakit.bench.discovery is not finding '
                   f'strategies in the pip-installed layout.'
