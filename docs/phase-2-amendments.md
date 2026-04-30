@@ -349,3 +349,167 @@ re-derive. Bundled into Session 2H cleanup.
 These are extensions, not deviations. No changes to
 `alphakit.core.protocols.StrategyProtocol`. Contract-level patterns
 documented here for downstream families to follow.
+
+---
+
+## 2026-04-27 — Session 2E: drop energy_weather_premium (no citable systematic-strategy paper)
+
+Context: The Session 2E commodity manifest listed
+`energy_weather_premium` — long WTI ahead of winter on the basis of
+a "winter pre-positioning" premium.
+
+Honesty-check failure: There is no citable academic paper that
+specifies a tradable systematic rule for a WTI pre-winter premium.
+The phenomenon exists in commodity-trading folklore (and there is
+related literature on natural-gas weather risk, e.g. Considine
+2000), but applying a systematic long-WTI-into-Q4 rule with a
+specific entry/exit logic is not anchored in a peer-reviewed paper
+that this implementation could replicate verbatim.
+
+Options considered:
+- Substitute a generic "seasonal commodity premium" anchor (e.g.
+  Sørensen 2002 on agricultural seasonality). Rejected: WTI is not
+  agricultural and the seasonality mechanism (heating-demand
+  premium) is materially different from grain-harvest seasonality.
+- Use weather-derivative literature (Boyd/Mercer 2010, etc.).
+  Rejected: that literature trades weather contracts, not WTI
+  futures, and the bridge to WTI prices is not specified by any
+  single paper.
+
+Decision: Drop. Phase 2 ships without a WTI-pre-winter strategy.
+Re-instatement would require a peer-reviewed paper specifying both
+the entry rule and the empirical evidence — not currently
+available.
+
+Manifest impact: commodity family ships 14 strategies after this
+drop; further drops in this session reduce that further (see
+subsequent entries).
+
+---
+
+## 2026-04-27 — Session 2E: drop henry_hub_ttf_spread (no European nat gas data feed + thin systematic-strategy citation)
+
+Context: The Session 2E commodity manifest listed
+`henry_hub_ttf_spread` — mean-reversion on the US-EU natural gas
+spread (Henry Hub vs Title Transfer Facility).
+
+Honesty-check failure (two independent reasons):
+
+1. **No European nat gas data feed wired up.** The `eia` adapter
+   (Session 2B) covers US Energy Information Administration series
+   only — it does not carry European TTF settlements. There is no
+   ICE or Bloomberg adapter on the Phase 2 roadmap. Without TTF
+   prices, the spread cannot be computed.
+2. **Thin systematic-strategy citation.** Cross-region nat gas
+   pricing has structural reasons (LNG arbitrage capacity, pipeline
+   constraints) and there is descriptive literature on natural-gas
+   market integration (Asche, Osmundsen & Sandsmark 2012), but a
+   peer-reviewed paper specifying a tradable systematic strategy on
+   the HH-TTF spread is not in evidence.
+
+Decision: Drop. Phase 2 ships without an HH-TTF strategy.
+Re-instatement would require both (a) a European nat gas data
+adapter and (b) a peer-reviewed strategy paper; neither is on the
+Phase 2 roadmap.
+
+Manifest impact: commodity family ships 13 strategies after this
+drop.
+
+---
+
+## 2026-04-27 — Session 2E: drop inventory_surprise (no consensus-expectations data)
+
+Context: The Session 2E commodity manifest listed
+`inventory_surprise` — trade WTI on the EIA weekly inventory report
+versus consensus expectations, anchored on Linn & Zhu 2004 "Natural
+gas prices and the gas storage report" (Journal of Futures Markets).
+
+Honesty-check failure: Linn & Zhu (2004) construct the "surprise"
+as **realised inventory − Bloomberg consensus forecast**. The
+`eia` adapter carries the realised inventory series but **no
+consensus-expectations data**. Bloomberg / Reuters survey data is
+not in scope for any Phase 2 feed.
+
+This is the same failure mode as `fed_funds_surprise` in Session
+2D (Kuttner 2001 surprise required CME fed-funds-futures-implied
+expectations, not on FRED). The honesty-bar precedent: drop rather
+than substitute a synthetic-expectations methodology that would
+materially change both the citation and the strategy's economic
+content.
+
+Options considered:
+- Substitute an AR(1) or seasonal-average forecast as the
+  "expected" inventory. Rejected: changes the methodology; would
+  need its own peer-reviewed citation that specifies the
+  forecast rule. Not on the Phase 2 roadmap.
+
+Decision: Drop. Phase 2 ships without an inventory-surprise
+strategy. Re-instatement requires a Bloomberg / Reuters consensus
+data feed, which is a separate session-scale data-engineering
+effort.
+
+Manifest impact: commodity family ships 12 strategies after this
+drop.
+
+---
+
+## 2026-04-27 — Session 2E: drop calendar_spread_corn (folk wisdom, not a citable systematic strategy)
+
+Context: The Session 2E commodity manifest listed
+`calendar_spread_corn` — corn calendar spread (March-July).
+
+Honesty-check failure: Calendar-spread mechanics are well-
+documented (Working 1949 "Theory of Inverse Carrying Charges"), but
+the specific Mar-Jul corn spread as a *systematic strategy* with a
+citable entry rule is folk wisdom from commodity-trading practice.
+There is some practitioner literature (CME Group educational
+material) but no peer-reviewed paper specifies a tradable rule.
+
+Options considered:
+- Generalise to a multi-commodity `ag_calendar_spread` with
+  Sørensen 2002 (agricultural seasonality) and Working 1949 (calendar
+  spread theory) as anchors. Rejected: that universe overlaps
+  `grain_seasonality` (which is shipping in this session) and the
+  differentiation gets thin — both would trade similar seasonal
+  patterns on similar ag commodities.
+
+Decision: Drop. The calendar-spread mechanic is captured implicitly
+in `grain_seasonality` which trades outright seasonal positions on
+corn / soybeans / wheat with a citable academic anchor. A separate
+calendar-spread strategy without its own citation is redundant.
+
+Manifest impact: commodity family ships 11 strategies after this
+drop.
+
+---
+
+## 2026-04-27 — Session 2E: drop coffee_weather_asymmetry (folk wisdom, no academic anchor)
+
+Context: The Session 2E commodity manifest listed
+`coffee_weather_asymmetry` — long coffee during Brazilian winter
+(June-August in the southern hemisphere) on the basis of frost-risk
+asymmetry.
+
+Honesty-check failure: The "Brazilian-winter coffee long" is folk
+wisdom in commodity trading. Agronomic literature on frost
+protection in coffee (Goetz 2000) is descriptive, not financial.
+Letson/McCullough 2001 examines coffee weather impacts but does
+not specify a tradable systematic rule. There is no peer-reviewed
+academic paper that this implementation could replicate as a
+systematic strategy.
+
+Options considered:
+- Retitle as `coffee_weather_volatility` and anchor on a generic
+  weather-derivatives paper (e.g. Boyd & Mercer 2010). Rejected:
+  weather-derivatives literature trades weather contracts, not
+  coffee futures, and the bridge to coffee prices is not specified.
+
+Decision: Drop. Phase 2 ships without a coffee strategy.
+Re-instatement would require a peer-reviewed paper that
+specifies both the weather-conditional entry rule and the
+empirical evidence on coffee futures specifically — not currently
+available.
+
+Manifest impact: commodity family ships **10 strategies** after
+this drop. Total Phase 2 strategy count revised: was 63 after
+Session 2D drops, **now 58** after Session 2E's 5 drops.

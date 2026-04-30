@@ -61,8 +61,12 @@ drop entries for `fed_funds_surprise` and `fra_ois_spread`).
 
 ## Commodity family
 
-Sub-package: `packages/alphakit-strategies-commodity/`. Target: 15
-strategies (Session 2E).
+Sub-package: `packages/alphakit-strategies-commodity/`. Target: **10
+strategies** (reduced from the originally-planned 15 — see
+[`../phase-2-amendments.md`](../phase-2-amendments.md) Session 2E
+drop entries for `energy_weather_premium`, `henry_hub_ttf_spread`,
+`inventory_surprise`, `calendar_spread_corn`, and
+`coffee_weather_asymmetry`).
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|

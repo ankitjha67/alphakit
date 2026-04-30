@@ -1,0 +1,20 @@
+"""Commodity strategies — Phase 2 Session 2E.
+
+Phase 2 target: 10 strategies on energy futures, metals, agricultural
+commodities, CFTC speculator positioning, and cross-commodity carry
+and momentum. Strategy classes are added to ``__all__`` as each
+per-strategy commit lands within Session 2E.
+
+The shipping count is 10 rather than the originally-planned 15:
+``energy_weather_premium``, ``henry_hub_ttf_spread``,
+``inventory_surprise``, ``calendar_spread_corn``, and
+``coffee_weather_asymmetry`` were dropped under the Phase 2
+honesty-check (no citable systematic-strategy papers, missing data
+feeds for non-US markets, and folk-wisdom trades without academic
+anchors). See ``docs/phase-2-amendments.md`` for the full audit
+trail of the 5 drops.
+"""
+
+from __future__ import annotations
+
+__all__: list[str] = []
