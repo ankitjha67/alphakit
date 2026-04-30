@@ -24,6 +24,7 @@ from alphakit.strategies.commodity.commodity_tsmom.strategy import CommodityTSMO
 from alphakit.strategies.commodity.cot_speculator_position.strategy import (
     COTSpeculatorPosition,
 )
+from alphakit.strategies.commodity.grain_seasonality.strategy import GrainSeasonality
 from alphakit.strategies.commodity.metals_momentum.strategy import MetalsMomentum
 from alphakit.strategies.commodity.ng_contango_short.strategy import NGContangoShort
 from alphakit.strategies.commodity.wti_backwardation_carry.strategy import (
@@ -34,6 +35,7 @@ __all__ = [
     "COTSpeculatorPosition",
     "CommodityCurveCarry",
     "CommodityTSMOM12m1m",
+    "GrainSeasonality",
     "MetalsMomentum",
     "NGContangoShort",
     "WTIBackwardationCarry",
