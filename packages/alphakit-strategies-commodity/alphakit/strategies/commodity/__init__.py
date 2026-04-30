@@ -25,6 +25,7 @@ from alphakit.strategies.commodity.cot_speculator_position.strategy import (
     COTSpeculatorPosition,
 )
 from alphakit.strategies.commodity.crack_spread.strategy import CrackSpread
+from alphakit.strategies.commodity.crush_spread.strategy import CrushSpread
 from alphakit.strategies.commodity.grain_seasonality.strategy import GrainSeasonality
 from alphakit.strategies.commodity.metals_momentum.strategy import MetalsMomentum
 from alphakit.strategies.commodity.ng_contango_short.strategy import NGContangoShort
@@ -37,6 +38,7 @@ __all__ = [
     "CommodityCurveCarry",
     "CommodityTSMOM12m1m",
     "CrackSpread",
+    "CrushSpread",
     "GrainSeasonality",
     "MetalsMomentum",
     "NGContangoShort",
