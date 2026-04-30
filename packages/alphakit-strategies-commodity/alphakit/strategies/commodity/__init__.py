@@ -18,5 +18,6 @@ trail of the 5 drops.
 from __future__ import annotations
 
 from alphakit.strategies.commodity.commodity_tsmom.strategy import CommodityTSMOM12m1m
+from alphakit.strategies.commodity.metals_momentum.strategy import MetalsMomentum
 
-__all__ = ["CommodityTSMOM12m1m"]
+__all__ = ["CommodityTSMOM12m1m", "MetalsMomentum"]
