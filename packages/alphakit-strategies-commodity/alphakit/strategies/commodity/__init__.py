@@ -19,8 +19,14 @@ from __future__ import annotations
 
 from alphakit.strategies.commodity.commodity_tsmom.strategy import CommodityTSMOM12m1m
 from alphakit.strategies.commodity.metals_momentum.strategy import MetalsMomentum
+from alphakit.strategies.commodity.ng_contango_short.strategy import NGContangoShort
 from alphakit.strategies.commodity.wti_backwardation_carry.strategy import (
     WTIBackwardationCarry,
 )
 
-__all__ = ["CommodityTSMOM12m1m", "MetalsMomentum", "WTIBackwardationCarry"]
+__all__ = [
+    "CommodityTSMOM12m1m",
+    "MetalsMomentum",
+    "NGContangoShort",
+    "WTIBackwardationCarry",
+]
