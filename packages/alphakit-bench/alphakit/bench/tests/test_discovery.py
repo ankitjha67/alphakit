@@ -18,7 +18,13 @@ from alphakit.core.protocols import StrategyProtocol
 class TestDiscoverSlugs:
     def test_all_families(self) -> None:
         slugs = discover_slugs()
-        assert len(slugs) == 60
+        # 60 Phase 1 (trend, meanrev, carry, value, volatility) +
+        # 13 Phase 2 Session 2D rates = 73.
+        assert len(slugs) == 73
+
+    def test_rates_family(self) -> None:
+        slugs = discover_slugs("rates")
+        assert len(slugs) == 13
 
     def test_trend_family(self) -> None:
         slugs = discover_slugs("trend")

@@ -22,6 +22,7 @@ ALL_PKGS=(
     strategies-carry
     strategies-value
     strategies-volatility
+    strategies-rates
     bench
 )
 
