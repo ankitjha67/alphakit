@@ -70,6 +70,7 @@ drop entries for `energy_weather_premium`, `henry_hub_ttf_spread`,
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|
+| [`commodity_tsmom`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/commodity_tsmom/) | Moskowitz/Ooi/Pedersen 2012 | Asness/Moskowitz/Pedersen 2013 §V | [10.1111/jofi.12021](https://doi.org/10.1111/jofi.12021) | yfinance-futures (CL=F, NG=F, GC=F, SI=F, HG=F, ZC=F, ZS=F, ZW=F) | deferred to 2H | 0.4–0.7 (panel OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/commodity_tsmom/known_failures.md) |
 
 ---
 

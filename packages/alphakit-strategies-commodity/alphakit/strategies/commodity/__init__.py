@@ -17,4 +17,6 @@ trail of the 5 drops.
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from alphakit.strategies.commodity.commodity_tsmom.strategy import CommodityTSMOM12m1m
+
+__all__ = ["CommodityTSMOM12m1m"]
