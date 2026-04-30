@@ -47,6 +47,7 @@ dependencies = [
     "alphakit-strategies-value",
     "alphakit-strategies-volatility",
     "alphakit-strategies-rates",
+    "alphakit-strategies-commodity",
     "alphakit-bench",
 ]
 
