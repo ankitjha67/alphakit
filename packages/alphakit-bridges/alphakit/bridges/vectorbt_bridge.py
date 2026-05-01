@@ -29,7 +29,11 @@ import numpy as np
 import pandas as pd
 from alphakit.core.metrics.drawdown import max_drawdown
 from alphakit.core.metrics.returns import calmar_ratio, sharpe_ratio, sortino_ratio
-from alphakit.core.protocols import BacktestResult, StrategyProtocol
+from alphakit.core.protocols import (
+    BacktestResult,
+    StrategyProtocol,
+    get_discrete_legs,
+)
 
 NAME: str = "vectorbt"
 
@@ -88,9 +92,45 @@ def run(
     weights = strategy.generate_signals(prices)
     weights = weights.reindex_like(prices).fillna(0.0)
 
-    # 2. Translate weights into size orders interpretable by vectorbt:
-    #    we use target-percent orders, one per bar, on every symbol.
-    size_type = vbt.portfolio.enums.SizeType.TargetPercent
+    # 2. Translate weights into size orders interpretable by vectorbt.
+    #
+    #    Default semantics: every column is rebalanced to a target
+    #    percentage of equity each bar (``SizeType.TargetPercent``).
+    #    This is correct for every strategy through Session 2E (TSMOM,
+    #    mean-reversion, carry, value, volatility, rates, commodity)
+    #    where the strategy expresses continuous-exposure positions.
+    #
+    #    Session 2F extension: strategies declaring
+    #    ``discrete_legs: tuple[str, ...]`` flag specific columns whose
+    #    weights are *one-shot* share/contract counts
+    #    (``SizeType.Amount``). Without this, an option leg whose
+    #    premium decays from $8 → $0 across the monthly cycle would
+    #    cause the bridge to sell ever-more contracts to maintain a
+    #    static −100 % dollar target, producing runaway short P&L.
+    #
+    #    Implementation: vectorbt's ``size_type`` accepts a per-column
+    #    array, which is exactly the dispatch primitive we need —
+    #    ``TargetPercent`` for continuous columns, ``Amount`` for
+    #    discrete columns. No two-portfolio merge needed.
+    discrete_legs = get_discrete_legs(strategy)
+    if discrete_legs:
+        missing = set(discrete_legs) - set(prices.columns)
+        if missing:
+            raise KeyError(
+                f"strategy.discrete_legs declares columns not present in prices: "
+                f"{sorted(missing)}; got prices columns={list(prices.columns)}"
+            )
+        size_type_per_column = np.array(
+            [
+                vbt.portfolio.enums.SizeType.Amount
+                if col in discrete_legs
+                else vbt.portfolio.enums.SizeType.TargetPercent
+                for col in prices.columns
+            ],
+            dtype=int,
+        )
+    else:
+        size_type_per_column = vbt.portfolio.enums.SizeType.TargetPercent
 
     fees = commission_bps / 10_000.0
     slippage = slippage_bps / 10_000.0
@@ -98,7 +138,7 @@ def run(
     portfolio = vbt.Portfolio.from_orders(
         close=prices,
         size=weights,
-        size_type=size_type,
+        size_type=size_type_per_column,
         init_cash=initial_cash,
         fees=fees,
         slippage=slippage,

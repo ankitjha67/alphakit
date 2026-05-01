@@ -911,3 +911,91 @@ new slug ships the real-data variant.
 Manifest impact: options family ship count unchanged (15). Slug
 unchanged. Citation pair refined; differentiation from Phase 1
 counterpart documented.
+
+---
+
+## 2026-05-01 — Session 2F: bridge architecture extension for discrete-traded legs
+
+Context: Session 2F's first strategy
+(`covered_call_systematic`, Commit 2 reverted before push)
+exposed an architectural mismatch in the
+`StrategyProtocol → vectorbt_bridge` contract. The bridge interpreted
+*every* output column under continuous-rebalance
+`SizeType.TargetPercent` semantics — correct for the 83 strategies
+through Session 2E (TSMOM, mean-reversion, carry, value, volatility,
+rates, commodity, all expressing continuous-exposure positions) but
+**fundamentally wrong for discretely-traded option legs whose price
+legitimately decays from premium → 0 across a monthly cycle**.
+
+Diagnostic evidence (captured during Session 2F bridge investigation):
+
+* On a synthetic 21-bar panel with SPY flat at $400 and a call leg
+  decaying linearly $8.00 → $0.01, a static `weight = -1.0` on the
+  call leg every bar caused the bridge to sell ever-more contracts
+  to maintain the −100 % dollar target. The cumulative short P&L
+  scaled with the price ratio, producing a 9× nonsense gain on a
+  trade whose analytic covered-call P&L is +$7.99.
+* `vectorbt` fails fast on zero-price bars (`order.price must be
+  finite and greater than 0`); `backtrader_bridge` survives zero
+  prices (it has a `if price <= 0: continue` guard) but produces
+  the same continuous-rebalance nonsense P&L silently.
+* The `lean_bridge` is the canonical Phase 3 path for options
+  (per its own module docstring) but is currently a stub.
+* Empirically: vectorbt's `SizeType.Amount` with weights non-zero
+  only on the write bar reproduces the analytic +$7.99 P&L
+  exactly. The bridge primitive exists; the dispatch was missing.
+
+Resolution: Extend `StrategyProtocol` with an **optional**
+`discrete_legs: tuple[str, ...]` metadata attribute. Strategies
+with write-and-hold legs declare them; `vectorbt_bridge` dispatches
+to `SizeType.Amount` for those columns and `SizeType.TargetPercent`
+for the rest using vectorbt's per-column `size_type` array
+parameter (no two-portfolio merge needed).
+
+The attribute is documented in the Protocol *docstring* but **not
+declared on the Protocol class body**. Reason: Python's
+`@runtime_checkable Protocol` enforces strict attribute-existence
+on `isinstance()` checks regardless of declared defaults — adding
+`discrete_legs` to the body would break `isinstance(strategy,
+StrategyProtocol)` for every strategy that does not redeclare the
+attribute (verified empirically). Instead, a centralised helper
+`alphakit.core.protocols.get_discrete_legs(strategy)` performs
+`getattr(strategy, "discrete_legs", ())` with type validation, and
+`vectorbt_bridge` calls the helper to fetch the dispatch metadata.
+
+Scope:
+
+* `packages/alphakit-core/alphakit/core/protocols.py` —
+  `StrategyProtocol` docstring extended with the Optional
+  class-level metadata section; new `get_discrete_legs(strategy)`
+  helper with type validation.
+* `packages/alphakit-bridges/alphakit/bridges/vectorbt_bridge.py` —
+  refactored to compute a per-column `size_type` array from
+  `get_discrete_legs(strategy)`. Continuous-only path
+  (no `discrete_legs`) is byte-identical to the pre-fix behaviour.
+* `packages/alphakit-bridges/tests/test_vectorbt_bridge.py` —
+  new test file with bridge-contract tests covering: continuous-
+  only path (backwards compatibility), legacy-class-without-the-
+  attribute path, discrete-only Amount semantics matching analytic
+  premium minus intrinsic, mixed continuous + discrete covered-
+  call P&L matching analytic, validation paths (non-tuple,
+  non-string entries, missing-column).
+* `backtrader_bridge.py` update: **deferred**. backtrader has the
+  same continuous-rebalance architectural mismatch but is not
+  blocking Session 2F (vectorbt is the primary engine for Session
+  2F backtests). A follow-up amendment will track the backtrader
+  fix when an options strategy exercises that bridge.
+* `lean_bridge.py`: still a stub; remains Phase 3.
+
+No protocol breaking change for existing strategies. The 83
+strategies through Session 2E do not declare `discrete_legs` and
+are routed through the unchanged `TargetPercent` code path.
+`isinstance(strategy, StrategyProtocol)` continues to pass for all
+of them.
+
+Unblocks Session 2F: 14 of 15 options strategies have write-and-
+hold legs and need this metadata to produce meaningful backtest
+P&L through the bridge. `covered_call_systematic` (re-implementing
+in Commit 2 after this fix lands) declares
+`discrete_legs = (call_leg_symbol,)` and exercises the new dispatch
+path through its integration tests.
