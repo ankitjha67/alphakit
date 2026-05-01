@@ -68,9 +68,7 @@ def test_constructor_rejects_bad_args(kwargs: dict[str, object], match: str) -> 
 # Shape and type contracts
 # ---------------------------------------------------------------------------
 def test_returns_empty_frame_on_empty_input() -> None:
-    empty = pd.DataFrame(
-        index=pd.DatetimeIndex([]), columns=["NG=F", "NG2=F"], dtype=float
-    )
+    empty = pd.DataFrame(index=pd.DatetimeIndex([]), columns=["NG=F", "NG2=F"], dtype=float)
     weights = NGContangoShort().generate_signals(empty)
     assert weights.empty
     assert list(weights.columns) == ["NG=F"]
@@ -90,9 +88,7 @@ def test_rejects_non_dataframe_input() -> None:
 
 
 def test_rejects_non_datetime_index() -> None:
-    prices = pd.DataFrame(
-        {"NG=F": [2.5, 2.6], "NG2=F": [2.8, 2.9]}, index=[0, 1]
-    )
+    prices = pd.DataFrame({"NG=F": [2.5, 2.6], "NG2=F": [2.8, 2.9]}, index=[0, 1])
     with pytest.raises(TypeError, match="DatetimeIndex"):
         NGContangoShort().generate_signals(prices)
 

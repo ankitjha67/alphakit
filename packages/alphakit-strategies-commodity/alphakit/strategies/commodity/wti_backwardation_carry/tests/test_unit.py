@@ -72,9 +72,7 @@ def test_constructor_rejects_bad_args(kwargs: dict[str, object], match: str) -> 
 # Shape and type contracts
 # ---------------------------------------------------------------------------
 def test_returns_empty_frame_on_empty_input() -> None:
-    empty = pd.DataFrame(
-        index=pd.DatetimeIndex([]), columns=["CL=F", "CL2=F"], dtype=float
-    )
+    empty = pd.DataFrame(index=pd.DatetimeIndex([]), columns=["CL=F", "CL2=F"], dtype=float)
     weights = WTIBackwardationCarry().generate_signals(empty)
     assert weights.empty
     assert list(weights.columns) == ["CL=F"]
@@ -94,9 +92,7 @@ def test_rejects_non_dataframe_input() -> None:
 
 
 def test_rejects_non_datetime_index() -> None:
-    prices = pd.DataFrame(
-        {"CL=F": [80.0, 81.0], "CL2=F": [78.0, 78.5]}, index=[0, 1]
-    )
+    prices = pd.DataFrame({"CL=F": [80.0, 81.0], "CL2=F": [78.0, 78.5]}, index=[0, 1])
     with pytest.raises(TypeError, match="DatetimeIndex"):
         WTIBackwardationCarry().generate_signals(prices)
 

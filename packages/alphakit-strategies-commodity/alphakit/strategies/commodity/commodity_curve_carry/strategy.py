@@ -179,9 +179,7 @@ class CommodityCurveCarry:
         if not (0.0 < top_quantile <= 0.5):
             raise ValueError(f"top_quantile must be in (0, 0.5], got {top_quantile}")
         if not (0.0 < bottom_quantile <= 0.5):
-            raise ValueError(
-                f"bottom_quantile must be in (0, 0.5], got {bottom_quantile}"
-            )
+            raise ValueError(f"bottom_quantile must be in (0, 0.5], got {bottom_quantile}")
         if smoothing_days < 1:
             raise ValueError(f"smoothing_days must be >= 1, got {smoothing_days}")
         if min_panel_size < 2:
@@ -245,9 +243,7 @@ class CommodityCurveCarry:
 
         # 3. Sample at month-ends and rank cross-sectionally.
         monthly = smoothed.resample("ME").last()
-        monthly_weights = pd.DataFrame(
-            0.0, index=monthly.index, columns=self.front_symbols
-        )
+        monthly_weights = pd.DataFrame(0.0, index=monthly.index, columns=self.front_symbols)
         for date, row in monthly.iterrows():
             valid = row.dropna()
             n = len(valid)

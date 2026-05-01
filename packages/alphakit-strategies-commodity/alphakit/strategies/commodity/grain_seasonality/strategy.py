@@ -142,10 +142,7 @@ class GrainSeasonality:
                 raise ValueError("universe entries must be non-empty strings")
             if sym not in _SEASONAL_CALENDAR:
                 known = sorted(_SEASONAL_CALENDAR.keys())
-                raise ValueError(
-                    f"no seasonal calendar entry for {sym!r}; "
-                    f"known symbols: {known}"
-                )
+                raise ValueError(f"no seasonal calendar entry for {sym!r}; known symbols: {known}")
         self.universe: tuple[str, ...] = symbols
 
     @property

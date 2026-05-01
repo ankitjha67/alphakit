@@ -70,9 +70,7 @@ def test_constructor_rejects_bad_args(kwargs: dict[str, object], match: str) -> 
 # Shape and type contracts
 # ---------------------------------------------------------------------------
 def test_returns_empty_frame_on_empty_input() -> None:
-    empty = pd.DataFrame(
-        index=pd.DatetimeIndex([]), columns=["ZS=F", "ZM=F", "ZL=F"], dtype=float
-    )
+    empty = pd.DataFrame(index=pd.DatetimeIndex([]), columns=["ZS=F", "ZM=F", "ZL=F"], dtype=float)
     weights = CrushSpread().generate_signals(empty)
     assert weights.empty
     assert list(weights.columns) == ["ZS=F", "ZM=F", "ZL=F"]
@@ -200,8 +198,13 @@ def test_signal_is_in_valid_set() -> None:
     weights = CrushSpread().generate_signals(prices)
     total = 1.0 + 1.5 + 0.8
     valid_values = {
-        -1.0 / total, -1.5 / total, -0.8 / total,
-        0.0, 0.8 / total, 1.5 / total, 1.0 / total,
+        -1.0 / total,
+        -1.5 / total,
+        -0.8 / total,
+        0.0,
+        0.8 / total,
+        1.5 / total,
+        1.0 / total,
     }
     for col in weights.columns:
         for v in weights[col].unique():

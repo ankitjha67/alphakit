@@ -180,16 +180,13 @@ class WTIBackwardationCarry:
         if not isinstance(prices, pd.DataFrame):
             raise TypeError(f"prices must be a DataFrame, got {type(prices).__name__}")
         if prices.empty:
-            return pd.DataFrame(
-                index=prices.index, columns=[self.front_symbol], dtype=float
-            )
+            return pd.DataFrame(index=prices.index, columns=[self.front_symbol], dtype=float)
         if not isinstance(prices.index, pd.DatetimeIndex):
             raise TypeError(f"prices must have a DatetimeIndex, got {type(prices.index).__name__}")
         for col in (self.front_symbol, self.next_symbol):
             if col not in prices.columns:
                 raise KeyError(
-                    f"prices is missing required column {col!r}; "
-                    f"got columns={list(prices.columns)}"
+                    f"prices is missing required column {col!r}; got columns={list(prices.columns)}"
                 )
         relevant = prices[[self.front_symbol, self.next_symbol]]
         if (relevant <= 0).any().any():

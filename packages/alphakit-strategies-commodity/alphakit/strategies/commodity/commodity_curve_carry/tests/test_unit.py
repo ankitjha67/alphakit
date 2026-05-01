@@ -262,9 +262,7 @@ def test_weights_in_expected_range() -> None:
     long_weights = final[final > 0]
     short_weights = final[final < 0]
     assert (long_weights == 1.0 / 3).all(), f"long legs must be 1/3; got {long_weights.values}"
-    assert (short_weights == -1.0 / 3).all(), (
-        f"short legs must be -1/3; got {short_weights.values}"
-    )
+    assert (short_weights == -1.0 / 3).all(), f"short legs must be -1/3; got {short_weights.values}"
 
 
 def test_deterministic_output() -> None:

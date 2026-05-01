@@ -161,17 +161,14 @@ class CrushSpread:
                 f"got {soybean_symbol!r}, {meal_symbol!r}, {oil_symbol!r}"
             )
         if zscore_lookback_days < 30:
-            raise ValueError(
-                f"zscore_lookback_days must be >= 30, got {zscore_lookback_days}"
-            )
+            raise ValueError(f"zscore_lookback_days must be >= 30, got {zscore_lookback_days}")
         if entry_threshold <= 0:
             raise ValueError(f"entry_threshold must be > 0, got {entry_threshold}")
         if exit_threshold < 0:
             raise ValueError(f"exit_threshold must be >= 0, got {exit_threshold}")
         if exit_threshold >= entry_threshold:
             raise ValueError(
-                f"exit_threshold ({exit_threshold}) must be < "
-                f"entry_threshold ({entry_threshold})"
+                f"exit_threshold ({exit_threshold}) must be < entry_threshold ({entry_threshold})"
             )
 
         self.soybean_symbol = soybean_symbol
