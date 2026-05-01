@@ -278,8 +278,9 @@ class CoveredCallSystematic:
         ``prices`` DataFrame. Defaults to ``"SPY"``.
     otm_pct
         Out-of-the-money offset for the written call, expressed as
-        a decimal fraction (``0.02`` for 2 % OTM). Must be strictly
-        positive and ≤ 0.50.
+        a decimal fraction (``0.02`` for 2 % OTM). Must be ≥ 0
+        and ≤ 0.50. ``0.0`` is the exactly-ATM case used by
+        ``bxm_replication``.
     chain_feed
         Optional explicit feed object for chain access. When ``None``
         (default), the strategy resolves
@@ -311,8 +312,8 @@ class CoveredCallSystematic:
     ) -> None:
         if not underlying_symbol:
             raise ValueError("underlying_symbol must be a non-empty string")
-        if otm_pct <= 0.0:
-            raise ValueError(f"otm_pct must be > 0, got {otm_pct}")
+        if otm_pct < 0.0:
+            raise ValueError(f"otm_pct must be >= 0, got {otm_pct}")
         if otm_pct > 0.50:
             raise ValueError(f"otm_pct must be <= 0.50, got {otm_pct}")
         self.underlying_symbol = underlying_symbol
