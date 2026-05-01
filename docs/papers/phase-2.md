@@ -100,6 +100,7 @@ strategies use `^VIX` / `^VIX3M` (yfinance equity passthrough) and
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|
+| [`covered_call_systematic`](../../packages/alphakit-strategies-options/alphakit/strategies/options/covered_call_systematic/) | Whaley 2002 | Israelov/Nielsen 2014 | [10.2469/faj.v70.n6.5](https://doi.org/10.2469/faj.v70.n6.5) | synthetic-options + yfinance | deferred to 2H (Mode 1 covered-call benchmark waits on benchmark-runner extension) | 0.3–0.6 (BXM-style OOS, full 2-leg Mode 1) | [`known_failures.md`](../../packages/alphakit-strategies-options/alphakit/strategies/options/covered_call_systematic/known_failures.md) |
 
 ---
 

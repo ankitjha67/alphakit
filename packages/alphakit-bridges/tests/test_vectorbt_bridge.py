@@ -19,8 +19,14 @@ Covers:
    fully-continuous, matching every existing strategy. Verifies
    :func:`get_discrete_legs` returns ``()`` for legacy classes.
 5. **Validation**: malformed ``discrete_legs`` (non-tuple, non-string
-   entries) raises ``TypeError``; declaring a column not present in
-   ``prices`` raises ``KeyError``.
+   entries) raises ``TypeError``.
+6. **Mode 2 fallback safety**: a strategy declaring ``discrete_legs``
+   that are *not* present in the invocation's ``prices`` (Session 2F
+   options strategies under the standard BenchmarkRunner with
+   underlying-only input) runs to completion under TargetPercent
+   semantics, with a debug-level log message surfacing the
+   declared-but-absent leg names so accidental typos are still
+   detectable in test logs.
 
 Each test uses a tiny synthetic panel and a hand-rolled strategy so
 the assertion is on the bridge's contract, not on any specific
@@ -305,24 +311,98 @@ def test_mixed_pre_fix_target_percent_semantics_would_blow_up() -> None:
 # ---------------------------------------------------------------------------
 # 5. Validation
 # ---------------------------------------------------------------------------
-def test_discrete_leg_not_in_prices_raises_keyerror() -> None:
-    class _MissingColumn:
-        name = "diag_missing_column"
-        family = "diag"
-        asset_classes = ("equity",)
-        paper_doi = "diag"
-        rebalance_frequency = "daily"
-        discrete_legs = ("NOT_IN_PRICES",)
+class _DeclaredButAbsentLeg:
+    """Strategy declares a discrete leg that is *not* present in the
+    invocation's ``prices`` DataFrame.
 
-        def generate_signals(self, prices: pd.DataFrame) -> pd.DataFrame:
-            return pd.DataFrame(0.0, index=prices.index, columns=prices.columns)
+    Canonical example: a Session 2F options strategy declares
+    ``discrete_legs = ("SPY_CALL_OTM02PCT_M1",)`` statically but is
+    run by the standard BenchmarkRunner with ``prices`` containing
+    only ``SPY``. The strategy emits Mode 2 fallback weights
+    (single-column buy-and-hold) and the bridge must run to
+    completion — while also surfacing the declared-but-absent leg
+    at debug log level so accidental typos in ``discrete_legs``
+    don't silently swallow the dispatch.
+    """
 
+    name: str = "diag_declared_but_absent"
+    family: str = "diag"
+    asset_classes: tuple[str, ...] = ("equity",)
+    paper_doi: str = "diag"
+    rebalance_frequency: str = "daily"
+    discrete_legs: tuple[str, ...] = ("NOT_IN_PRICES",)
+
+    def generate_signals(self, prices: pd.DataFrame) -> pd.DataFrame:
+        w = pd.DataFrame(0.0, index=prices.index, columns=prices.columns)
+        w["SPY"] = 1.0
+        return w
+
+
+def test_mode_2_fallback_with_declared_but_absent_legs_runs_to_completion() -> None:
+    """Bridge completes without error when discrete_legs declares
+    columns absent from ``prices``.
+
+    Routes to the unchanged TargetPercent code path for every
+    column actually present (since the absent leg cannot be
+    dispatched). The 83 strategies through Session 2E are
+    backwards-compatible-by-construction; this test covers the
+    Session 2F + Mode 2 fallback case where a strategy *does*
+    declare ``discrete_legs`` but the runner provides only the
+    underlying.
+    """
     prices = _flat_panel(n=10)
-    with pytest.raises(KeyError, match="NOT_IN_PRICES"):
+    result = vectorbt_bridge.run(
+        strategy=_DeclaredButAbsentLeg(),
+        prices=prices,
+    )
+    assert np.isfinite(result.metrics["sharpe"])
+    # Long flat SPY → equity stays at initial cash modulo float noise.
+    assert abs(result.metrics["final_equity"] - 100_000.0) < 1.0
+
+
+def test_declared_but_absent_legs_emit_debug_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A debug-level log message fires when ``discrete_legs`` declares
+    columns missing from ``prices``.
+
+    This is the typo-detection guard that makes the silent-Mode-2
+    fallback safe: the dispatch still runs, but the warning shows
+    up in test logs (via pytest's caplog fixture) so leg-name typos
+    surface.
+    """
+    prices = _flat_panel(n=10)
+    with caplog.at_level("DEBUG", logger="alphakit.bridges.vectorbt_bridge"):
         vectorbt_bridge.run(
-            strategy=_MissingColumn(),  # type: ignore[arg-type]
+            strategy=_DeclaredButAbsentLeg(),
             prices=prices,
         )
+    assert any(
+        "NOT_IN_PRICES" in rec.message and rec.levelname == "DEBUG" for rec in caplog.records
+    ), (
+        "expected debug log mentioning the declared-but-absent leg; "
+        f"got records: {[(r.levelname, r.message[:80]) for r in caplog.records]}"
+    )
+
+
+def test_no_debug_warning_when_all_declared_legs_present(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Negative side: when every declared leg is in ``prices``, the
+    bridge emits no missing-legs debug message."""
+    prices = pd.DataFrame(
+        {"CALL_LEG": np.linspace(8.0, 0.01, 21)},
+        index=pd.date_range("2020-01-01", periods=21, freq="B"),
+    )
+    with caplog.at_level("DEBUG", logger="alphakit.bridges.vectorbt_bridge"):
+        vectorbt_bridge.run(
+            strategy=_DiscreteOnlyShort(),
+            prices=prices,
+        )
+    assert not any("not in prices.columns" in rec.message for rec in caplog.records), (
+        f"unexpected missing-legs warning: "
+        f"{[(r.levelname, r.message[:80]) for r in caplog.records]}"
+    )
 
 
 def test_strategy_with_discrete_legs_satisfies_strategy_protocol() -> None:

@@ -23,6 +23,7 @@ Design notes
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 import numpy as np
@@ -36,6 +37,8 @@ from alphakit.core.protocols import (
 )
 
 NAME: str = "vectorbt"
+
+logger = logging.getLogger(__name__)
 
 
 def _import_vectorbt() -> Any:
@@ -112,18 +115,43 @@ def run(
     #    array, which is exactly the dispatch primitive we need —
     #    ``TargetPercent`` for continuous columns, ``Amount`` for
     #    discrete columns. No two-portfolio merge needed.
-    discrete_legs = get_discrete_legs(strategy)
-    if discrete_legs:
-        missing = set(discrete_legs) - set(prices.columns)
-        if missing:
-            raise KeyError(
-                f"strategy.discrete_legs declares columns not present in prices: "
-                f"{sorted(missing)}; got prices columns={list(prices.columns)}"
-            )
+    declared_legs = get_discrete_legs(strategy)
+    # Partition declared legs into those actually present in
+    # ``prices`` (active dispatch targets) and those declared but
+    # absent (Mode 2 fallback path or, possibly, a typo in the
+    # declaration). A strategy may declare its discrete legs
+    # statically (e.g. ``("SPY_CALL_OTM02PCT_M1",)``) but be invoked
+    # on a smaller universe — the canonical case is Session 2F's
+    # options strategies being run by the standard BenchmarkRunner
+    # with only the underlying column. In that fallback mode the
+    # strategy emits single-column buy-and-hold weights and the
+    # discrete leg is genuinely absent.
+    #
+    # Bridge contract: silently use ``present_legs`` for the
+    # size_type dispatch (so the fallback runs to completion), but
+    # ``logger.debug`` any ``missing_legs`` so typos surface in
+    # tests / debug log streams. Tests can use pytest's ``caplog``
+    # fixture to verify the warning fires.
+    present_legs = tuple(c for c in declared_legs if c in prices.columns)
+    missing_legs = tuple(c for c in declared_legs if c not in prices.columns)
+
+    if missing_legs:
+        logger.debug(
+            "Strategy %s declared discrete_legs %s but columns %s not in "
+            "prices.columns. Treating as Mode 2 fallback (continuous-rebalance "
+            "TargetPercent semantics for the absent legs); ensure declared "
+            "leg names are typo-free or this may silently swallow the "
+            "discrete-mode dispatch.",
+            strategy.name,
+            declared_legs,
+            missing_legs,
+        )
+
+    if present_legs:
         size_type_per_column = np.array(
             [
                 vbt.portfolio.enums.SizeType.Amount
-                if col in discrete_legs
+                if col in present_legs
                 else vbt.portfolio.enums.SizeType.TargetPercent
                 for col in prices.columns
             ],
