@@ -32,6 +32,7 @@ from alphakit.strategies.commodity.ng_contango_short.strategy import NGContangoS
 from alphakit.strategies.commodity.wti_backwardation_carry.strategy import (
     WTIBackwardationCarry,
 )
+from alphakit.strategies.commodity.wti_brent_spread.strategy import WTIBrentSpread
 
 __all__ = [
     "COTSpeculatorPosition",
@@ -43,4 +44,5 @@ __all__ = [
     "MetalsMomentum",
     "NGContangoShort",
     "WTIBackwardationCarry",
+    "WTIBrentSpread",
 ]
