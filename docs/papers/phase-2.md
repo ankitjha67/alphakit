@@ -61,11 +61,25 @@ drop entries for `fed_funds_surprise` and `fra_ois_spread`).
 
 ## Commodity family
 
-Sub-package: `packages/alphakit-strategies-commodity/`. Target: 15
-strategies (Session 2E).
+Sub-package: `packages/alphakit-strategies-commodity/`. Target: **10
+strategies** (reduced from the originally-planned 15 — see
+[`../phase-2-amendments.md`](../phase-2-amendments.md) Session 2E
+drop entries for `energy_weather_premium`, `henry_hub_ttf_spread`,
+`inventory_surprise`, `calendar_spread_corn`, and
+`coffee_weather_asymmetry`).
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|
+| [`commodity_tsmom`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/commodity_tsmom/) | Moskowitz/Ooi/Pedersen 2012 | Asness/Moskowitz/Pedersen 2013 §V | [10.1111/jofi.12021](https://doi.org/10.1111/jofi.12021) | yfinance-futures (CL=F, NG=F, GC=F, SI=F, HG=F, ZC=F, ZS=F, ZW=F) | deferred to 2H | 0.4–0.7 (panel OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/commodity_tsmom/known_failures.md) |
+| [`metals_momentum`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/metals_momentum/) | Moskowitz/Ooi/Pedersen 2012 | Asness/Moskowitz/Pedersen 2013 §V (metals subset) | [10.1111/jofi.12021](https://doi.org/10.1111/jofi.12021) | yfinance-futures (GC=F, SI=F, HG=F, PL=F) | deferred to 2H | 0.2–0.5 (metals OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/metals_momentum/known_failures.md) |
+| [`wti_backwardation_carry`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/wti_backwardation_carry/) | Gorton/Rouwenhorst 2006 | Erb/Harvey 2006 §III | [10.2469/faj.v62.n2.4084](https://doi.org/10.2469/faj.v62.n2.4084) | yfinance-futures (CL=F, CL2=F) | deferred to 2H | 0.2–0.4 (long-only OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/wti_backwardation_carry/known_failures.md) |
+| [`ng_contango_short`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/ng_contango_short/) | Bessembinder 1992 | Erb/Harvey 2006 §III (NG specifically) | [10.2469/faj.v62.n2.4084](https://doi.org/10.2469/faj.v62.n2.4084) | yfinance-futures (NG=F, NG2=F) | deferred to 2H | 0.2–0.5 (short-only OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/ng_contango_short/known_failures.md) |
+| [`commodity_curve_carry`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/commodity_curve_carry/) | Erb/Harvey 2006 §III | KMPV 2018 §IV | [10.1016/j.jfineco.2017.11.002](https://doi.org/10.1016/j.jfineco.2017.11.002) | yfinance-futures (8 fronts + 8 next-months) | deferred to 2H | 0.3–0.5 (cross-sectional OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/commodity_curve_carry/known_failures.md) |
+| [`cot_speculator_position`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/cot_speculator_position/) | Bessembinder 1992 | de Roon/Nijman/Veld 2000 | [10.1111/0022-1082.00253](https://doi.org/10.1111/0022-1082.00253) | CFTC COT + yfinance-futures (CL/NG/GC/ZC + paired NET_SPEC) | deferred to 2H | 0.3–0.5 (contrarian OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/cot_speculator_position/known_failures.md) |
+| [`grain_seasonality`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/grain_seasonality/) | Fama/French 1987 | Sørensen 2002 §III | [10.1002/fut.10017](https://doi.org/10.1002/fut.10017) | yfinance-futures (ZC=F, ZS=F, ZW=F) | deferred to 2H | 0.2–0.5 (calendar OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/grain_seasonality/known_failures.md) |
+| [`crack_spread`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/crack_spread/) | Geman 2005 §7 | Girma/Paulson 1999 | [10.1002/(SICI)1096-9934(199912)19:8<931::AID-FUT5>3.0.CO;2-L](https://doi.org/10.1002/(SICI)1096-9934(199912)19:8<931::AID-FUT5>3.0.CO;2-L) | yfinance-futures (CL=F, RB=F, HO=F) | deferred to 2H | 0.2–0.4 (mean-reversion OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/crack_spread/known_failures.md) |
+| [`crush_spread`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/crush_spread/) | Working 1949 | Simon 1999 | [10.1002/(SICI)1096-9934(199905)19:3<271::AID-FUT2>3.0.CO;2-S](https://doi.org/10.1002/(SICI)1096-9934(199905)19:3<271::AID-FUT2>3.0.CO;2-S) | yfinance-futures (ZS=F, ZM=F, ZL=F) | deferred to 2H | 0.2–0.4 (mean-reversion OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/crush_spread/known_failures.md) |
+| [`wti_brent_spread`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/wti_brent_spread/) | Gatev/Goetzmann/Rouwenhorst 2006 | Reboredo 2011 | [10.1016/j.eneco.2011.04.006](https://doi.org/10.1016/j.eneco.2011.04.006) | yfinance-futures (CL=F, BZ=F) | deferred to 2H | 0.2–0.5 (pairs-trade OOS) | [`known_failures.md`](../../packages/alphakit-strategies-commodity/alphakit/strategies/commodity/wti_brent_spread/known_failures.md) |
 
 ---
 
