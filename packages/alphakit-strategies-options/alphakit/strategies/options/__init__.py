@@ -26,8 +26,11 @@ plan slugs were reframed: ``wheel_strategy → bxmp_overlay``,
 
 from __future__ import annotations
 
+from alphakit.strategies.options.cash_secured_put_systematic.strategy import (
+    CashSecuredPutSystematic,
+)
 from alphakit.strategies.options.covered_call_systematic.strategy import (
     CoveredCallSystematic,
 )
 
-__all__: list[str] = ["CoveredCallSystematic"]
+__all__: list[str] = ["CashSecuredPutSystematic", "CoveredCallSystematic"]
