@@ -513,3 +513,38 @@ available.
 Manifest impact: commodity family ships **10 strategies** after
 this drop. Total Phase 2 strategy count revised: was 63 after
 Session 2D drops, **now 58** after Session 2E's 5 drops.
+
+---
+
+## 2026-04-30 — Session 2E: signal-output semantics for multi-asset strategies
+
+Context: Session 2D's `bond_tsmom_12_1` returned discrete
+`{-1, 0, +1}` signals because it's single-asset; vol-scaling was
+deferred to a portfolio overlay. Session 2E's multi-asset
+cross-sectional strategies (`commodity_tsmom`, `metals_momentum`,
+`commodity_curve_carry`, `cot_speculator_position`,
+`wti_backwardation_carry`, `ng_contango_short`, `grain_seasonality`)
+return vol-scaled weights at the strategy level, consistent with
+Asness, Moskowitz & Pedersen (2013) §V methodology for
+cross-instrument panels. Multi-leg spread strategies
+(`crack_spread`, `crush_spread`, `wti_brent_spread`) return discrete
+spread direction with leg ratios encoded as fixed parameters in the
+strategy class.
+
+Pattern:
+
+* **Single-asset strategies** — return discrete signal; vol-scaling
+  deferred to portfolio layer.
+* **Multi-asset cross-sectional strategies** — return vol-scaled
+  weights; cross-instrument scaling IS the methodology.
+* **Multi-leg spread trades** (crack, crush, pairs) — return
+  discrete spread direction; leg ratios encoded as fixed
+  parameters.
+
+Phase 1 trend family's `tsmom_12_1` (multi-asset cross-sectional)
+also uses vol-scaled weights. `commodity_tsmom` is consistent with
+this precedent.
+
+No protocol change. No scope change. The `StrategyProtocol`
+`generate_signals` method returns `DataFrame` in both cases — only
+the values differ between discrete and continuous semantics.
