@@ -1,0 +1,29 @@
+"""Options strategies — Phase 2 Session 2F.
+
+Phase 2 target: 15 strategies on systematic short-volatility writes,
+multi-leg short-volatility structures, Greeks-dependent positions,
+variance-risk-premium harvesting, term-structure trades, substrate-
+caveat skew trades, and VIX trades. All chain-consuming strategies
+backtest against the synthetic-options adapter (ADR-005, Phase 2
+Session 2C); VIX strategies consume CBOE indices (``^VIX``,
+``^VIX3M``) and the front-month VIX futures continuous contract
+(``VIX=F``) via the yfinance and yfinance-futures adapters
+respectively. Strategy classes are added to ``__all__`` as each
+per-strategy commit lands within Session 2F.
+
+The shipping count is 15 rather than the originally-planned 20:
+``diagonal_spread``, ``pin_risk_capture``, ``earnings_vol_crush``,
+``ratio_spread_put``, and ``dispersion_trade_proxy`` were dropped
+under the Phase 2 honesty-check (folklore mechanics without peer-
+reviewed systematic-strategy citations, plus substrate mismatches
+the synthetic chain cannot represent — pinning microstructure,
+earnings-vol term structure, and individual-stock chains). Three
+plan slugs were reframed: ``wheel_strategy → bxmp_overlay``,
+``vix_front_back_spread → vix_3m_basis``,
+``weekly_theta_harvest → weekly_short_volatility``. See
+``docs/phase-2-amendments.md`` for the full audit trail.
+"""
+
+from __future__ import annotations
+
+__all__: list[str] = []

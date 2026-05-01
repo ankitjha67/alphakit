@@ -85,8 +85,18 @@ drop entries for `energy_weather_premium`, `henry_hub_ttf_spread`,
 
 ## Options family
 
-Sub-package: `packages/alphakit-strategies-options/`. Target: 20
-strategies (Session 2F). All synthetic-chain benchmarks per ADR-005.
+Sub-package: `packages/alphakit-strategies-options/`. Target: **15
+strategies** (reduced from the originally-planned 20 — see
+[`../phase-2-amendments.md`](../phase-2-amendments.md) Session 2F
+drop entries for `diagonal_spread`, `pin_risk_capture`,
+`earnings_vol_crush`, `ratio_spread_put`, and
+`dispersion_trade_proxy`, plus reframe entries for
+`wheel_strategy → bxmp_overlay`,
+`vix_front_back_spread → vix_3m_basis`, and
+`weekly_theta_harvest → weekly_short_volatility`). Chain-consuming
+strategies use the synthetic-options adapter per ADR-005; VIX
+strategies use `^VIX` / `^VIX3M` (yfinance equity passthrough) and
+`VIX=F` (yfinance-futures passthrough).
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|
