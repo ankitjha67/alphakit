@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from alphakit.strategies.options.bxm_replication.strategy import BXMReplication
 from alphakit.strategies.options.bxmp_overlay.strategy import BXMPOverlay
+from alphakit.strategies.options.calendar_spread_atm.strategy import CalendarSpreadATM
 from alphakit.strategies.options.cash_secured_put_systematic.strategy import (
     CashSecuredPutSystematic,
 )
@@ -52,6 +53,7 @@ from alphakit.strategies.options.weekly_short_volatility.strategy import (
 __all__: list[str] = [
     "BXMPOverlay",
     "BXMReplication",
+    "CalendarSpreadATM",
     "CashSecuredPutSystematic",
     "CoveredCallSystematic",
     "DeltaHedgedStraddle",
