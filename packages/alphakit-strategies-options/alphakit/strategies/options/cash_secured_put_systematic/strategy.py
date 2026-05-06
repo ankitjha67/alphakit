@@ -249,8 +249,8 @@ class CashSecuredPutSystematic:
     ) -> None:
         if not underlying_symbol:
             raise ValueError("underlying_symbol must be a non-empty string")
-        if otm_pct <= 0.0:
-            raise ValueError(f"otm_pct must be > 0, got {otm_pct}")
+        if otm_pct < 0.0:
+            raise ValueError(f"otm_pct must be >= 0, got {otm_pct}")
         if otm_pct > 0.50:
             raise ValueError(f"otm_pct must be <= 0.50, got {otm_pct}")
         self.underlying_symbol = underlying_symbol

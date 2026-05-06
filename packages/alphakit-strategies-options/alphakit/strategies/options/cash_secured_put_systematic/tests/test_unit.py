@@ -62,7 +62,6 @@ def test_discrete_legs_reflects_underlying_and_otm() -> None:
     ("kwargs", "match"),
     [
         ({"underlying_symbol": ""}, "underlying_symbol"),
-        ({"otm_pct": 0.0}, "otm_pct"),
         ({"otm_pct": -0.01}, "otm_pct"),
         ({"otm_pct": 0.51}, "otm_pct"),
     ],
@@ -70,6 +69,14 @@ def test_discrete_legs_reflects_underlying_and_otm() -> None:
 def test_constructor_rejects_invalid_kwargs(kwargs: dict[str, object], match: str) -> None:
     with pytest.raises(ValueError, match=match):
         CashSecuredPutSystematic(**kwargs)  # type: ignore[arg-type]
+
+
+def test_constructor_accepts_otm_pct_zero_for_atm_put() -> None:
+    """``otm_pct = 0.0`` is the exactly-ATM PUT-aligned variant used
+    by ``variance_risk_premium_synthetic``. Must not raise."""
+    s = CashSecuredPutSystematic(otm_pct=0.0)
+    assert s.otm_pct == 0.0
+    assert s.put_leg_symbol == "SPY_PUT_OTM00PCT_M1"
 
 
 def test_put_leg_symbol_format() -> None:
