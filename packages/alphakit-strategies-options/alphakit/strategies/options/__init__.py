@@ -35,6 +35,9 @@ from alphakit.strategies.options.covered_call_systematic.strategy import (
     CoveredCallSystematic,
 )
 from alphakit.strategies.options.iron_condor_monthly.strategy import IronCondorMonthly
+from alphakit.strategies.options.short_strangle_monthly.strategy import (
+    ShortStrangleMonthly,
+)
 
 __all__: list[str] = [
     "BXMPOverlay",
@@ -42,4 +45,5 @@ __all__: list[str] = [
     "CashSecuredPutSystematic",
     "CoveredCallSystematic",
     "IronCondorMonthly",
+    "ShortStrangleMonthly",
 ]
