@@ -34,6 +34,9 @@ from alphakit.strategies.options.cash_secured_put_systematic.strategy import (
 from alphakit.strategies.options.covered_call_systematic.strategy import (
     CoveredCallSystematic,
 )
+from alphakit.strategies.options.delta_hedged_straddle.strategy import (
+    DeltaHedgedStraddle,
+)
 from alphakit.strategies.options.iron_condor_monthly.strategy import IronCondorMonthly
 from alphakit.strategies.options.short_strangle_monthly.strategy import (
     ShortStrangleMonthly,
@@ -47,6 +50,7 @@ __all__: list[str] = [
     "BXMReplication",
     "CashSecuredPutSystematic",
     "CoveredCallSystematic",
+    "DeltaHedgedStraddle",
     "IronCondorMonthly",
     "ShortStrangleMonthly",
     "WeeklyShortVolatility",
