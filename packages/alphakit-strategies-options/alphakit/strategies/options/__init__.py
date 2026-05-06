@@ -40,6 +40,7 @@ from alphakit.strategies.options.delta_hedged_straddle.strategy import (
 )
 from alphakit.strategies.options.gamma_scalping_daily.strategy import GammaScalpingDaily
 from alphakit.strategies.options.iron_condor_monthly.strategy import IronCondorMonthly
+from alphakit.strategies.options.put_skew_premium.strategy import PutSkewPremium
 from alphakit.strategies.options.short_strangle_monthly.strategy import (
     ShortStrangleMonthly,
 )
@@ -59,6 +60,7 @@ __all__: list[str] = [
     "DeltaHedgedStraddle",
     "GammaScalpingDaily",
     "IronCondorMonthly",
+    "PutSkewPremium",
     "ShortStrangleMonthly",
     "VarianceRiskPremiumSynthetic",
     "WeeklyShortVolatility",
