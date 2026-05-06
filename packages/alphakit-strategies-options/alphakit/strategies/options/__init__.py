@@ -48,6 +48,9 @@ from alphakit.strategies.options.skew_reversal.strategy import SkewReversal
 from alphakit.strategies.options.variance_risk_premium_synthetic.strategy import (
     VarianceRiskPremiumSynthetic,
 )
+from alphakit.strategies.options.vix_term_structure_roll.strategy import (
+    VIXTermStructureRoll,
+)
 from alphakit.strategies.options.weekly_short_volatility.strategy import (
     WeeklyShortVolatility,
 )
@@ -64,6 +67,7 @@ __all__: list[str] = [
     "PutSkewPremium",
     "ShortStrangleMonthly",
     "SkewReversal",
+    "VIXTermStructureRoll",
     "VarianceRiskPremiumSynthetic",
     "WeeklyShortVolatility",
 ]
