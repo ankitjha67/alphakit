@@ -44,6 +44,7 @@ from alphakit.strategies.options.put_skew_premium.strategy import PutSkewPremium
 from alphakit.strategies.options.short_strangle_monthly.strategy import (
     ShortStrangleMonthly,
 )
+from alphakit.strategies.options.skew_reversal.strategy import SkewReversal
 from alphakit.strategies.options.variance_risk_premium_synthetic.strategy import (
     VarianceRiskPremiumSynthetic,
 )
@@ -62,6 +63,7 @@ __all__: list[str] = [
     "IronCondorMonthly",
     "PutSkewPremium",
     "ShortStrangleMonthly",
+    "SkewReversal",
     "VarianceRiskPremiumSynthetic",
     "WeeklyShortVolatility",
 ]
