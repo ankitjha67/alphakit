@@ -548,3 +548,522 @@ this precedent.
 No protocol change. No scope change. The `StrategyProtocol`
 `generate_signals` method returns `DataFrame` in both cases — only
 the values differ between discrete and continuous semantics.
+
+---
+
+## 2026-05-01 — Session 2F: drop diagonal_spread (no peer-reviewed systematic-strategy paper)
+
+Context: The Session 2F options manifest listed `diagonal_spread`
+— long ITM call / short OTM call with different expiries — as
+strategy #11 of 20.
+
+Honesty-check failure: The diagonal-spread mechanic is documented
+in practitioner literature (McMillan 2002 "Options as a Strategic
+Investment", CBOE educational material) as a directional-with-
+theta-tilt structure, but no peer-reviewed paper specifies a
+systematic entry / exit rule for diagonal spreads. The closest
+academic literature on multi-expiry call structures
+(Goyal/Saretto 2009 on calendar spreads) is already covered by
+`calendar_spread_atm` shipping in this session. Adding a diagonal
+without a distinct citation would duplicate the calendar trade
+with an arbitrary strike-offset rule.
+
+Options considered:
+- Anchor on McMillan 2002 as a textbook reference. Rejected:
+  practitioner textbooks fall below the Phase 2 honesty bar
+  (peer-reviewed paper specifying both the rule and empirical
+  evidence) — same standard that dropped `calendar_spread_corn`
+  and `coffee_weather_asymmetry` in Session 2E.
+
+Decision: Drop. Phase 2 ships without a diagonal-spread strategy.
+Re-instatement would require a peer-reviewed paper specifying the
+systematic rule.
+
+Manifest impact: options family ships 19 strategies after this
+drop; further drops in this session reduce that further (see
+subsequent entries).
+
+---
+
+## 2026-05-01 — Session 2F: drop pin_risk_capture (substrate cannot represent pinning microstructure)
+
+Context: The Session 2F options manifest listed `pin_risk_capture`
+— write an ATM straddle on monthly expiry Friday and capture the
+"pin" effect where index closes are statistically clustered at
+round strikes — as strategy #13 of 20.
+
+Honesty-check failure (two independent reasons):
+
+1. **No systematic-strategy citation.** Ni, Pearson & Poteshman
+   (2005) "Stock price clustering on option expiration dates"
+   (Journal of Financial Economics, DOI 10.1016/j.jfineco.2004.09.005)
+   *documents* the pinning phenomenon descriptively but does not
+   specify a tradable systematic capture rule. The literature
+   that follows (Pearson, Poteshman & White 2009; Avellaneda &
+   Lipkin 2003) explores mechanism, not strategy.
+2. **Synthetic chain has no microstructure.** Pinning is an
+   intraday expiry-day microstructure effect driven by delta-hedging
+   flows from market-makers near expiration. The synthetic-options
+   adapter (ADR-005) has no bid-ask spread, no order book, and no
+   intraday flow modelling — the substrate cannot represent the
+   thing the strategy is meant to capture. P&L of an ATM straddle
+   held into expiry on synthetic chains depends purely on terminal-
+   day price moves under the realized-vol-derived diffusion.
+
+Decision: Drop. Phase 2 ships without a pin-risk-capture strategy.
+Re-instatement would require both (a) a peer-reviewed strategy
+citation and (b) an intraday microstructure-modelling option chain
+adapter; neither is on the Phase 2 roadmap.
+
+Manifest impact: options family ships 18 strategies after this
+drop.
+
+---
+
+## 2026-05-01 — Session 2F: drop earnings_vol_crush (synthetic chain has no earnings-vol structure)
+
+Context: The Session 2F options manifest listed `earnings_vol_crush`
+— long straddle 5 days before earnings, close after announcement
+— as strategy #15 of 20. The plan's adversarial-review answer
+proposed a "1.5x multiplier on trailing 90-day vol pre-earnings,
+collapse post-earnings" workaround.
+
+Honesty-check failure (two independent reasons):
+
+1. **Synthetic chain has no earnings structure.** The
+   synthetic-options adapter (ADR-005) prices every quote off a
+   single realized-vol number per expiry-DTE bucket; there is no
+   per-underlying earnings calendar, no IV-term-structure jump
+   ahead of announcements, and no post-announcement vol collapse.
+   Documented at `docs/feeds/synthetic-options.md` under "When it
+   is inaccurate": *Earnings-vol strategies without a layered
+   earnings-multiplier adjustment.*
+2. **The "1.5x multiplier" workaround is fabricated.** The plan's
+   own adversarial-review answer acknowledged the substrate gap
+   and proposed multiplying trailing-90-day vol by 1.5 pre-earnings
+   and collapsing it post — but that multiplier has no academic
+   source. The empirical magnitude of pre-earnings IV expansion
+   varies materially by ticker, market cap, and announcement
+   recency (Patell/Wolfson 1981; Dubinsky/Johannes/Kaeck/Seeger
+   2018). Hardcoding 1.5x would be a methodology fabrication, not
+   an implementation of any peer-reviewed paper.
+
+Decision: Drop. Phase 2 ships without an earnings-vol-crush strategy.
+Re-instatement requires either (a) a real options chain adapter
+that captures pre-earnings IV expansion empirically (Polygon, ADR-
+004 stub) or (b) per-ticker earnings-calendar + IV-multiplier data
+sourced from a peer-reviewed paper specifying the multipliers.
+Neither is on the Phase 2 roadmap.
+
+Manifest impact: options family ships 17 strategies after this
+drop.
+
+---
+
+## 2026-05-01 — Session 2F: drop ratio_spread_put (folklore mechanic, overlaps put_skew_premium)
+
+Context: The Session 2F options manifest listed `ratio_spread_put`
+— long 1× ATM put, short 2× OTM put — as strategy #19 of 20. The
+trade is sometimes called a "front-spread" or "1-by-2 put spread"
+in practitioner literature.
+
+Honesty-check failure (two independent reasons):
+
+1. **No peer-reviewed systematic-strategy citation.** The 1-by-2
+   put ratio is documented in practitioner texts (Natenberg 1994
+   "Option Volatility and Pricing"; McMillan 2002) as a directional-
+   with-skew-tilt structure but no peer-reviewed paper specifies a
+   systematic entry / exit rule.
+2. **Overlaps put_skew_premium.** The ratio's economic content is
+   net short OTM puts (sells more skew than the long ATM put buys
+   back). That is the same exposure as `put_skew_premium`
+   (strategy #9, anchored on Bakshi/Kapadia/Madan 2003 +
+   Garleanu/Pedersen/Poteshman 2009). Two strategies with
+   substantially identical skew exposure would be a Phase 2 cluster
+   under the cluster-detection methodology in master plan §6.
+
+Decision: Drop. The skew-premium exposure is captured by
+`put_skew_premium` shipping in this session. A separate ratio-
+spread strategy without its own citation and with overlapping
+economic content is redundant.
+
+Manifest impact: options family ships 16 strategies after this
+drop.
+
+---
+
+## 2026-05-01 — Session 2F: drop dispersion_trade_proxy (no individual-stock chains)
+
+Context: The Session 2F options manifest listed
+`dispersion_trade_proxy` — long index straddle, short basket-of-
+constituents straddles — as strategy #20 of 20. The dispersion
+trade monetises the spread between index implied correlation and
+average single-name implied vol.
+
+Honesty-check failure: The synthetic-options adapter (ADR-005) is
+chain-only at the **index level** — `fetch_chain(underlying,
+as_of)` builds a Black-Scholes chain from the underlying's price
+history. To run a dispersion trade, the strategy needs simultaneous
+chains on the index AND every constituent (typically S&P 500: 500
+single-name chains). Building 500 synthetic chains at every
+rebalance is mechanically possible but the approach has no
+defensible substrate: synthetic chains have no skew (`docs/feeds/
+synthetic-options.md`), and dispersion is fundamentally a
+correlation-of-skew trade. Without real per-name skew, the strategy
+cannot test what it claims to test.
+
+Options considered:
+- Generate 500 single-name synthetic chains and run the trade
+  anyway. Rejected: P&L would reflect realized-vol-of-vol across
+  the constituent universe, which is a different economic content
+  from the dispersion trade described in Driessen/Maenhout/Vilkov
+  2009 "The Price of Correlation Risk".
+- Use real S&P constituent chains via Polygon. Rejected: ADR-004
+  Polygon adapter is a stub for Phase 2; real chain data is
+  Phase 3+.
+
+Decision: Drop. Phase 2 ships without a dispersion-trade strategy.
+Re-instatement requires real per-name option chains (Polygon, ADR-
+004 promotion to active in Phase 3+).
+
+Manifest impact: options family ships **15 strategies** after this
+drop. Total Phase 2 strategy count revised: was 58 after Session 2E's
+5 drops, **now 53** after Session 2F's 5 drops.
+
+---
+
+## 2026-05-01 — Session 2F: reframe wheel_strategy → bxmp_overlay (Whaley 2002 + Israelov/Nielsen 2014 + CBOE BXMP)
+
+Context: The Session 2F options manifest listed `wheel_strategy`
+(strategy #3 of 20) — the practitioner "wheel": sell cash-secured
+put → if assigned, sell covered call → if assigned again, restart.
+
+Honesty-check finding: The "wheel" is folklore, not academic
+literature. There is no peer-reviewed paper that specifies the
+wheel's entry / exit / roll logic as a systematic strategy.
+However, the wheel's economic content — alternating short-put
+and short-call exposure on the same underlying — is captured by
+the **CBOE BXMP index** (BuyWrite-PutWrite combination), which has
+a documented methodology and is anchored academically by Whaley
+(2002) on BXM construction and Israelov/Nielsen (2014) on the
+covered-call / cash-secured-put put-call-parity equivalence.
+
+Resolution: Reframe `wheel_strategy` → `bxmp_overlay`. The slug
+references the BXMP index directly, slots alongside
+`bxm_replication` for clean naming differentiation in this session,
+and carries an academic-anchored methodology rather than folklore.
+The economic content is identical (alternating short-put / short-
+call writes on a single underlying); only the citation and the
+implementation-rule source change.
+
+`paper.md` for `bxmp_overlay` cites:
+- **Foundational:** Whaley (2002) "Risk and Return of the CBOE
+  BuyWrite Monthly Index" (J of Derivatives Vol 10 No 2, Winter 2002,
+  DOI 10.3905/jod.2002.319188).
+- **Primary:** Israelov & Nielsen (2014) "Covered Call Strategies:
+  One Fact and Eight Myths" (Financial Analysts Journal Vol 70
+  No 6, DOI 10.2469/faj.v70.n6.5) plus the CBOE BXMP index
+  methodology document.
+
+Manifest impact: options family ship count unchanged (15). Slug
+list updated: `wheel_strategy` is not a Phase 2 slug;
+`bxmp_overlay` ships in its place.
+
+---
+
+## 2026-05-01 — Session 2F: reframe vix_front_back_spread → vix_3m_basis (substrate constraint: no back-month VIX futures)
+
+Context: The Session 2F options manifest listed
+`vix_front_back_spread` (strategy #8 of 20) — trade the slope of
+the VIX futures curve via a long-front / short-back (or vice
+versa) calendar spread on VIX futures.
+
+Honesty-check failure: The yfinance-futures adapter (Phase 2
+Session 2B) exposes a single continuous-front-month VIX symbol
+(`VIX=F`) — Yahoo handles the roll. **Back-month VIX futures
+contracts (e.g. specific maturities like `VXM26`, `VXJ26`) are not
+available via yfinance.** Without a back-month leg, the front-back
+calendar spread cannot be constructed.
+
+Options considered:
+- Add a Polygon-based VIX-futures-by-maturity adapter. Rejected:
+  ADR-004 stub for Phase 2; real per-maturity futures are Phase 3+.
+- Add a CME-direct adapter for VIX futures. Rejected: not on the
+  Phase 2 free-and-open-source feed roadmap.
+
+Resolution: Reframe `vix_front_back_spread` → `vix_3m_basis`. The
+substrate that *does* exist via yfinance equity passthrough is the
+spot VIX index `^VIX` and the 3-month constant-maturity VIX index
+`^VIX3M` (CBOE-published). The basis between these two is well-
+studied in Alexander, Korovilas & Kapraun (2015) "Diversification
+with Volatility Products" — the academic anchor for the term-
+structure trade on real (not realized-vol-proxied) VIX data.
+
+`paper.md` for `vix_3m_basis` cites:
+- **Foundational:** Whaley (2009) "Understanding VIX" (J of
+  Portfolio Management, DOI 10.3905/JPM.2009.35.2.014).
+- **Primary:** Alexander, Korovilas & Kapraun (2015)
+  "Diversification with Volatility Products" (J of International
+  Money and Finance, DOI 10.1016/j.jimonfin.2015.10.005 or
+  pre-print equivalent).
+
+Differentiated from `vix_term_structure_roll` shipping in the same
+session, which trades `^VIX` (spot) vs `VIX=F` (front-month future)
+per Simon & Campasano (2014). Two distinct term-structure trades:
+spot-vs-front-future (Simon/Campasano) vs spot-vs-3M-constant-
+maturity (Alexander et al.). No cluster overlap; the two basis
+measures move on different schedules.
+
+Manifest impact: options family ship count unchanged (15). Slug
+list updated: `vix_front_back_spread` is not a Phase 2 slug;
+`vix_3m_basis` ships in its place.
+
+`known_failures.md` for both `vix_term_structure_roll` and
+`vix_3m_basis` will document the yfinance ^-prefix passthrough
+assumption: real-data shape verification is deferred to Session 2H
+(Phase 2 closeout) when the benchmark runner exercises real feeds.
+Integration tests mock the OHLCV response shape.
+
+---
+
+## 2026-05-01 — Session 2F: reframe weekly_theta_harvest → weekly_short_volatility (Carr-Wu 2009 + Bondarenko 2003/2014)
+
+Context: The Session 2F options manifest listed
+`weekly_theta_harvest` (strategy #14 of 20) — a 7-day OTM put/call
+write to "harvest theta" on weekly expiries.
+
+Honesty-check finding: "Theta harvesting" is practitioner
+terminology, not an academic concept. The economic content is
+**short volatility on a weekly horizon** — the strategy collects
+the variance risk premium over a 7-day window. The cleaner
+academic framing anchors the trade in the variance-risk-premium
+literature (Carr/Wu 2009, Bondarenko 2003/2014), which establishes
+that systematic short-vol writes earn a positive risk premium
+across most horizons including weekly.
+
+Resolution: Reframe `weekly_theta_harvest` →
+`weekly_short_volatility`. The descriptive slug "weekly" indicates
+the differentiating parameter from monthly siblings (`#1
+covered_call_systematic`, `#2 cash_secured_put_systematic`,
+`#4 iron_condor_monthly`, `#5 short_strangle_monthly`); "short
+volatility" replaces the practitioner "theta harvest" with the
+academic framing. Avoids slug ambiguity with `#16
+variance_risk_premium_synthetic` (variance-swap-replication-via-
+straddle, monthly) by emphasising the weekly horizon and the
+short-volatility-write mechanic (rather than variance-swap
+replication).
+
+`paper.md` for `weekly_short_volatility` cites:
+- **Foundational:** Carr & Wu (2009) "Variance Risk Premia"
+  (Review of Financial Studies Vol 22 No 3, DOI
+  10.1093/rfs/hhn038) — establishes the cross-horizon magnitude
+  of the variance risk premium.
+- **Primary:** Bondarenko (2003/2014) "Why Are Put Options So
+  Expensive?" (Quarterly Journal of Finance Vol 4 No 1, DOI
+  10.1142/S2010139214500050) — short-volatility writes earn the
+  premium systematically.
+
+Manifest impact: options family ship count unchanged (15). Slug
+list updated: `weekly_theta_harvest` is not a Phase 2 slug;
+`weekly_short_volatility` ships in its place.
+
+---
+
+## 2026-05-01 — Session 2F: vix_term_structure_roll citations refined (foundational + primary pair)
+
+Context: The Session 2F options manifest listed
+`vix_term_structure_roll` (strategy #7 of 20) — long VXX when
+spot VIX < VIX6M, short when above. The original session brief
+suggested Whaley (2009) "Understanding VIX" + Alexander, Korovilas
+& Kapraun (2015) as paired anchors.
+
+Refinement: For Phase 2 implementation purposes, the cleaner
+foundational + primary citation pair is **Whaley 2009 (foundational
+on VIX construction and futures pricing) + Simon & Campasano 2014
+(primary on the spot-vs-front-month-future basis trade)**. Simon
+& Campasano explicitly study the basis between the spot VIX index
+and the front-month VIX future — which is exactly what
+`vix_term_structure_roll` trades using `^VIX` (yfinance) vs
+`VIX=F` (yfinance-futures). Alexander et al. (2015) is reserved
+for `vix_3m_basis` (the spot-vs-3M-constant-maturity trade), per
+the previous reframe entry.
+
+This is also a **differentiation** entry: Phase 1's
+`vix_term_structure` strategy (volatility family, Simon/Campasano
+2014 anchored) uses **realized vol of SPY as a VIX proxy** because
+Phase 1 had no real VIX feed. Phase 2's `vix_term_structure_roll`
+consumes **real `^VIX` and `VIX=F` data** via the equity and futures
+yfinance passthroughs. The two slugs co-exist on main: Phase 1's
+slug stays for the realized-vol-proxy methodology (Phase 1
+honesty-frame, ADR-002 mild-deviation canonical slug); Phase 2's
+new slug ships the real-data variant.
+
+`paper.md` for `vix_term_structure_roll` will:
+1. Cite Whaley 2009 as the foundational VIX-construction paper.
+2. Cite Simon & Campasano 2014 as the primary methodology anchor.
+3. Cross-reference Phase 1's `vix_term_structure` and explicitly
+   document the data-source upgrade (realized-vol proxy →
+   real `^VIX` / `VIX=F`).
+4. Document the yfinance ^-prefix passthrough assumption in
+   `known_failures.md`, deferring real-data shape verification to
+   Session 2H.
+
+Manifest impact: options family ship count unchanged (15). Slug
+unchanged. Citation pair refined; differentiation from Phase 1
+counterpart documented.
+
+---
+
+## 2026-05-01 — Session 2F: bridge architecture extension for discrete-traded legs
+
+Context: Session 2F's first strategy
+(`covered_call_systematic`, Commit 2 reverted before push)
+exposed an architectural mismatch in the
+`StrategyProtocol → vectorbt_bridge` contract. The bridge interpreted
+*every* output column under continuous-rebalance
+`SizeType.TargetPercent` semantics — correct for the 83 strategies
+through Session 2E (TSMOM, mean-reversion, carry, value, volatility,
+rates, commodity, all expressing continuous-exposure positions) but
+**fundamentally wrong for discretely-traded option legs whose price
+legitimately decays from premium → 0 across a monthly cycle**.
+
+Diagnostic evidence (captured during Session 2F bridge investigation):
+
+* On a synthetic 21-bar panel with SPY flat at $400 and a call leg
+  decaying linearly $8.00 → $0.01, a static `weight = -1.0` on the
+  call leg every bar caused the bridge to sell ever-more contracts
+  to maintain the −100 % dollar target. The cumulative short P&L
+  scaled with the price ratio, producing a 9× nonsense gain on a
+  trade whose analytic covered-call P&L is +$7.99.
+* `vectorbt` fails fast on zero-price bars (`order.price must be
+  finite and greater than 0`); `backtrader_bridge` survives zero
+  prices (it has a `if price <= 0: continue` guard) but produces
+  the same continuous-rebalance nonsense P&L silently.
+* The `lean_bridge` is the canonical Phase 3 path for options
+  (per its own module docstring) but is currently a stub.
+* Empirically: vectorbt's `SizeType.Amount` with weights non-zero
+  only on the write bar reproduces the analytic +$7.99 P&L
+  exactly. The bridge primitive exists; the dispatch was missing.
+
+Resolution: Extend `StrategyProtocol` with an **optional**
+`discrete_legs: tuple[str, ...]` metadata attribute. Strategies
+with write-and-hold legs declare them; `vectorbt_bridge` dispatches
+to `SizeType.Amount` for those columns and `SizeType.TargetPercent`
+for the rest using vectorbt's per-column `size_type` array
+parameter (no two-portfolio merge needed).
+
+The attribute is documented in the Protocol *docstring* but **not
+declared on the Protocol class body**. Reason: Python's
+`@runtime_checkable Protocol` enforces strict attribute-existence
+on `isinstance()` checks regardless of declared defaults — adding
+`discrete_legs` to the body would break `isinstance(strategy,
+StrategyProtocol)` for every strategy that does not redeclare the
+attribute (verified empirically). Instead, a centralised helper
+`alphakit.core.protocols.get_discrete_legs(strategy)` performs
+`getattr(strategy, "discrete_legs", ())` with type validation, and
+`vectorbt_bridge` calls the helper to fetch the dispatch metadata.
+
+Scope:
+
+* `packages/alphakit-core/alphakit/core/protocols.py` —
+  `StrategyProtocol` docstring extended with the Optional
+  class-level metadata section; new `get_discrete_legs(strategy)`
+  helper with type validation.
+* `packages/alphakit-bridges/alphakit/bridges/vectorbt_bridge.py` —
+  refactored to compute a per-column `size_type` array from
+  `get_discrete_legs(strategy)`. Continuous-only path
+  (no `discrete_legs`) is byte-identical to the pre-fix behaviour.
+* `packages/alphakit-bridges/tests/test_vectorbt_bridge.py` —
+  new test file with bridge-contract tests covering: continuous-
+  only path (backwards compatibility), legacy-class-without-the-
+  attribute path, discrete-only Amount semantics matching analytic
+  premium minus intrinsic, mixed continuous + discrete covered-
+  call P&L matching analytic, validation paths (non-tuple,
+  non-string entries, missing-column).
+* `backtrader_bridge.py` update: **deferred**. backtrader has the
+  same continuous-rebalance architectural mismatch but is not
+  blocking Session 2F (vectorbt is the primary engine for Session
+  2F backtests). A follow-up amendment will track the backtrader
+  fix when an options strategy exercises that bridge.
+* `lean_bridge.py`: still a stub; remains Phase 3.
+
+No protocol breaking change for existing strategies. The 83
+strategies through Session 2E do not declare `discrete_legs` and
+are routed through the unchanged `TargetPercent` code path.
+`isinstance(strategy, StrategyProtocol)` continues to pass for all
+of them.
+
+Unblocks Session 2F: 14 of 15 options strategies have write-and-
+hold legs and need this metadata to produce meaningful backtest
+P&L through the bridge. `covered_call_systematic` (re-implementing
+in Commit 2 after this fix lands) declares
+`discrete_legs = (call_leg_symbol,)` and exercises the new dispatch
+path through its integration tests.
+
+---
+
+## 2026-05-13 — Session 2F: `delta_hedged_straddle` trailing-cycle flush
+
+**Context.** Codex AI review on PR #16 flagged a latent correctness
+bug in `delta_hedged_straddle`'s stateful coupling. The `cycles`
+list was only appended inside the close-at-expiry branch of
+`make_legs_prices`, so truncated windows (window ending mid-cycle)
+emitted zero hedge weights on the underlying for trailing bars
+while the option-leg lifecycle detection correctly fired — the
+final straddle was held unhedged end-to-end, producing directional
+P&L bias.
+
+**Resolution.** Flush the trailing open cycle on the last bar of
+the window before assigning `self._cycles`. The cycle is treated as
+closing on the last bar of the window:
+
+    if current_expiry is not None and current_write_idx is not None:
+        cycles.append(
+            _CycleMetadata(
+                write_idx=current_write_idx,
+                close_idx=len(idx) - 1,
+                expiry=current_expiry,
+                strike=cast(float, current_strike),
+                sigma=cast(float, current_sigma),
+            )
+        )
+    self._cycles = cycles
+
+`gamma_scalping_daily` inherits the fix via composition.
+
+**Severity.** Latent on the existing year-aligned test windows
+(panels run to/past final expiry). Would surface on Phase 3
+rolling / walk-forward harnesses, mid-month start dates, or
+portfolio construction that doesn't honour monthly expiry cycle
+boundaries.
+
+**Scope.**
+
+* `packages/alphakit-strategies-options/alphakit/strategies/
+  options/delta_hedged_straddle/strategy.py` — added trailing-cycle
+  flush block at end of `make_legs_prices` (immediately before
+  `self._cycles = cycles`).
+* `packages/alphakit-strategies-options/alphakit/strategies/
+  options/delta_hedged_straddle/tests/test_unit.py` — added
+  `test_truncated_window_emits_trailing_hedge_weights` regression
+  test asserting the trailing cycle is flushed and produces
+  non-zero hedge weights on the underlying in the final 10 bars.
+* `packages/alphakit-strategies-options/alphakit/strategies/
+  options/delta_hedged_straddle/known_failures.md` — added §11
+  documenting the trailing-cycle-flush invariant.
+
+**Lessons learned.** Gate 3 review focused on
+`covered_call_systematic` (no trailing-cycle issue — single-leg
+short-vol with `discrete_legs` lifecycle handled entirely by
+bridge-side lifecycle detection). Gate 4 spot check chose other
+novel patterns. Future gate-3 selections should include any
+strategy that introduces a NEW state primitive.
+`delta_hedged_straddle` introduced cycle metadata as a state
+primitive (the first strategy to maintain stateful coupling
+between `make_legs_prices` and `generate_signals` via
+`self._cycles`) but wasn't selected for either gate review.
+
+External AI code review (Codex) caught what human review missed.
+The process loop is: gate review identifies architectural novelty
++ spot-check exercises substrate edge cases + AI review catches
+state-machine completeness. All three are valid catches.

@@ -20,8 +20,9 @@ class TestDiscoverSlugs:
         slugs = discover_slugs()
         # 60 Phase 1 (trend, meanrev, carry, value, volatility) +
         # 13 Phase 2 Session 2D rates +
-        # 10 Phase 2 Session 2E commodity = 83.
-        assert len(slugs) == 83
+        # 10 Phase 2 Session 2E commodity +
+        # 15 Phase 2 Session 2F options = 98.
+        assert len(slugs) == 98
 
     def test_rates_family(self) -> None:
         slugs = discover_slugs("rates")
@@ -51,6 +52,12 @@ class TestDiscoverSlugs:
     def test_commodity_family(self) -> None:
         slugs = discover_slugs("commodity")
         assert len(slugs) == 10
+
+    def test_options_family(self) -> None:
+        slugs = discover_slugs("options")
+        assert len(slugs) == 15
+        assert "covered_call_systematic" in slugs
+        assert "vix_term_structure_roll" in slugs
 
     def test_nonexistent_family(self) -> None:
         slugs = discover_slugs("nonexistent")

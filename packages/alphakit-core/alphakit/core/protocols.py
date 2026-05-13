@@ -129,6 +129,46 @@ class StrategyProtocol(Protocol):
     * ``asset_classes``    — tuple of asset classes this strategy is valid for
     * ``paper_doi``        — DOI, arXiv link, or book ISBN. **Never blank.**
     * ``rebalance_frequency`` — ``"daily"`` | ``"weekly"`` | ``"monthly"`` | ...
+
+    Optional class-level metadata
+    -----------------------------
+    * ``discrete_legs: tuple[str, ...]`` — column names whose target
+      weights should be interpreted as **one-shot discrete trades**
+      (vectorbt ``SizeType.Amount``) rather than continuous-rebalance
+      target dollar exposures (``SizeType.TargetPercent``). The
+      attribute is *not* declared on the Protocol body so that existing
+      strategies remain ``isinstance(StrategyProtocol)``-conforming
+      without modification; bridges access it via
+      :func:`get_discrete_legs` which returns ``()`` when the
+      attribute is absent.
+
+      **When to declare.** Discretely-traded option legs whose price
+      decays sharply across the position's lifecycle (premium → 0
+      across a monthly cycle) cannot be modelled under the default
+      continuous-rebalance semantics: a static ``weight = -1.0`` every
+      bar means "rebalance to −100 % of equity in this asset every
+      bar," which causes the bridge to sell ever-more contracts as the
+      price decays, producing runaway short P&L. Declare such columns
+      in ``discrete_legs`` to keep them at ``SizeType.Amount`` (one
+      order per bar — the strategy emits the share count directly,
+      no rebalancing).
+
+      **When *not* to declare.** Continuous-exposure assets (equities,
+      futures, FX) under TSMOM / mean-reversion / carry / value
+      strategies must remain in the default
+      ``SizeType.TargetPercent`` mode. The 83 strategies through
+      Session 2E ship without ``discrete_legs`` and are therefore
+      unaffected by this Protocol extension.
+
+      Example::
+
+          class CoveredCallSystematic:
+              name = "covered_call_systematic"
+              family = "options"
+              # ... other required metadata ...
+              # The synthetic short-call leg is a discrete trade; the
+              # underlying SPY column stays continuous-rebalance.
+              discrete_legs: tuple[str, ...] = ("SPY_CALL_OTM02PCT_M1",)
     """
 
     name: str
@@ -155,8 +195,37 @@ class StrategyProtocol(Protocol):
             to 1.0 for long-only strategies, to 0.0 for market-neutral,
             or unconstrained for leveraged/short strategies. ``NaN`` is
             interpreted as zero weight.
+
+            For columns named in :attr:`discrete_legs`, weights are
+            interpreted as one-shot share/contract counts instead of
+            target percentages — see the Optional class-level metadata
+            section above.
         """
         ...
+
+
+def get_discrete_legs(strategy: StrategyProtocol) -> tuple[str, ...]:
+    """Return the strategy's :attr:`discrete_legs` tuple, or ``()``.
+
+    Bridges call this helper rather than ``getattr`` directly so the
+    optional-Protocol-attribute access pattern is centralised and
+    type-safe. The default ``()`` preserves the pre-Session-2F
+    behaviour of every strategy that does not declare
+    ``discrete_legs``: all output columns are interpreted under
+    continuous-rebalance ``TargetPercent`` semantics.
+    """
+    legs = getattr(strategy, "discrete_legs", ())
+    if not isinstance(legs, tuple):
+        raise TypeError(
+            f"strategy.discrete_legs must be a tuple of column names, got {type(legs).__name__}"
+        )
+    for leg in legs:
+        if not isinstance(leg, str) or not leg:
+            raise TypeError(
+                f"strategy.discrete_legs entries must be non-empty strings, "
+                f"got {leg!r} (type={type(leg).__name__})"
+            )
+    return legs
 
 
 @runtime_checkable

@@ -21,7 +21,16 @@ from typing import Any
 import yaml
 from alphakit.core.protocols import StrategyProtocol
 
-FAMILIES = ("trend", "meanrev", "carry", "value", "volatility", "rates", "commodity")
+FAMILIES = (
+    "trend",
+    "meanrev",
+    "carry",
+    "value",
+    "volatility",
+    "rates",
+    "commodity",
+    "options",
+)
 
 
 def _family_module(family: str) -> Any:

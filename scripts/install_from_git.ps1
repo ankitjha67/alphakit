@@ -19,6 +19,7 @@ param(
         "strategies-volatility",
         "strategies-rates",
         "strategies-commodity",
+        "strategies-options",
         "bench"
     )
 )

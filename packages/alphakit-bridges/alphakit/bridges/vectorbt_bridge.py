@@ -23,15 +23,22 @@ Design notes
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 from alphakit.core.metrics.drawdown import max_drawdown
 from alphakit.core.metrics.returns import calmar_ratio, sharpe_ratio, sortino_ratio
-from alphakit.core.protocols import BacktestResult, StrategyProtocol
+from alphakit.core.protocols import (
+    BacktestResult,
+    StrategyProtocol,
+    get_discrete_legs,
+)
 
 NAME: str = "vectorbt"
+
+logger = logging.getLogger(__name__)
 
 
 def _import_vectorbt() -> Any:
@@ -88,9 +95,70 @@ def run(
     weights = strategy.generate_signals(prices)
     weights = weights.reindex_like(prices).fillna(0.0)
 
-    # 2. Translate weights into size orders interpretable by vectorbt:
-    #    we use target-percent orders, one per bar, on every symbol.
-    size_type = vbt.portfolio.enums.SizeType.TargetPercent
+    # 2. Translate weights into size orders interpretable by vectorbt.
+    #
+    #    Default semantics: every column is rebalanced to a target
+    #    percentage of equity each bar (``SizeType.TargetPercent``).
+    #    This is correct for every strategy through Session 2E (TSMOM,
+    #    mean-reversion, carry, value, volatility, rates, commodity)
+    #    where the strategy expresses continuous-exposure positions.
+    #
+    #    Session 2F extension: strategies declaring
+    #    ``discrete_legs: tuple[str, ...]`` flag specific columns whose
+    #    weights are *one-shot* share/contract counts
+    #    (``SizeType.Amount``). Without this, an option leg whose
+    #    premium decays from $8 → $0 across the monthly cycle would
+    #    cause the bridge to sell ever-more contracts to maintain a
+    #    static −100 % dollar target, producing runaway short P&L.
+    #
+    #    Implementation: vectorbt's ``size_type`` accepts a per-column
+    #    array, which is exactly the dispatch primitive we need —
+    #    ``TargetPercent`` for continuous columns, ``Amount`` for
+    #    discrete columns. No two-portfolio merge needed.
+    declared_legs = get_discrete_legs(strategy)
+    # Partition declared legs into those actually present in
+    # ``prices`` (active dispatch targets) and those declared but
+    # absent (Mode 2 fallback path or, possibly, a typo in the
+    # declaration). A strategy may declare its discrete legs
+    # statically (e.g. ``("SPY_CALL_OTM02PCT_M1",)``) but be invoked
+    # on a smaller universe — the canonical case is Session 2F's
+    # options strategies being run by the standard BenchmarkRunner
+    # with only the underlying column. In that fallback mode the
+    # strategy emits single-column buy-and-hold weights and the
+    # discrete leg is genuinely absent.
+    #
+    # Bridge contract: silently use ``present_legs`` for the
+    # size_type dispatch (so the fallback runs to completion), but
+    # ``logger.debug`` any ``missing_legs`` so typos surface in
+    # tests / debug log streams. Tests can use pytest's ``caplog``
+    # fixture to verify the warning fires.
+    present_legs = tuple(c for c in declared_legs if c in prices.columns)
+    missing_legs = tuple(c for c in declared_legs if c not in prices.columns)
+
+    if missing_legs:
+        logger.debug(
+            "Strategy %s declared discrete_legs %s but columns %s not in "
+            "prices.columns. Treating as Mode 2 fallback (continuous-rebalance "
+            "TargetPercent semantics for the absent legs); ensure declared "
+            "leg names are typo-free or this may silently swallow the "
+            "discrete-mode dispatch.",
+            strategy.name,
+            declared_legs,
+            missing_legs,
+        )
+
+    if present_legs:
+        size_type_per_column = np.array(
+            [
+                vbt.portfolio.enums.SizeType.Amount
+                if col in present_legs
+                else vbt.portfolio.enums.SizeType.TargetPercent
+                for col in prices.columns
+            ],
+            dtype=int,
+        )
+    else:
+        size_type_per_column = vbt.portfolio.enums.SizeType.TargetPercent
 
     fees = commission_bps / 10_000.0
     slippage = slippage_bps / 10_000.0
@@ -98,7 +166,7 @@ def run(
     portfolio = vbt.Portfolio.from_orders(
         close=prices,
         size=weights,
-        size_type=size_type,
+        size_type=size_type_per_column,
         init_cash=initial_cash,
         fees=fees,
         slippage=slippage,

@@ -24,6 +24,7 @@ members = [
     "alphakit-strategies-carry",
     "alphakit-strategies-commodity",
     "alphakit-strategies-meanrev",
+    "alphakit-strategies-options",
     "alphakit-strategies-rates",
     "alphakit-strategies-trend",
     "alphakit-strategies-value",
@@ -196,6 +197,7 @@ dependencies = [
     { name = "alphakit-strategies-carry" },
     { name = "alphakit-strategies-commodity" },
     { name = "alphakit-strategies-meanrev" },
+    { name = "alphakit-strategies-options" },
     { name = "alphakit-strategies-rates" },
     { name = "alphakit-strategies-trend" },
     { name = "alphakit-strategies-value" },
@@ -207,6 +209,7 @@ all = [
     { name = "alphakit-strategies-carry" },
     { name = "alphakit-strategies-commodity" },
     { name = "alphakit-strategies-meanrev" },
+    { name = "alphakit-strategies-options" },
     { name = "alphakit-strategies-rates" },
     { name = "alphakit-strategies-trend" },
     { name = "alphakit-strategies-value" },
@@ -258,6 +261,9 @@ ml = [
     { name = "scikit-learn", version = "1.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "xgboost" },
 ]
+options = [
+    { name = "alphakit-strategies-options" },
+]
 rates = [
     { name = "alphakit-strategies-rates" },
 ]
@@ -288,6 +294,8 @@ requires-dist = [
     { name = "alphakit-strategies-commodity", marker = "extra == 'commodity'", editable = "packages/alphakit-strategies-commodity" },
     { name = "alphakit-strategies-meanrev", editable = "packages/alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-meanrev", marker = "extra == 'meanrev'", editable = "packages/alphakit-strategies-meanrev" },
+    { name = "alphakit-strategies-options", editable = "packages/alphakit-strategies-options" },
+    { name = "alphakit-strategies-options", marker = "extra == 'options'", editable = "packages/alphakit-strategies-options" },
     { name = "alphakit-strategies-rates", editable = "packages/alphakit-strategies-rates" },
     { name = "alphakit-strategies-rates", marker = "extra == 'rates'", editable = "packages/alphakit-strategies-rates" },
     { name = "alphakit-strategies-trend", editable = "packages/alphakit-strategies-trend" },
@@ -484,6 +492,26 @@ requires-dist = [
 name = "alphakit-strategies-meanrev"
 version = "0.0.1"
 source = { editable = "packages/alphakit-strategies-meanrev" }
+dependencies = [
+    { name = "alphakit-core" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alphakit-core", editable = "packages/alphakit-core" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "pandas", specifier = ">=2.2" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+
+[[package]]
+name = "alphakit-strategies-options"
+version = "0.0.1"
+source = { editable = "packages/alphakit-strategies-options" }
 dependencies = [
     { name = "alphakit-core" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
