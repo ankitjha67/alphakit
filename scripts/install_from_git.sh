@@ -24,6 +24,7 @@ ALL_PKGS=(
     strategies-volatility
     strategies-rates
     strategies-commodity
+    strategies-options
     bench
 )
 

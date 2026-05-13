@@ -50,7 +50,7 @@ jobs:
           for pkg in core data bridges \
                      strategies-trend strategies-meanrev strategies-carry \
                      strategies-value strategies-volatility strategies-rates \
-                     strategies-commodity \
+                     strategies-commodity strategies-options \
                      bench; do
             echo "::group::Installing alphakit-${pkg}"
             pip install "alphakit-${pkg} @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-${pkg}"
@@ -94,11 +94,14 @@ jobs:
           from alphakit.strategies.commodity.commodity_tsmom import CommodityTSMOM12m1m
           check_protocol(CommodityTSMOM12m1m, 'commodity')
 
+          from alphakit.strategies.options.covered_call_systematic import CoveredCallSystematic
+          check_protocol(CoveredCallSystematic, 'options')
+
           from alphakit.bench.discovery import discover_slugs
           slugs = discover_slugs()
-          if len(slugs) != 83:
+          if len(slugs) != 98:
               raise RuntimeError(
-                  f'Discovery returned {len(slugs)} strategies, expected 83. '
+                  f'Discovery returned {len(slugs)} strategies, expected 98. '
                   f'First 10 found: {sorted(slugs)[:10]}. '
                   f'This indicates alphakit.bench.discovery is not finding '
                   f'strategies in the pip-installed layout.'
