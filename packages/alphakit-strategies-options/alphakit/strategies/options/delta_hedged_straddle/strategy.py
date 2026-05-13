@@ -312,6 +312,20 @@ class DeltaHedgedStraddle:
                     call_premium[i] = max(_LEG_FLAT_FLOOR, spot - current_strike)
                     put_premium[i] = max(_LEG_FLAT_FLOOR, current_strike - spot)
 
+        # Flush trailing open cycle: if the window ends mid-cycle (between
+        # write and expiry), generate_signals still needs cycle metadata
+        # to emit hedge weights on the underlying for the trailing bars.
+        # Treat the cycle as closing on the last bar of the window.
+        if current_expiry is not None and current_write_idx is not None:
+            cycles.append(
+                _CycleMetadata(
+                    write_idx=current_write_idx,
+                    close_idx=len(idx) - 1,
+                    expiry=current_expiry,
+                    strike=cast(float, current_strike),
+                    sigma=cast(float, current_sigma),
+                )
+            )
         self._cycles = cycles
         return pd.DataFrame(
             {self.call_leg_symbol: call_premium, self.put_leg_symbol: put_premium},

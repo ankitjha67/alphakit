@@ -2,14 +2,38 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
+
 import numpy as np
 import pandas as pd
 import pytest
-from alphakit.core.protocols import StrategyProtocol, get_discrete_legs
+from alphakit.core.data import OptionChain
+from alphakit.core.protocols import StrategyProtocol, get_discrete_legs, raise_chain_not_supported
+from alphakit.data.options.synthetic import SyntheticOptionsFeed
 from alphakit.strategies.options.delta_hedged_straddle.strategy import (
     DeltaHedgedStraddle,
     _detect_lifecycle_events,
 )
+
+
+class _FakeUnderlying:
+    name = "fake-underlying"
+
+    def __init__(self, prices: pd.Series) -> None:
+        self._prices = prices
+
+    def fetch(
+        self,
+        symbols: list[str],
+        start: datetime,
+        end: datetime,
+        frequency: str = "1d",
+    ) -> pd.DataFrame:
+        end_ts = pd.Timestamp(end)
+        return pd.DataFrame({symbols[0]: self._prices.loc[:end_ts].copy()})
+
+    def fetch_chain(self, underlying: str, as_of: datetime) -> OptionChain:
+        raise_chain_not_supported(self.name)
 
 
 def test_satisfies_strategy_protocol() -> None:
@@ -84,3 +108,41 @@ def test_lifecycle_helper_matches_short_vol_strategies() -> None:
     assert close_mask[3]
     assert not write_mask[3]
     assert not close_mask[1]
+
+
+def test_truncated_window_emits_trailing_hedge_weights() -> None:
+    """Window ending mid-cycle still produces non-zero hedge weights
+    on the underlying in the trailing bars.
+
+    Regression test for Codex P1 finding on PR #16: cycles list was
+    only appended inside the close-at-expiry branch, so truncated
+    windows emitted zero hedge weights on the underlying for trailing
+    bars while the option-leg lifecycle detection correctly fired
+    (long straddle held unhedged → directional P&L bias).
+    """
+    rng = np.random.default_rng(7)
+    # Build ample history (the synthetic feed needs ≥ 252 trailing
+    # bars to compute realized vol) ending on a date that falls just
+    # *after* a first-of-month write but well before the next expiry
+    # — i.e., the window ends mid-cycle.
+    n = 500
+    daily_log_returns = rng.standard_normal(n) * 0.013
+    values = 100.0 * np.exp(np.cumsum(daily_log_returns))
+    index = pd.date_range(end=pd.Timestamp(date(2024, 8, 5)), periods=n, freq="B")
+    underlying = pd.Series(values, index=index, name="SPY")
+
+    chain_feed = SyntheticOptionsFeed(underlying_feed=_FakeUnderlying(underlying))
+    strategy = DeltaHedgedStraddle(chain_feed=chain_feed)
+    legs = strategy.make_legs_prices(underlying)
+
+    # The trailing cycle must extend coverage to the final bar.
+    # Pre-fix: the open trailing cycle was dropped → no cycle had
+    # close_idx == n - 1 → no hedge weight on trailing bars.
+    assert len(strategy._cycles) >= 1
+    assert any(c.close_idx == n - 1 for c in strategy._cycles)
+
+    prices = pd.DataFrame({strategy.underlying_symbol: underlying}).join(legs)
+    weights = strategy.generate_signals(prices)
+    # Trailing bars carry non-zero hedge weight on the underlying.
+    # Pre-fix: this sum was 0.0 because no cycle covered the tail.
+    assert weights[strategy.underlying_symbol].iloc[-10:].abs().sum() > 0

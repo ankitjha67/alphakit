@@ -999,3 +999,71 @@ P&L through the bridge. `covered_call_systematic` (re-implementing
 in Commit 2 after this fix lands) declares
 `discrete_legs = (call_leg_symbol,)` and exercises the new dispatch
 path through its integration tests.
+
+---
+
+## 2026-05-13 — Session 2F: `delta_hedged_straddle` trailing-cycle flush
+
+**Context.** Codex AI review on PR #16 flagged a latent correctness
+bug in `delta_hedged_straddle`'s stateful coupling. The `cycles`
+list was only appended inside the close-at-expiry branch of
+`make_legs_prices`, so truncated windows (window ending mid-cycle)
+emitted zero hedge weights on the underlying for trailing bars
+while the option-leg lifecycle detection correctly fired — the
+final straddle was held unhedged end-to-end, producing directional
+P&L bias.
+
+**Resolution.** Flush the trailing open cycle on the last bar of
+the window before assigning `self._cycles`. The cycle is treated as
+closing on the last bar of the window:
+
+    if current_expiry is not None and current_write_idx is not None:
+        cycles.append(
+            _CycleMetadata(
+                write_idx=current_write_idx,
+                close_idx=len(idx) - 1,
+                expiry=current_expiry,
+                strike=cast(float, current_strike),
+                sigma=cast(float, current_sigma),
+            )
+        )
+    self._cycles = cycles
+
+`gamma_scalping_daily` inherits the fix via composition.
+
+**Severity.** Latent on the existing year-aligned test windows
+(panels run to/past final expiry). Would surface on Phase 3
+rolling / walk-forward harnesses, mid-month start dates, or
+portfolio construction that doesn't honour monthly expiry cycle
+boundaries.
+
+**Scope.**
+
+* `packages/alphakit-strategies-options/alphakit/strategies/
+  options/delta_hedged_straddle/strategy.py` — added trailing-cycle
+  flush block at end of `make_legs_prices` (immediately before
+  `self._cycles = cycles`).
+* `packages/alphakit-strategies-options/alphakit/strategies/
+  options/delta_hedged_straddle/tests/test_unit.py` — added
+  `test_truncated_window_emits_trailing_hedge_weights` regression
+  test asserting the trailing cycle is flushed and produces
+  non-zero hedge weights on the underlying in the final 10 bars.
+* `packages/alphakit-strategies-options/alphakit/strategies/
+  options/delta_hedged_straddle/known_failures.md` — added §11
+  documenting the trailing-cycle-flush invariant.
+
+**Lessons learned.** Gate 3 review focused on
+`covered_call_systematic` (no trailing-cycle issue — single-leg
+short-vol with `discrete_legs` lifecycle handled entirely by
+bridge-side lifecycle detection). Gate 4 spot check chose other
+novel patterns. Future gate-3 selections should include any
+strategy that introduces a NEW state primitive.
+`delta_hedged_straddle` introduced cycle metadata as a state
+primitive (the first strategy to maintain stateful coupling
+between `make_legs_prices` and `generate_signals` via
+`self._cycles`) but wasn't selected for either gate review.
+
+External AI code review (Codex) caught what human review missed.
+The process loop is: gate review identifies architectural novelty
++ spot-check exercises substrate edge cases + AI review catches
+state-machine completeness. All three are valid catches.

@@ -131,3 +131,33 @@ Same convention as siblings.
 ## 10. yfinance passthrough assumption (Session 2H verification)
 
 Inherited from sibling strategies.
+
+## 11. Truncated-window handling
+
+The strategy's stateful coupling between `make_legs_prices` and
+`generate_signals` depends on cycle metadata being complete at the
+end of the window. The implementation flushes the trailing open
+cycle on the last bar of the window, ensuring the hedge weights on
+the underlying remain consistent with the option-leg trades.
+Verified by `test_truncated_window_emits_trailing_hedge_weights`.
+
+This was an actual bug caught by Codex AI review on PR #16. Before
+the fix, `cycles.append(...)` only fired inside the
+close-at-expiry branch of `make_legs_prices`, so any window that
+ended mid-cycle dropped the trailing cycle from `self._cycles` —
+option legs still traded (lifecycle detection on the leg-price
+columns correctly fired `close_mask` on the final in-position bar),
+but the daily delta hedge on the underlying went to zero for the
+tail, leaving the straddle held unhedged → directional P&L bias on
+rolling / walk-forward / mid-month backtest windows.
+
+The fix flushes the trailing open cycle at the end of
+`make_legs_prices` via:
+
+    if current_expiry is not None and current_write_idx is not None:
+        cycles.append(...)
+    self._cycles = cycles
+
+The trailing cycle is treated as closing on the last bar of the
+window. `gamma_scalping_daily` inherits this behaviour via
+composition.
