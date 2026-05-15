@@ -23,6 +23,7 @@ members = [
     "alphakit-data",
     "alphakit-strategies-carry",
     "alphakit-strategies-commodity",
+    "alphakit-strategies-macro",
     "alphakit-strategies-meanrev",
     "alphakit-strategies-options",
     "alphakit-strategies-rates",
@@ -196,6 +197,7 @@ dependencies = [
     { name = "alphakit-data" },
     { name = "alphakit-strategies-carry" },
     { name = "alphakit-strategies-commodity" },
+    { name = "alphakit-strategies-macro" },
     { name = "alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-options" },
     { name = "alphakit-strategies-rates" },
@@ -208,6 +210,7 @@ dependencies = [
 all = [
     { name = "alphakit-strategies-carry" },
     { name = "alphakit-strategies-commodity" },
+    { name = "alphakit-strategies-macro" },
     { name = "alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-options" },
     { name = "alphakit-strategies-rates" },
@@ -252,6 +255,9 @@ docs = [
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
 ]
+macro = [
+    { name = "alphakit-strategies-macro" },
+]
 meanrev = [
     { name = "alphakit-strategies-meanrev" },
 ]
@@ -292,6 +298,8 @@ requires-dist = [
     { name = "alphakit-strategies-carry", marker = "extra == 'carry'", editable = "packages/alphakit-strategies-carry" },
     { name = "alphakit-strategies-commodity", editable = "packages/alphakit-strategies-commodity" },
     { name = "alphakit-strategies-commodity", marker = "extra == 'commodity'", editable = "packages/alphakit-strategies-commodity" },
+    { name = "alphakit-strategies-macro", editable = "packages/alphakit-strategies-macro" },
+    { name = "alphakit-strategies-macro", marker = "extra == 'macro'", editable = "packages/alphakit-strategies-macro" },
     { name = "alphakit-strategies-meanrev", editable = "packages/alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-meanrev", marker = "extra == 'meanrev'", editable = "packages/alphakit-strategies-meanrev" },
     { name = "alphakit-strategies-options", editable = "packages/alphakit-strategies-options" },
@@ -472,6 +480,26 @@ requires-dist = [
 name = "alphakit-strategies-commodity"
 version = "0.0.1"
 source = { editable = "packages/alphakit-strategies-commodity" }
+dependencies = [
+    { name = "alphakit-core" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alphakit-core", editable = "packages/alphakit-core" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "pandas", specifier = ">=2.2" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+
+[[package]]
+name = "alphakit-strategies-macro"
+version = "0.0.1"
+source = { editable = "packages/alphakit-strategies-macro" }
 dependencies = [
     { name = "alphakit-core" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },

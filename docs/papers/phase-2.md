@@ -120,8 +120,26 @@ strategies use `^VIX` / `^VIX3M` (yfinance equity passthrough) and
 
 ## Macro family
 
-Sub-package: `packages/alphakit-strategies-macro/`. Target: 15
-strategies (Session 2G).
+Sub-package: `packages/alphakit-strategies-macro/`. Target: **11
+strategies** (reduced from the originally-planned 15 — see
+[`../phase-2-amendments.md`](../phase-2-amendments.md) Session 2G
+drop entries for `cape_country_rotation` (cluster duplicate of Phase 1
+`country_cape_rotation`), `dollar_strength_tilt` (no peer-reviewed
+anchor — folklore), `dual_momentum_gtaa` (cluster duplicate of Phase
+1 `dual_momentum_gem`), and `inflation_tilt_60_40_overlay` (borderline
+cluster duplicate of `inflation_regime_allocation`); plus reframe
+entries for `risk_parity_3asset → risk_parity_erc_3asset`,
+`economic_regime_rotation → growth_inflation_regime_rotation`,
+`yield_curve_regime_asset_allocation → yield_curve_regime_allocation`,
+`global_macro_momentum → gtaa_cross_asset_momentum`, and
+`5_asset_tactical → vigilant_asset_allocation_5`). Covariance-based
+strategies share the `alphakit.strategies.macro._covariance` helper
+(Ledoit-Wolf shrinkage + rolling-window estimation + ERC /
+minimum-variance / maximum-diversification solvers). Regime allocators
+follow the Session 2D "informational columns with zero weight" pattern
+documented in `../phase-2-amendments.md` (FRED series enter as input
+DataFrame columns with zero weight in the output; tradable assets
+carry the regime-conditional allocation).
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|
