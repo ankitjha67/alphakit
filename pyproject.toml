@@ -242,6 +242,8 @@ module = [
     "fredapi.*",
     "requests",
     "requests.*",
+    "scipy",
+    "scipy.*",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"

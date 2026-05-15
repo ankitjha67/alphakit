@@ -1513,3 +1513,119 @@ review tier required (mild novelty per the pre-flight assessment).
 Manifest impact: macro family ship count unchanged. Slug list updated:
 `5_asset_tactical` is not a Phase 2 slug; `vigilant_asset_allocation_5`
 ships in its place.
+
+---
+
+## 2026-05-15 — Session 2G: covariance-primitive shared helper module
+
+Context: Session 2G ships three covariance-based portfolio-
+construction strategies (`risk_parity_erc_3asset`, `min_variance_gtaa`,
+`max_diversification`) that all require joint covariance estimation
+followed by numerical weight optimisation. Implementing covariance +
+shrinkage + solvers in each strategy independently would (1) duplicate
+~200 lines of code three times and (2) risk inconsistent shrinkage
+approaches across strategies, breaking the integrity of cluster
+predictions — cluster ρ values across the three siblings are only
+meaningful if they share the same covariance estimator and only differ
+in the weight-construction step.
+
+Resolution: Shared helper module at
+`packages/alphakit-strategies-macro/alphakit/strategies/macro/_covariance.py`
+with stateless functional design (leading underscore in the module
+name signals "package-private" — strategies in the same sub-package
+may import it; downstream consumers should not depend on its API
+across releases). The helper exposes:
+
+- `rolling_covariance(returns, window, shrinkage)` — rolling
+  covariance estimator with three shrinkage methods (`"none"`,
+  `"ledoit_wolf"` [default], `"constant"`). Returns a DataFrame
+  indexed by `MultiIndex(date, asset_i)` with `asset_j` columns;
+  `df.loc[date]` is the (N, N) covariance matrix at that date.
+- `_ledoit_wolf_shrinkage(returns_demeaned)` — Ledoit & Wolf (2004)
+  "Honey, I Shrunk the Sample Covariance Matrix" (J Portfolio Mgmt
+  Vol 30 No 4, DOI 10.3905/jpm.2004.110) constant-correlation-
+  target shrinkage with analytic optimal intensity. Translated from
+  the authors' published MATLAB reference (`shrinkage_corr.m`).
+- `solve_erc_weights(cov, max_iters, tol)` — Equal-risk-contribution
+  weights via the Spinu (2013) convex reformulation of the
+  Maillard-Roncalli-Teiletche (2010) ERC problem. Uses SciPy
+  L-BFGS-B with positive box bounds.
+- `solve_min_variance_weights(cov, long_only, max_weight)` —
+  Long-only or long-short minimum-variance weights via SciPy SLSQP
+  with sum-to-1 equality and box constraints.
+- `solve_max_diversification_weights(cov, long_only, max_weight)` —
+  Maximum-diversification weights per Choueifaty & Coignard (2008)
+  via SciPy SLSQP minimising the negative diversification ratio.
+- `diversification_ratio(weights, cov)` — Choueifaty-Coignard
+  diversification ratio helper. Scale-invariant in weights.
+
+Numerical guards documented in the module docstring:
+
+- `N == 1` (single asset): all solvers return `[1.0]`.
+- `T_eff < N` (more assets than effective observations in a window):
+  the sample covariance is singular; `rolling_covariance` falls back
+  to `np.cov` with `ddof=1` rather than producing a rank-deficient
+  shrinkage estimate.
+- Zero/negative sample variance in any asset: raises `ValueError`
+  rather than producing weights that allocate to a non-stochastic
+  asset.
+- ERC iteration with degenerate marginal risks (negative `(Σw)_i`,
+  possible with strong negative correlations): the convex
+  reformulation avoids the pathology entirely — the log-barrier
+  objective is bounded below only for positive `w`, so the
+  L-BFGS-B box-bound enforcement is sufficient.
+
+Scope: This commit adds the helper module plus comprehensive tests
+(`packages/alphakit-strategies-macro/tests/test_covariance.py`, 39
+tests). No strategy code uses the helper yet; subsequent commits 5,
+6, 7 (`risk_parity_erc_3asset`, `min_variance_gtaa`,
+`max_diversification`) are the first consumers. Backwards
+compatibility: trivial (new module, no existing code touched). A new
+hard dependency on `scipy>=1.11` is declared in
+`packages/alphakit-strategies-macro/pyproject.toml` — scipy was
+already pulled in transitively by pandas / vectorbt, so adding the
+explicit declaration carries no install-cost change.
+
+Architecture: this is a within-family helper, not a workspace-level
+extension like Session 2F's `discrete_legs` metadata or Session 2A's
+`raise_chain_not_supported`. The pattern is "shared utility module"
+not "architectural protocol extension". The leading-underscore
+module name is a deliberate signal that the API is package-private —
+strategies in `alphakit.strategies.macro` may import from it, but
+downstream consumers (Phase 3 alpha discovery, external user code)
+should not depend on it across releases.
+
+Test coverage (39 tests):
+
+- 11 tests for `rolling_covariance`: shape, indexing, symmetry,
+  known-variance recovery, NaN handling, majority-NaN omission,
+  default Ledoit-Wolf shrinkage, constant shrinkage smoke, invalid-
+  window error, invalid-shrinkage-method error, single-asset error.
+- 5 tests for `_ledoit_wolf_shrinkage`: α-in-[0,1] invariant, small-
+  sample-pushes-α-higher invariant, symmetric-positive-definite
+  output, single-asset error, singular-covariance fallback via
+  rolling.
+- 7 tests for `solve_erc_weights`: analytic inverse-vol case (3
+  uncorrelated assets with vols 10%/20%/30% → weights inversely
+  proportional to vol), sums-to-1 invariant, all-positive invariant,
+  equal-risk-contribution invariant (`w_i * (Σw)_i` constant across
+  `i`), N=1 case, zero-variance error, non-square error.
+- 7 tests for `solve_min_variance_weights`: 2-asset uncorrelated
+  Markowitz closed form (`w_1 = σ_2² / (σ_1² + σ_2²)`), 2-asset
+  correlated Markowitz closed form, sums-to-1 invariant, long-only-
+  constraint-binds invariant, long-short-allows-negatives
+  contrast, N=1 case, invalid-max-weight error.
+- 3 tests for `diversification_ratio`: single-asset (DR=1.0), 2-
+  asset hand-checked case (DR = 0.1/sqrt(0.0075) for equal-weight 2
+  assets with σ=0.1, ρ=0.5), zero-variance edge case.
+- 5 tests for `solve_max_diversification_weights`: equal-correlation
+  + equal-vol → equal weight, mixed-universe DR > equal-weight DR,
+  sums-to-1, long-only non-negative, N=1 case.
+- 1 test for N=10 cross-solver convergence: random PSD covariance,
+  all three solvers produce valid weight vectors.
+
+Gate-3 review surface: the analytic-known-result tests (ERC inverse-
+vol; min-var 2-asset Markowitz; max-div equal-correlation equal-vol)
+are the integrity check on the architectural primitive. Any future
+modification to the solvers must preserve these analytic invariants
+within the documented tolerances.
