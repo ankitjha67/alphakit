@@ -143,3 +143,4 @@ carry the regime-conditional allocation).
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|
+| [`permanent_portfolio`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/permanent_portfolio/) | Browne 1987 (book, ISBN 0-688-06778-6) | Estrada 2018 | [10.2139/ssrn.3168697](https://doi.org/10.2139/ssrn.3168697) | yfinance (SPY+TLT+GLD+SHY) | deferred to 2H | 0.3–0.6 (Estrada OOS) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/permanent_portfolio/known_failures.md) |

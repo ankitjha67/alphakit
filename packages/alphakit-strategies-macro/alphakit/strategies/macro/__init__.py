@@ -45,4 +45,6 @@ allocation.
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from alphakit.strategies.macro.permanent_portfolio.strategy import PermanentPortfolio
+
+__all__: list[str] = ["PermanentPortfolio"]

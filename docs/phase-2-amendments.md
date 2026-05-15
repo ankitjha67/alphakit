@@ -1629,3 +1629,95 @@ vol; min-var 2-asset Markowitz; max-div equal-correlation equal-vol)
 are the integrity check on the architectural primitive. Any future
 modification to the solvers must preserve these analytic invariants
 within the documented tolerances.
+
+---
+
+## 2026-05-15 — Session 2G: alphakit-wide rebalance-cadence convention (clarification)
+
+Context: During Session 2G's Commit 2 gate-3 review of
+`permanent_portfolio`, investigation surfaced that the vectorbt
+bridge's `SizeType.TargetPercent` semantics combined with the
+project-wide signal convention (monthly weights forward-filled
+daily) produces daily drift-correction trades rather than discrete
+monthly rebalance events. The reviewer flagged this as a possible
+methodological inconsistency in `permanent_portfolio`'s "monthly
+rebalance" claim.
+
+Investigation findings:
+
+- `vectorbt.Portfolio.from_orders(..., size_type=TargetPercent)`
+  re-evaluates the target weight on every bar and rebalances on any
+  drift, however small. There is no built-in "rebalance only when
+  target changes" gate.
+- Empirical test on a 63-bar permanent_portfolio panel: the
+  strategy emitted 25/25/25/25 target signals on 3 month-end bars,
+  but the bridge fired **156 orders across 41 distinct dates**
+  (4 legs × 39 drift-correction events post-warm-up + 4 initial
+  buys). Realised trade-event rate: ~63 events per asset per year,
+  not ~12.
+- This is the implemented behavior across **all 99 strategies on
+  `origin/main`** (60 Phase 1 + 13 rates + 10 commodity + 15 options
+  + 1 macro pending). The pattern was established in Phase 1
+  `dual_momentum_gem` (line 130:
+  `monthly_weights.reindex(prices.index).ffill().fillna(0.0)`) and
+  applied uniformly across Sessions 2D, 2E, 2F. No strategy on
+  main produces a true discrete monthly-rebalance trade pattern.
+- vectorbt **can** interpret `NaN` size as "do not rebalance this
+  bar" — verified empirically (10-bar manual test: NaN-preserved
+  weights produced 4 orders vs 17 with the project's ffill+fillna(0)
+  pattern). The opt-in path exists but requires a bridge change to
+  preserve NaN instead of `weights.reindex_like(prices).fillna(0.0)`
+  at `vectorbt_bridge.py:96`.
+
+Resolution: Document the convention explicitly. Strategy docstrings
+and per-strategy `paper.md` files should describe the cadence as
+"monthly target signal + bridge-side daily drift correction toward
+target" rather than "monthly rebalance". The economic exposure
+matches a true monthly rebalance within friction-cost noise —
+total dollar turnover is comparable because each daily drift-
+correction trade rebalances only the drift accumulated since the
+previous bar (typically 0.05–0.5% of position value), not the full
+target notional. Only the trade-event distribution differs (~63
+small events per year vs ~12 discrete events).
+
+The `rebalance_frequency` class attribute on every strategy keeps
+its existing semantics: it describes the **signal cadence**, not
+the bridge-event cadence. Clarification, not a change.
+
+Phase 3 candidate: A sparse-rebalance protocol extension —
+analogous to Session 2F's `discrete_legs` opt-in attribute — would
+let strategies declare `sparse_rebalance: bool = False` (defaulting
+to today's behavior) and have the bridge preserve `NaN` for opt-in
+strategies. Strategies that wanted the discrete-monthly-rebalance
+trade pattern would emit weights on rebalance bars only (`NaN`
+elsewhere) and opt in via the new attribute. Out of scope for
+Session 2G; tracked for Phase 3 bridge-architecture work because:
+
+- Blast radius is large (99 existing strategies need a
+  `sparse_rebalance: bool = False` default added).
+- vectorbt-bridge tests must be extended to cover both dispatch
+  paths.
+- Existing benchmark numbers under the daily-drift-correction
+  convention would need to be re-run against the sparse-rebalance
+  bridge path to confirm Sharpe-equivalence (expected: yes within
+  noise, but must be verified).
+- Backtrader bridge dispatch would also need to be audited for
+  consistent NaN handling.
+
+Scope: **Documentation only.** No code changes to any existing
+strategy. Permanent_portfolio (Commit 2) ships with updated
+strategy.py docstring + paper.md "Implementation deviations" +
+known_failures.md item 4 reflecting the project-wide convention.
+Future Session 2G strategies (Commits 3–12) inherit the clarified
+convention; explicit docstring framing prevents future reviewer
+confusion.
+
+Process lesson: Gate-3 review for a first-strategy-in-family
+should verify the bridge integration semantics match the stated
+cadence. The Session 2F precedent (covered_call_systematic
+gate-3 surfaced the discrete-leg dispatch requirement) had its
+analog here — permanent_portfolio gate-3 surfaced the
+rebalance-cadence convention. Both are caught by reviewing the
+bridge dispatch path on the simplest strategy in the family
+before the architecturally-novel strategies (covariance-based
+Commits 5-7, regime-state Commits 8-12) layer on top.
