@@ -45,6 +45,12 @@ allocation.
 
 from __future__ import annotations
 
+from alphakit.strategies.macro.gtaa_cross_asset_momentum.strategy import (
+    GtaaCrossAssetMomentum,
+)
 from alphakit.strategies.macro.permanent_portfolio.strategy import PermanentPortfolio
 
-__all__: list[str] = ["PermanentPortfolio"]
+__all__: list[str] = [
+    "GtaaCrossAssetMomentum",
+    "PermanentPortfolio",
+]
