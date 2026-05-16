@@ -49,8 +49,12 @@ from alphakit.strategies.macro.gtaa_cross_asset_momentum.strategy import (
     GtaaCrossAssetMomentum,
 )
 from alphakit.strategies.macro.permanent_portfolio.strategy import PermanentPortfolio
+from alphakit.strategies.macro.vigilant_asset_allocation_5.strategy import (
+    VigilantAssetAllocation5,
+)
 
 __all__: list[str] = [
     "GtaaCrossAssetMomentum",
     "PermanentPortfolio",
+    "VigilantAssetAllocation5",
 ]
