@@ -48,6 +48,7 @@ from __future__ import annotations
 from alphakit.strategies.macro.gtaa_cross_asset_momentum.strategy import (
     GtaaCrossAssetMomentum,
 )
+from alphakit.strategies.macro.min_variance_gtaa.strategy import MinVarianceGtaa
 from alphakit.strategies.macro.permanent_portfolio.strategy import PermanentPortfolio
 from alphakit.strategies.macro.risk_parity_erc_3asset.strategy import (
     RiskParityErc3Asset,
@@ -58,6 +59,7 @@ from alphakit.strategies.macro.vigilant_asset_allocation_5.strategy import (
 
 __all__: list[str] = [
     "GtaaCrossAssetMomentum",
+    "MinVarianceGtaa",
     "PermanentPortfolio",
     "RiskParityErc3Asset",
     "VigilantAssetAllocation5",
