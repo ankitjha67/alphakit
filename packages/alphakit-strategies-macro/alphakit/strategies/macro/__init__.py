@@ -51,6 +51,9 @@ from alphakit.strategies.macro.gtaa_cross_asset_momentum.strategy import (
 from alphakit.strategies.macro.max_diversification.strategy import MaxDiversification
 from alphakit.strategies.macro.min_variance_gtaa.strategy import MinVarianceGtaa
 from alphakit.strategies.macro.permanent_portfolio.strategy import PermanentPortfolio
+from alphakit.strategies.macro.recession_probability_rotation.strategy import (
+    RecessionProbabilityRotation,
+)
 from alphakit.strategies.macro.risk_parity_erc_3asset.strategy import (
     RiskParityErc3Asset,
 )
@@ -63,6 +66,7 @@ __all__: list[str] = [
     "MaxDiversification",
     "MinVarianceGtaa",
     "PermanentPortfolio",
+    "RecessionProbabilityRotation",
     "RiskParityErc3Asset",
     "VigilantAssetAllocation5",
 ]
