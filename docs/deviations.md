@@ -413,3 +413,101 @@ but is NOT equivalent to using actual fundamental ratios.
   the gap between implied and realized vol. Using realized vol
   term structure captures the directional signal but not the
   exact premium magnitude.
+
+---
+
+# Phase 2 — Implementation deviations from original master plan
+
+Documents where the Phase 2 (v0.2.0) implementation departs from
+`docs/phase-2-master-plan.md`. The amendments log
+(`docs/phase-2-amendments.md`) is the authoritative running record; this
+section is the v0.2.0 release-time consolidation.
+
+## 1. Strategy count: 49 shipped, not 65 planned
+
+Phase 2 shipped **49** strategies (13 rates + 10 commodity + 15 options +
+11 macro), reduced from the planned 65 by 16 honest drops across Sessions
+2D-2G (missing peer-reviewed anchors, missing data feeds, or cluster
+duplication). Chain: 65 → 63 (2D) → 58 (2E) → 53 (2F) → 49 (2G). Total on
+`main` = 60 Phase 1 + 49 Phase 2 = **109**. Full audit trail in the
+amendments log.
+
+## 2. Benchmark filename standardization (Session 2H)
+
+The master plan specified two side-by-side benchmark files per strategy
+(`benchmark_results_synthetic.json` + `benchmark_results_real.json`). The
+implementation drifted: Phase 1 (60) and macro (11) used a single
+`benchmark_results.json`, while rates/commodity/options (38) used
+`benchmark_results_synthetic.json`. Since `discovery.benchmark_results_path`
+hardcodes `benchmark_results.json`, the 38 synthetic-suffixed files were
+unreachable by the canonical path. Session 2H **standardized all 109 on
+`benchmark_results.json`** and moved the synthetic/real distinction into a
+**`data_source` field** inside each JSON (`"synthetic-fixture"` or
+`"yfinance-real"`), replacing the filename-level distinction.
+
+## 3. Benchmark schema unification (Session 2H)
+
+The Session 2G macro benchmarks used a custom JSON schema
+(`strategy`/`paper_doi`/`benchmark_data`/`note`/`metrics`) — a workaround
+from before `family="macro"` was discoverable in the bench runner (fixed in
+Session 2G Commit 13). Session 2H regenerated all 11 macro benchmarks through
+the canonical `BenchmarkRunner`, so **all 109 now share the runner schema**.
+
+## 4. Real-feed benchmark coverage: 17 of 49 (Path C-lite)
+
+v0.2.0 ships **17 real-feed (yfinance) benchmarks** (11 rates + 6 macro,
+ETF-only universes; `data_source="yfinance-real"`, 2005-2025 daily) and
+**92 synthetic-fixture benchmarks** (`data_source="synthetic-fixture"`).
+Deferred to **v0.2.1**:
+
+* **5 FRED-gated macro strategies** (`recession_probability_rotation`,
+  `growth_inflation_regime_rotation`, `yield_curve_regime_allocation`,
+  `fed_policy_tilt`, `inflation_regime_allocation`) — real-feed needs
+  `FRED_API_KEY` + a runner FRED-merge enhancement (the runner currently
+  routes the whole universe through one feed). Regenerated on regime-
+  exercising synthetic panels for v0.2.0.
+* **2 rates strategies** — `swap_spread_mean_rev` (needs a FRED ICE-swap-rate
+  adapter; `IRS_10Y` has no liquid ETF) and `global_inflation_momentum`
+  (placeholder multi-country CPI/bond symbols needing a FRED-series mapping).
+* **commodity (10) + options (15)** stay synthetic for v0.2.0 (options use
+  the synthetic-options chain generator by design; commodity real-feed is a
+  v0.2.1 yfinance-futures/CFTC/EIA pass).
+
+## 5. AlphaKit-wide rebalance-cadence convention
+
+`SizeType.TargetPercent` in the vectorbt bridge produces ~63 daily
+drift-correction trade events per asset per year on top of the monthly
+target signal (not 12 discrete monthly rebalances). Sharpe-equivalent under
+reasonable cost models; only the trade-event distribution differs. A
+sparse-rebalance protocol is a Phase 3 candidate. (Session 2G amendment.)
+
+## 6. Bridge-positivity rule for FRED informational columns
+
+The bridge rejects non-positive `close` prices, so FRED informational
+columns must be strictly positive. Consequences: `yield_curve_regime_allocation`
+uses `DGS2` (2-year, always positive) instead of `DGS3MO` (prints 0.0 in
+ZIRP) and computes the 2s10s slope internally; `growth_inflation_regime_rotation`
+consumes the `GDPC1` level (positive) instead of the GDP growth-rate series
+(goes negative). (Session 2G amendment.)
+
+## 7. Cluster analysis caveats (Session 2H)
+
+`scripts/cluster_analysis.py` computes a 47×49 equity-curve correlation on a
+common synthetic-fixture basis. Two commodity strategies are excluded
+(`commodity_curve_carry` uses a `front_symbols`/`next_symbols` config schema;
+`cot_speculator_position` needs CFTC `*_NET_SPEC` columns absent from
+fixtures). Regime-state strategies' signals are degenerate on generic
+fixtures, so their cluster correlations are not meaningfully captured on
+synthetic data — the per-strategy `known_failures.md` rho ranges remain
+authoritative pending the v0.2.1 real-feed cluster pass. See
+`docs/benchmark_notes.md` Phase 2 section.
+
+## 8. CI: verify-install trigger gap (tracked for v0.2.1)
+
+`verify-install.yml` historically ran only on `push: tags: v*` and
+`workflow_dispatch`, so it did not auto-run on PRs to `main` and required a
+manual branch-ref dispatch at PR time. Session 2H adds a `pull_request:
+[main]` trigger (installing from the local checkout on PR events; git+URL
+for tag/dispatch). Note the self-reference caveat: for `pull_request` events
+GitHub reads the workflow from the base branch, so the trigger benefits PRs
+opened *after* it merges to `main`, not its own PR.
