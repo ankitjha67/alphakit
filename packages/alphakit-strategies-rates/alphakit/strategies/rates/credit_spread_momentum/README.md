@@ -43,6 +43,6 @@ result = vectorbt_bridge.run(
   inflection lag, IG-vs-HY decoupling, asset-specific
   microstructure shocks, cluster overlap with sovereign-bond
   momentum.
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   fixture-based metrics. Real-feed FRED `BAMLC0A0CM` (IG OAS) +
   LQD benchmark deferred to Session 2H.

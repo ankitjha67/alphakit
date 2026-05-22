@@ -110,4 +110,4 @@ one month before any signal change.
 (Reference ranges from the Asness Table III single-country bond
 sub-strategy and from CTA-reported bond sleeves; the in-repo
 benchmark is the authoritative source for this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

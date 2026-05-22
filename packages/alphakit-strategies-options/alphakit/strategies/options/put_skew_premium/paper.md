@@ -20,7 +20,7 @@ published methodology with documented Phase 3 verification path
 against real options chains via Polygon (ADR-004 stub).
 
 This caveat is repeated in `known_failures.md` §1 and in the
-`benchmark_results_synthetic.json` `note` field.
+`benchmark_results.json` `note` field.
 
 ## Citations
 

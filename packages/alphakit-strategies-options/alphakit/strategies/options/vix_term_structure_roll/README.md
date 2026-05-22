@@ -22,7 +22,7 @@ strategy = VIXTermStructureRoll()
   Differentiation from Phase 1 ``vix_term_structure`` (RV proxy).
 * [known_failures.md](known_failures.md) — stress flip whiplash,
   contango whipsaws, **yfinance ^-prefix passthrough assumption**.
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   fixture-fed metrics.
 
 ## Tests

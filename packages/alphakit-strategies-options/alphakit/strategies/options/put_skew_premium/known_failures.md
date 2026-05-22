@@ -21,7 +21,7 @@ Real-feed verification is mandatory for any meaningful
 evaluation.
 
 This caveat is repeated in `paper.md` and in the
-`benchmark_results_synthetic.json` `note` field.
+`benchmark_results.json` `note` field.
 
 ## 2. Real-chain expected behaviour (Phase 3 verification)
 

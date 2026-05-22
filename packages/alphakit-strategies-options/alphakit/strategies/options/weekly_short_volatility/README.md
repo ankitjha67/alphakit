@@ -32,7 +32,7 @@ strategy = WeeklyShortVolatility()
 * [known_failures.md](known_failures.md) — uncapped weekly tails,
   vol spikes, weekly-specific bid-ask amplification, cluster
   overlap with `short_strangle_monthly`.
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   Mode 2 degenerate baseline.
 
 ## Tests

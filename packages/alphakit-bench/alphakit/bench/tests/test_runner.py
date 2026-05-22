@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from alphakit.bench import discovery
 from alphakit.bench.runner import BenchmarkRunner
 
 
@@ -65,18 +66,50 @@ class TestBenchmarkRunner:
         deserialized = json.loads(serialized)
         assert deserialized["slug"] == "tsmom_12_1"
 
-    def test_write_benchmark(self, runner: BenchmarkRunner, tmp_path: Path) -> None:
-        # Monkey-patch the path to use tmp_path
+    def test_write_benchmark(
+        self,
+        runner: BenchmarkRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Redirect the resolved benchmark path into tmp_path so the write
+        # never touches the tracked in-repo benchmark_results.json. (The
+        # runner resolves the target via discovery.benchmark_results_path.)
+        target = tmp_path / "benchmark_results.json"
+        monkeypatch.setattr(discovery, "benchmark_results_path", lambda family, slug: target)
+
         result = runner.run_single("tsmom_12_1")
         result["slug"] = "tsmom_12_1"
 
-        # Write to actual location (has backup logic)
         path = runner.write_benchmark("tsmom_12_1", result, family="trend")
+        # Guard: the write must land at the redirected target, not the repo.
+        assert path == target
         assert path.exists()
         with open(path) as f:
             written = json.load(f)
         assert written["slug"] == "tsmom_12_1"
         assert written["status"] == "populated"
+
+    def test_write_benchmark_does_not_mutate_repo_file(
+        self,
+        runner: BenchmarkRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Regression guard for the working-tree-pollution bug: with the
+        # benchmark path redirected, write_benchmark must leave the tracked
+        # in-repo file byte-for-byte unchanged.
+        real_path = discovery.benchmark_results_path("trend", "tsmom_12_1")
+        before = real_path.read_bytes()
+
+        target = tmp_path / "benchmark_results.json"
+        monkeypatch.setattr(discovery, "benchmark_results_path", lambda family, slug: target)
+
+        result = runner.run_single("tsmom_12_1")
+        runner.write_benchmark("tsmom_12_1", result, family="trend")
+
+        assert target.exists(), "redirected write should land in tmp_path"
+        assert real_path.read_bytes() == before, "tracked repo file must be untouched"
 
     def test_auto_detect_family(self, runner: BenchmarkRunner) -> None:
         result = runner.run_single("vol_targeting")

@@ -94,7 +94,7 @@ ingested data.
   re-classifications (2009 Disaggregated, 2020 Special Call),
   **mis-applied Friday-for-Tuesday lag (most common failure
   mode)**, CFTC publication outages
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed CFTC + yfinance benchmark deferred to
   Session 2H.
 

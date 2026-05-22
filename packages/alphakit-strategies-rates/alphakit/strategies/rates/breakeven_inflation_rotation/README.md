@@ -53,7 +53,7 @@ result = vectorbt_bridge.run(
   regime changes (2021–2022 is the canonical recent example),
   missing inflation-swap hedge residual exposure, ETF basket vs
   constant-maturity mismatch, asymmetric tail risk.
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed benchmark with `DFII10` / `DGS10`
   matched-maturity yields deferred to Session 2H.
 

@@ -144,4 +144,4 @@ vol.
 
 (Reference ranges from public CTA seasonality sleeves; the
 in-repo benchmark is the authoritative source for this
-implementation — see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+implementation — see [`benchmark_results.json`](benchmark_results.json).)

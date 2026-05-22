@@ -59,7 +59,7 @@ and [`strategy.py`](strategy.py) for the implementation docstring.
   blow-ups, **smaller-universe penalty vs KMPV §IV's 24-commodity
   panel** (8-commodity AlphaKit default → ~30-40% lower long-run
   Sharpe)
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 

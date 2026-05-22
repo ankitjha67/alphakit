@@ -111,4 +111,4 @@ Session 2H prerequisite.
 (Reference ranges from Duarte/Longstaff/Yu (2007) Table 4 plus
 practitioner tail-risk reports; the in-repo benchmark is
 authoritative for this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

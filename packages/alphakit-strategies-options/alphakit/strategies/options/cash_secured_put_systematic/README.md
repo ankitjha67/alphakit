@@ -53,7 +53,7 @@ for the full configuration and implementation docstring.
   Phase 1 `cash_secured_put_proxy`** (ρ ≈ 0.85-0.95) and with
   sibling `covered_call_systematic` (ρ ≈ 0.95-1.00 by put-call
   parity).
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   Mode 2 buy-and-hold-of-SPY baseline. Mode 1 full CSP P&L
   exercised in tests; standard benchmark runner waits on
   Session 2H.

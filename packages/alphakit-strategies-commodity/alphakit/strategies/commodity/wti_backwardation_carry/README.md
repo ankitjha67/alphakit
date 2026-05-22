@@ -54,7 +54,7 @@ and [`strategy.py`](strategy.py) for the implementation docstring.
   regimes (2014-15 oil glut, 2020 H1 COVID), curve-flip lag at
   regime boundaries, F2 proxy bias near roll boundaries, **negative
   front-month price (April 2020)** rejected by input validation
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 

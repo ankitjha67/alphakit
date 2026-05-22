@@ -77,4 +77,4 @@ TSMOM. The single-asset shortfall is structural.
 (Reference ranges from the Asness Table III bond-only sub-strategy
 applied to TIPS-equivalent return series; the in-repo benchmark is
 authoritative for this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

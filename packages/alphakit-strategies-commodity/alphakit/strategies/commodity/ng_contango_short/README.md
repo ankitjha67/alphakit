@@ -55,7 +55,7 @@ and [`strategy.py`](strategy.py) for the implementation docstring.
   (2014, 2018, 2021), winter-backwardation cash periods,
   curve-flip lag, **storage-glut short-squeeze risk**, F2 proxy
   bias near roll boundaries
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 

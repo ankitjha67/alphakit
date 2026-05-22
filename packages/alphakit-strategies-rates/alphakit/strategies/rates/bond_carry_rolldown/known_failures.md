@@ -123,4 +123,4 @@ model is required.
 (Reference ranges from the KMPV (2018) US 10Y carry sleeve and from
 SocGen / AQR carry-strategy reports; the in-repo benchmark is
 authoritative for this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

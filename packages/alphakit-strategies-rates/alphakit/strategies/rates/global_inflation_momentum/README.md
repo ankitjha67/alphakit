@@ -55,6 +55,6 @@ Mismatched columns or non-conforming names raise ``ValueError``.
   change at signal-window scale (2021-22 is canonical),
   synchronised inflation surprises, CPI release timing
   look-ahead, country panel size dependence.
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   fixture-based metrics. Real-feed Session 2H benchmark with
   paired G7 CPI + bond series required for meaningful evaluation.

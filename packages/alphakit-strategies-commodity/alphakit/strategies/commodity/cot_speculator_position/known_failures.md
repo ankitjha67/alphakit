@@ -158,4 +158,4 @@ filter (e.g. exit positions if data is > 14 days old).
 
 (Reference ranges from public CTA COT sleeves; the in-repo
 benchmark is the authoritative source for this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

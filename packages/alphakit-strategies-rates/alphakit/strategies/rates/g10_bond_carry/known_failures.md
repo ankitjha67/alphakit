@@ -114,4 +114,4 @@ the *magnitude* of the carry is misleading.
 carry; the in-repo benchmark with the US-only fixture proxy is
 authoritative for this implementation but materially different
 from the FX-hedged G10 paper version —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

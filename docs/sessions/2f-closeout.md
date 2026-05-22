@@ -123,7 +123,7 @@ Test composition:
 **Q: Did any strategy fabricate Sharpe numbers?**
 A: No. `put_skew_premium` and `skew_reversal` explicitly
 document "uninformative on synthetic" / "0.0 by design" in their
-`benchmark_results_synthetic.json` note fields and
+`benchmark_results.json` note fields and
 `known_failures.md`. `delta_hedged_straddle` and
 `gamma_scalping_daily` document expected negative Sharpe
 (-0.3 to -0.1) honestly as long-vol VRP counterparties.

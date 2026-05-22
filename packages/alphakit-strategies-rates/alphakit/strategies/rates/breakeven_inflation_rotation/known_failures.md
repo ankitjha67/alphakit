@@ -110,4 +110,4 @@ should be sized so that each tail is survivable.
 (Reference ranges from FLL (2014) Table 4 single-leg returns and
 practitioner reports; the in-repo benchmark is authoritative for
 this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

@@ -54,7 +54,7 @@ and [`strategy.py`](strategy.py) for the implementation docstring.
   2013, 2020 silver squeeze), industrial-vs-monetary divergence,
   continuous-contract roll bias, **strong cluster overlap with
   `commodity_tsmom`** (ρ ≈ 0.75-0.90)
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 

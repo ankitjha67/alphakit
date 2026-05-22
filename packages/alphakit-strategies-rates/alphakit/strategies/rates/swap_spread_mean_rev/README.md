@@ -50,6 +50,6 @@ result = vectorbt_bridge.run(
   (LTCM 1998, GFC 2008-09), negative-swap-spread regime
   (post-2010), repo/funding cost asymmetry, missing swap-rate
   data feed in Phase 2.
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   fixture-based metrics. Real-feed Session 2H benchmark requires
   swap-rate data adapter not yet wired up.

@@ -48,6 +48,6 @@ Identical to `bond_tsmom_12_1`:
 * [Known failure modes](known_failures.md) — same as `bond_tsmom_12_1`
   plus TIPS-specific risks (liquidity squeeze, inflation-accrual
   leakage in the proxy).
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   fixture-based metrics. Real-feed FRED `DFII10` benchmark deferred
   to Session 2H.

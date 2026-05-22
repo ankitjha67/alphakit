@@ -45,7 +45,7 @@ result = vectorbt_bridge.run(
 * [Known failure modes](known_failures.md) — regime transitions,
   coarse N=3 ranking, ETF basket duration drift, cluster overlap
   with `bond_tsmom_12_1`.
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed benchmark deferred to Session 2H, with
   a wider 5+ FRED constant-maturity panel for closer match to
   Durham's specification.

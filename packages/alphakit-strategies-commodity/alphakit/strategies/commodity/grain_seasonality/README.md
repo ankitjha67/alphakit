@@ -52,7 +52,7 @@ the calendar.
   (2014, 2017), weather-disruption years (2012 drought, 2020
   China-panic, 2022 Ukraine), **non-US grain dynamics post-2010**,
   climate-change calendar drift
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 
