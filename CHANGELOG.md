@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-22
+
+Real-feed validation for the 5 FRED-gated macro regime strategies, on the new
+multi-feed benchmark runner (Session 2I). Three correctness bugs that only a
+keyed real-feed + Windows dev cycle exposed are fixed.
+
+### Added
+
+- **Multi-feed `BenchmarkRunner`** (Session 2I): routes a strategy's
+  informational (FRED) columns to the FRED feed and its tradable columns to
+  yfinance, aligning the two via an as-of forward-fill. A `strict_feed` mode
+  fails loud on any real-feed failure instead of silently substituting
+  fixtures.
+- **Real-feed regeneration / analysis entry points:**
+  `scripts/regenerate_benchmarks.py tier2 --feed real` and
+  `scripts/cluster_analysis.py --feed real` (both need `FRED_API_KEY` +
+  `fredapi`; fail loud before any fetch when absent).
+
+### Changed
+
+- Real-feed (yfinance+FRED) benchmarks for the 5 FRED-gated regime macro
+  strategies — recession_probability_rotation, growth_inflation_regime_rotation,
+  yield_curve_regime_allocation, fed_policy_tilt, inflation_regime_allocation —
+  stamped `data_source="yfinance+fred-real"`. OOS Sharpes **0.62–1.02**, modestly
+  below the 0.77–1.29 seen on Session 2G hand-crafted synthetic panels: real
+  macro regime transitions are noisier than favorably-constructed fixtures, yet
+  the strategies still produce meaningful risk-adjusted returns on real data.
+- Informational-column validation refined: **tradable** columns must be finite
+  and `> 0`; **informational** columns need only be finite (zero and negative
+  values now permitted). New `docs/phase-2-amendments.md` 2026-05-22 entry
+  supersedes the 2026-05-16 "every column strictly positive" rule.
+
+### Fixed
+
+- **Bridge rejected valid informational data.** vectorbt's `from_orders`
+  validates `order.price must be finite and greater than 0` for *every* column,
+  including weight-0 informational ones, so a recession probability of 0.0
+  crashed the run. The bridge now drops identically-zero-weight columns before
+  `from_orders` — exactly P&L-neutral (0 shares × any finite price = 0).
+- **FRED alignment dropped real observations.** Mixed-frequency series (quarterly
+  GDPC1 on a monthly union index) and daily yields (holiday NaN) carried in-place
+  NaN through the old index-based `reindex(method="ffill")`. Replaced with a
+  value-based as-of fill over the union index, which also carries the last
+  observation across the trailing publication-lag gap.
+- **Atomic benchmark write failed on Windows.** `Path.rename` raises
+  `FileExistsError` when the target exists (the common regen case); switched to
+  `Path.replace` (atomic overwrite on POSIX and Windows).
+
+### Notes
+
+- All three Fixed bugs were surfaced only by a keyed real-feed + real-OS dev
+  cycle; the S2I mock-only integration tests (always-positive, single-frequency,
+  publication-lag-free panels) passed over them. See
+  `docs/sessions/2i-closeout.md` for the process lesson and the v0.2.2 backlog.
+
 ## [0.2.0] - 2026-05-22
 
 Multi-feed data architecture + 49 new strategies across four families
