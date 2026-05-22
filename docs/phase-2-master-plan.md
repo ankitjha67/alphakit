@@ -1,12 +1,14 @@
 # alphakit Phase 2 Master Plan — v0.2.0
 
-**Scope:** 65 new strategies across rates, commodity, options, and macro/GTAA families. Multi-feed data architecture. Real feed adapters for all free-and-open-source sources. Polygon adapter placeholder with graceful fallback. Phase 2 ships as **v0.2.0**, marked pre-release (silent build — no announcement until v1.0).
+**Scope:** 49 new strategies shipped (planned 65; honest reduction — see note below) across rates, commodity, options, and macro/GTAA families. Multi-feed data architecture. Real feed adapters for all free-and-open-source sources. Polygon adapter placeholder with graceful fallback. Phase 2 ships as **v0.2.0**, marked pre-release (silent build — no announcement until v1.0).
 
 **Target duration:** 6–8 weeks across 8 Claude Code sessions.
 
 **Baseline:** main @ `0fbc23a` (v0.1.1 tag), 60 strategies live, 928 tests passing, verify-install.yml CI green.
 
-**Success criteria:** 125 total strategies live; 4 new free feed adapters functional; Polygon placeholder with upgrade path documented; real-feed-tested rates and commodity strategies; synthetic-chain options strategies; v0.2.0 tagged and verify-install green on the tag.
+**Success criteria:** 109 total strategies live; 4 new free feed adapters functional; Polygon placeholder with upgrade path documented; real-feed-tested rates and commodity strategies; synthetic-chain options strategies; v0.2.0 tagged and verify-install green on the tag.
+
+> **Count reconciliation (Session 2H).** Phase 2 shipped **49** strategies, not the planned 65, via an honest per-session reduction: **65 → 63** (2D: dropped fed_funds_surprise, fra_ois_spread) **→ 58** (2E: 5 drops) **→ 53** (2F: 5 drops) **→ 49** (2G: 4 drops) — 16 drops total, all for missing peer-reviewed anchors, missing data feeds, or cluster duplication. Total on `main` = 60 Phase 1 + 49 Phase 2 = **109**. Per-family shipped: 13 rates, 10 commodity, 15 options, 11 macro. Full audit trail in `docs/phase-2-amendments.md`. Numbers below that still read "65"/"125"/"65 × 65" are original-plan figures retained for historical context unless explicitly reconciled.
 
 ---
 
@@ -54,13 +56,13 @@ Before planning Phase 2, an honest accounting of what shipped, what broke, and w
 
 ### Mission
 
-Ship 65 new strategies across four new families (rates, commodity, options, macro/GTAA) backed by a real multi-feed data architecture. Free/open-source feeds are primary and fully implemented. Paid-feed adapters exist as placeholders with graceful fallback logic, ready for drop-in when the user chooses to wire them up.
+Ship 49 new strategies (planned 65) across four new families (rates, commodity, options, macro/GTAA) backed by a real multi-feed data architecture. Free/open-source feeds are primary and fully implemented. Paid-feed adapters exist as placeholders with graceful fallback logic, ready for drop-in when the user chooses to wire them up.
 
 At the end of Phase 2, someone clones alphakit, sets zero API keys, runs the quickstart, and sees a rates strategy backtested on real FRED treasury yields. No paid subscriptions required. No proxies where real data is freely available.
 
 ### In scope
 
-65 new strategies: 15 rates, 15 commodity, 20 options, 15 macro/GTAA. Full per-strategy contract for each (paper.md, known_failures.md, tests, benchmark_results.json).
+49 strategies shipped (planned 65): 13 rates, 10 commodity, 15 options, 11 macro/GTAA. Full per-strategy contract for each (paper.md, known_failures.md, tests, benchmark_results.json).
 
 FeedRegistry with name-based adapter lookup. Disk-backed parquet caching with TTL. Rate-limit coordinator. Offline mode (ALPHAKIT_OFFLINE=1).
 
@@ -213,7 +215,7 @@ Users who want production-accurate backtests can wire up Polygon in a future pha
 **Date:** Phase 2 Session 2A.  
 **Deciders:** Project maintainers.
 
-**Context.** Every Phase 2 integration test that hits a real feed (FRED, yfinance-futures, EIA, CFTC) has three failure modes: rate-limited by the provider, network-dependent in CI, slow. Without caching, running the full benchmark suite on 125 strategies against real feeds would take hours and likely trip rate limits multiple times.
+**Context.** Every Phase 2 integration test that hits a real feed (FRED, yfinance-futures, EIA, CFTC) has three failure modes: rate-limited by the provider, network-dependent in CI, slow. Without caching, running the full benchmark suite on 109 strategies against real feeds would take hours and likely trip rate limits multiple times.
 
 **Options considered.**
 
@@ -947,7 +949,7 @@ Do not mark done until origin/main shows new commit AND CI green.
 **Scope.** Benchmark runner extended, cluster analysis, CHANGELOG, README update, verify-install extension, v0.2.0 release.
 
 **Deliverables.**
-- benchmark runner regenerates all 125 strategies' benchmark_results.json (synthetic + real-feed where applicable)
+- benchmark runner regenerates all 109 strategies' benchmark_results.json (synthetic + real-feed where applicable)
 - Cluster analysis report: `docs/benchmark_notes.md` updated with Phase 2 clusters
 - `docs/deviations.md` — Phase 2 section covering all synthetic-data deviations
 - `CHANGELOG.md` — full v0.2.0 section
@@ -961,7 +963,7 @@ Do not mark done until origin/main shows new commit AND CI green.
 **Claude Code handoff prompt:** Generated at session start based on actual state — ensures the closeout reflects reality, not assumptions.
 
 **Adversarial review for 2H:**
-- Did all 65 Phase 2 strategies actually ship with the full per-strategy contract? (Spot-check 10.)
+- Did all 49 Phase 2 strategies actually ship with the full per-strategy contract? (Spot-check 10.)
 - Any _proxy suffixes that snuck in without being scoped for a future phase? (Should be zero in Phase 2 — per ADR-002.)
 - Is the verify-install matrix actually installing the 4 new family packages? (Check the YAML.)
 - Does the v0.2.0 release notes template honestly acknowledge synthetic options chains as the default options feed?
@@ -969,7 +971,7 @@ Do not mark done until origin/main shows new commit AND CI green.
 
 ---
 
-## Section 5 — 65-Strategy Manifest
+## Section 5 — 49-Strategy Manifest (planned 65)
 
 Per-strategy manifest tables are produced and committed during Sessions 2D-2G as each family lands. The canonical table form is in `docs/papers/phase-2.md` (human-readable) and `docs/papers/phase-2.bib` (BibTeX format).
 
@@ -991,7 +993,7 @@ The manifest tables are reserved here — not populated in this master plan — 
 **Session 2H final audit.** The first task in Session 2H is to diff the manifest against the actually-shipped strategies:
 
 ```bash
-# Expected: 65 rows in docs/papers/phase-2.md matching 65 strategy folders
+# Expected: 49 rows in docs/papers/phase-2.md matching 49 strategy folders
 wc -l docs/papers/phase-2.md
 find packages/alphakit-strategies-rates packages/alphakit-strategies-commodity \
      packages/alphakit-strategies-options packages/alphakit-strategies-macro \
@@ -1025,7 +1027,7 @@ Phase 1 shipped with 6 volatility strategies producing identical Sharpe ratios o
 **The cluster-detection procedure runs at Session 2H:**
 
 1. For each Phase 2 strategy, compute the equity curve under synthetic fixtures.
-2. Compute pairwise Pearson correlation of equity curves across all Phase 2 strategies (65 × 65 matrix).
+2. Compute pairwise Pearson correlation of equity curves across all Phase 2 strategies (49 × 49 matrix).
 3. Flag any pair with `|ρ| > 0.95` as a suspected cluster.
 4. Human review each flagged pair: are they legitimately similar (e.g., bond_tsmom and global_inflation_momentum both trading rates momentum), or is one an accidental duplicate?
 5. Legitimate pairs get documented in `docs/benchmark_notes.md` under "Known Phase 2 clusters."
@@ -1102,11 +1104,11 @@ from alphakit.strategies.macro.permanent_portfolio import PermanentPortfolio
 print('Test 2 OK — all 9 families import')
 "@
 
-Write-Host "=== Test 3: discovery returns 125 strategies ===" -ForegroundColor Cyan
+Write-Host "=== Test 3: discovery returns 109 strategies ===" -ForegroundColor Cyan
 python -c @"
 from alphakit.bench.discovery import discover_slugs
 slugs = discover_slugs()
-assert len(slugs) == 125, f'Expected 125, got {len(slugs)}'
+assert len(slugs) == 109, f'Expected 109, got {len(slugs)}'
 print(f'Test 3 OK — {len(slugs)} strategies')
 "@
 
@@ -1141,7 +1143,7 @@ After Session 2H, verify-install.yml's install step iterates over 13 sub-package
 
 The existing `benchmark.yml` weekly runner gets updated in Session 2H to cover Phase 2 strategies. Two matrix modes:
 
-- **Synthetic weekly run** (always-on): regenerates `benchmark_results_synthetic.json` for all 125 strategies. Runs Sunday 00:00 UTC. ~10 minutes.
+- **Synthetic weekly run** (always-on): regenerates `benchmark_results_synthetic.json` for all 109 strategies. Runs Sunday 00:00 UTC. ~10 minutes.
 - **Real-data monthly run** (opt-in, manual workflow_dispatch): pulls FRED, CFTC, EIA and regenerates `benchmark_results_real.json`. Requires FRED_API_KEY and EIA_API_KEY as GitHub secrets. Skipped if keys missing.
 
 The monthly real-data run serves as a drift detector. If `benchmark_results_real.json` for `bond_tsmom_12_1` shifts materially between runs, that's either real market change (interesting) or data-feed change (concerning). Either way, it surfaces in the monthly diff.
@@ -1219,7 +1221,7 @@ Five automatic checks running across Phase 2:
 
 2. **README-vs-code drift.** `test_readme_api.py` pattern extended: every public API claim in README, strategy READMEs, and docs/ gets an assertion. Added per family in Sessions 2D-2G.
 
-3. **Manifest-vs-code drift.** Session 2H audit (Section 5) compares `docs/papers/phase-2.md` row count to `packages/alphakit-strategies-*/` strategy folder count. Must match 65.
+3. **Manifest-vs-code drift.** Session 2H audit (Section 5) compares `docs/papers/phase-2.md` row count to `packages/alphakit-strategies-*/` strategy folder count. Must match 49 (the shipped Phase 2 count; planned 65).
 
 4. **ADR-vs-code drift.** Grep for references to superseded ADRs in new code. ADR-001 is superseded by ADR-003; any new code citing ADR-001 as live is a drift signal.
 
@@ -1281,7 +1283,7 @@ The most expensive rollback is Phase-level: Phase 2 is the wrong scope, drop bac
 
 Phase 2 is "done" when all of these are true:
 
-- 125 strategies merged to main (60 Phase 1 + 65 Phase 2)
+- 109 strategies merged to main (60 Phase 1 + 49 Phase 2; Phase 2 planned 65, 16 honest drops)
 - Each new strategy has the full per-strategy contract (strategy.py, config.yaml, paper.md with DOI, known_failures.md, README.md, tests/test_unit.py, tests/test_integration.py, benchmark_results_synthetic.json, benchmark_results_real.json where applicable)
 - v0.2.0 tagged via GitHub UI, marked pre-release
 - verify-install.yml green on the v0.2.0 tag (all 6 matrix jobs)
@@ -1325,7 +1327,7 @@ The v0.2.0 release ships silently — tagged, release notes written, but no Link
 Template below. Fill in concrete numbers at Session 2H.
 
 ````markdown
-## v0.2.0 — Multi-feed architecture + 65 new strategies
+## v0.2.0 — Multi-feed architecture + 49 new strategies
 
 **Silent pre-release.** Part of the quiet build toward v1.0 (500+ strategies, all asset classes, production-grade).
 
@@ -1378,7 +1380,7 @@ v1.0.0 target: 500+ strategies, all asset classes, full production grade.
 
 ## Section 10 — Papers Referenced in Phase 2
 
-Appendix. 65 citations, DOI-linked where available, grouped by family. This appendix is produced in full during Sessions 2D-2G as each family is implemented. The canonical files are:
+Appendix. 49-strategy citation set, DOI-linked where available, grouped by family. This appendix is produced in full during Sessions 2D-2G as each family is implemented. The canonical files are:
 
 - `docs/papers/phase-2.bib` — BibTeX format, machine-readable, suitable for academic citation tools
 - `docs/papers/phase-2.md` — Human-readable table, one row per strategy: slug | paper | DOI | feed | notes
@@ -1399,7 +1401,7 @@ Appendix. 65 citations, DOI-linked where available, grouped by family. This appe
 
 If a strategy's only source is unacceptable-category, drop the strategy from Phase 2 rather than ship without citation. The honesty bar is load-bearing for alphakit's competitive positioning.
 
-**Verification procedure.** Session 2H includes a step to spot-check 10 random strategies' citations. For each: resolve the DOI, verify the paper exists, verify the paper actually describes the strategy. If 2 or more of 10 fail this check, audit all 65 before tagging.
+**Verification procedure.** Session 2H includes a step to spot-check 10 random strategies' citations. For each: resolve the DOI, verify the paper exists, verify the paper actually describes the strategy. If 2 or more of 10 fail this check, audit all 49 before tagging.
 
 ---
 
