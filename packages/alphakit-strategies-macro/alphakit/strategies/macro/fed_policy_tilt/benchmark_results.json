@@ -1,0 +1,16 @@
+{
+  "strategy": "fed_policy_tilt",
+  "paper_doi": "10.1016/0304-405X(96)00875-X",
+  "benchmark_data": "synthetic-fixture (10-year, seed=42, tightening/easing blocks)",
+  "note": "Real-feed benchmark deferred to Phase 2H. Synthetic-fixture Sharpes differ from paper ranges.",
+  "metrics": {
+    "sharpe": 0.30986,
+    "sortino": 0.304695,
+    "calmar": 0.066723,
+    "max_drawdown": -0.458932,
+    "final_equity": 135204.493588,
+    "total_return": 0.352045,
+    "annualized_return": 0.037471,
+    "annualized_vol": 0.120928
+  }
+}

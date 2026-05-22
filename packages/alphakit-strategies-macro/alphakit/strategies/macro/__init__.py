@@ -45,6 +45,7 @@ allocation.
 
 from __future__ import annotations
 
+from alphakit.strategies.macro.fed_policy_tilt.strategy import FedPolicyTilt
 from alphakit.strategies.macro.growth_inflation_regime_rotation.strategy import (
     GrowthInflationRegimeRotation,
 )
@@ -68,6 +69,7 @@ from alphakit.strategies.macro.yield_curve_regime_allocation.strategy import (
 )
 
 __all__: list[str] = [
+    "FedPolicyTilt",
     "GrowthInflationRegimeRotation",
     "GtaaCrossAssetMomentum",
     "MaxDiversification",
