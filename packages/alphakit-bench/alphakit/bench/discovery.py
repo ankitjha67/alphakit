@@ -30,6 +30,7 @@ FAMILIES = (
     "rates",
     "commodity",
     "options",
+    "macro",
 )
 
 
