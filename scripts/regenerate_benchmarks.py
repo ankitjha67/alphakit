@@ -8,27 +8,37 @@ provenance:
 * **Tier-1 (17)** — ETF-only universes (11 rates + 6 macro). Fetched from
   real yfinance prices under a retry budget; ``data_source="yfinance-real"``.
 * **Tier-2 (5 macro, FRED-gated)** — require FRED informational columns.
-  Real-feed needs ``FRED_API_KEY`` + the runner FRED-merge enhancement
-  (both deferred to v0.2.1). Here they are regenerated through the same
-  runner using regime-exercising **synthetic panels** passed via
-  ``run_single(prices=...)``; ``data_source="synthetic-fixture"``.
+  Two feeds, selected by ``--feed`` (default ``synthetic``):
 
-Real-feed mode requires the yfinance optional dependency:
+  * ``--feed synthetic`` — regenerated through the runner using
+    regime-exercising **synthetic panels** passed via
+    ``run_single(prices=...)``; ``data_source="synthetic-fixture"``.
+  * ``--feed real`` — regenerated against **real yfinance + FRED** data via
+    the multi-feed ``BenchmarkRunner(strict_feed=True)`` (Session 2I): the
+    tradable columns come from yfinance and the informational (FRED) columns
+    from FRED, fail-loud on any feed failure; ``data_source="yfinance+fred-real"``.
+    Requires ``FRED_API_KEY`` + the ``fredapi`` package.
+
+Real-feed modes require the relevant optional dependency:
 
     uv run --with yfinance --extra dev python scripts/regenerate_benchmarks.py all
+    uv run --with fredapi --extra dev python \
+        scripts/regenerate_benchmarks.py tier2 --feed real
 
-The script **fails loud** if yfinance is unavailable for a real-feed mode,
-rather than silently falling back to synthetic fixtures (the trap in
-``BenchmarkRunner._fetch_prices``).
+The script **fails loud** if a required real feed is unavailable (yfinance
+missing for Tier-1; ``FRED_API_KEY`` unset or ``fredapi`` missing for Tier-2
+``--feed real``), rather than silently falling back to synthetic fixtures
+(the trap in ``BenchmarkRunner._fetch_prices``).
 
 Modes: ``smoke`` (3 single-ETF rates), ``tier1`` (17 real), ``tier2``
-(5 synthetic), ``all`` (22).
+(5 macro), ``all`` (22). ``--feed`` governs only the Tier-2 path.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import sys
 import time
 from pathlib import Path
@@ -42,6 +52,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 
 from alphakit.bench import discovery  # noqa: E402
 from alphakit.bench.runner import BenchmarkRunner  # noqa: E402
+from alphakit.data.errors import FeedNotConfiguredError  # noqa: E402
 
 # Tier-1: ETF-only universes, real-feed via yfinance. slug -> family.
 TIER1: dict[str, str] = {
@@ -94,6 +105,37 @@ def _require_yfinance() -> None:
             "importable. Re-run with the extra, e.g.:\n"
             "    uv run --with yfinance --extra dev python "
             "scripts/regenerate_benchmarks.py <mode>\n"
+            f"(import error: {exc})"
+        ) from exc
+
+
+def _require_fred_real() -> None:
+    """Fail loud if Tier-2 ``--feed real`` prerequisites are missing.
+
+    Checks the key first (raising :class:`FeedNotConfiguredError` with an
+    OS-specific setup message, matching the FRED adapter), then the package.
+    Failing here — before any fetch — means the runner never silently
+    substitutes fixtures for an unconfigured real feed.
+    """
+    if not os.environ.get("FRED_API_KEY"):
+        raise FeedNotConfiguredError(
+            "--feed real requires the FRED_API_KEY environment variable (not "
+            "set). Get a free key at "
+            "https://fred.stlouisfed.org/docs/api/api_key.html, then set it:\n"
+            "  Linux/macOS:  export FRED_API_KEY=your_key_here\n"
+            "  Windows (PowerShell, persistent):  "
+            "[Environment]::SetEnvironmentVariable('FRED_API_KEY','your_key_here','User')\n"
+            "Then re-run:  uv run --with fredapi --extra dev python "
+            "scripts/regenerate_benchmarks.py tier2 --feed real"
+        )
+    try:
+        import fredapi  # noqa: F401
+    except ImportError as exc:
+        raise SystemExit(
+            "ERROR: --feed real requires the fredapi package, which is not "
+            "importable. Re-run with it, e.g.:\n"
+            "    uv run --with fredapi --extra dev python "
+            "scripts/regenerate_benchmarks.py tier2 --feed real\n"
             f"(import error: {exc})"
         ) from exc
 
@@ -255,17 +297,55 @@ def regen_tier2(slug: str) -> tuple[bool, str]:
     return True, f"synthetic-fixture OK  Sharpe={sharpe:+.4f}  ({panel.shape[0]} bars)"
 
 
+def regen_tier2_real(slug: str) -> tuple[bool, str]:
+    """Real-feed (yfinance + FRED) regen for one Tier-2 strategy.
+
+    Routes through ``BenchmarkRunner(strict_feed=True).run_single`` with **no**
+    pre-loaded prices, so the runner's multi-feed ``_fetch_prices`` pulls the
+    tradable columns from yfinance and the informational (FRED) columns from
+    FRED, failing loud on any feed failure (no synthetic fallback). On a
+    fetch/feed error we keep the existing benchmark and report the failure
+    rather than writing partial or substituted data. Returns (success, message).
+    """
+    runner = BenchmarkRunner(
+        commission_bps=5.0,
+        data_start=_DATA_START,
+        in_sample_end=_IN_SAMPLE_END,
+        out_of_sample_end=_OOS_END,
+        strict_feed=True,
+    )
+    try:
+        result = runner.run_single(slug, family="macro")
+    except Exception as exc:
+        return False, f"FETCH FAILED ({exc}); kept existing benchmark"
+    _write(slug, "macro", result, "yfinance+fred-real")
+    sharpe = result["metrics"]["sharpe"]
+    universe = result["universe"]
+    return True, f"yfinance+fred-real OK  Sharpe={sharpe:+.4f}  ({len(universe)} cols)"
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Session 2H benchmark regeneration")
+    parser = argparse.ArgumentParser(description="Session 2H/2I benchmark regeneration")
     parser.add_argument("mode", choices=["smoke", "tier1", "tier2", "all"])
+    parser.add_argument(
+        "--feed",
+        choices=["synthetic", "real"],
+        default="synthetic",
+        help="Tier-2 feed: 'synthetic' (default, regime-exercising panels) or "
+        "'real' (yfinance + FRED via the multi-feed runner; needs FRED_API_KEY + fredapi).",
+    )
     args = parser.parse_args()
 
     if args.mode in ("smoke", "tier1", "all"):
         _require_yfinance()
+    if args.feed == "real" and args.mode in ("tier2", "all"):
+        _require_fred_real()
 
     real_ok = 0
     real_fail: list[str] = []
     synth_ok = 0
+    fred_ok = 0
+    fred_fail: list[str] = []
 
     if args.mode == "smoke":
         slugs = SMOKE
@@ -288,9 +368,17 @@ def main() -> int:
     if args.mode in ("tier2", "all"):
         for slug in TIER2:
             print(f"  [   macro] {slug:38s}", end=" ")
-            ok, msg = regen_tier2(slug)
-            print(msg)
-            synth_ok += 1
+            if args.feed == "real":
+                ok, msg = regen_tier2_real(slug)
+                print(msg)
+                if ok:
+                    fred_ok += 1
+                else:
+                    fred_fail.append(slug)
+            else:
+                _, msg = regen_tier2(slug)
+                print(msg)
+                synth_ok += 1
 
     print("=" * 70)
     print(f"real-feed (yfinance-real): {real_ok} ok, {len(real_fail)} failed")
@@ -298,7 +386,11 @@ def main() -> int:
         print(f"  failed (kept synthetic): {real_fail}")
     if synth_ok:
         print(f"tier-2 synthetic panels:   {synth_ok} regenerated")
-    return 1 if (args.mode == "smoke" and real_fail) else 0
+    if fred_ok or fred_fail:
+        print(f"tier-2 real (yfinance+fred): {fred_ok} ok, {len(fred_fail)} failed")
+        if fred_fail:
+            print(f"  failed (kept existing):  {fred_fail}")
+    return 1 if ((args.mode == "smoke" and real_fail) or fred_fail) else 0
 
 
 if __name__ == "__main__":
