@@ -17,7 +17,7 @@
     "calmar": 0.1043,
     "max_drawdown": -0.1742,
     "annualized_return": 0.0182,
-    "annualized_vol": 0.0640,
+    "annualized_vol": 0.064,
     "turnover_annual": 3.62,
     "capacity_usd_bn": 0.5
   },
@@ -29,5 +29,5 @@
   "transaction_costs_assumed_bps": 5.0,
   "commit_sha": "793137a00000",
   "engine": "vectorbt",
-  "data_source": "synthetic_fixture"
+  "data_source": "synthetic-fixture"
 }

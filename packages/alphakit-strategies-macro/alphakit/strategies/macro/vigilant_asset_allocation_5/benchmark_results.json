@@ -30,5 +30,6 @@
   },
   "transaction_costs_assumed_bps": 5.0,
   "commit_sha": "03026f9e7f3f",
-  "engine": "vectorbt"
+  "engine": "vectorbt",
+  "data_source": "synthetic-fixture"
 }

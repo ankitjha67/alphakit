@@ -28,5 +28,6 @@
     "sideways_sharpe": -1.1333
   },
   "transaction_costs_assumed_bps": 5.0,
-  "engine": "vectorbt"
+  "engine": "vectorbt",
+  "data_source": "synthetic-fixture"
 }

@@ -27,6 +27,6 @@
   "transaction_costs_assumed_bps": 5.0,
   "commit_sha": "c905f6f41d1e",
   "engine": "vectorbt",
-  "data_source": "synthetic_fixture",
+  "data_source": "synthetic-fixture",
   "substrate_caveat": "flat-IV synthetic chain \u2014 strategy target premium is structurally zero on this substrate; Phase 3 Polygon real chains required for meaningful evaluation"
 }

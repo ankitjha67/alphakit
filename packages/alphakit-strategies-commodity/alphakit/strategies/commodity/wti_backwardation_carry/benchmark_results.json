@@ -15,8 +15,8 @@
     "sortino": 0.2812,
     "calmar": 0.0651,
     "max_drawdown": -0.1843,
-    "annualized_return": 0.0120,
-    "annualized_vol": 0.0560,
+    "annualized_return": 0.012,
+    "annualized_vol": 0.056,
     "turnover_annual": 2.18,
     "capacity_usd_bn": 1.4
   },
@@ -28,5 +28,5 @@
   "transaction_costs_assumed_bps": 5.0,
   "commit_sha": "dfaad84c0000",
   "engine": "vectorbt",
-  "data_source": "synthetic_fixture"
+  "data_source": "synthetic-fixture"
 }

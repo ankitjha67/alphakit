@@ -27,6 +27,6 @@
   "transaction_costs_assumed_bps": 5.0,
   "commit_sha": "7bda4c6ffcfb",
   "engine": "vectorbt",
-  "data_source": "synthetic_fixture",
+  "data_source": "synthetic-fixture",
   "substrate_caveat": "flat-IV synthetic chain \u2014 trigger never fires; degenerate no-trade backtest; Phase 3 Polygon required for meaningful evaluation"
 }

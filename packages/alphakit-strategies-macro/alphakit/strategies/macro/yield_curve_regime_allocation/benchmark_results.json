@@ -12,5 +12,6 @@
     "total_return": -0.023379,
     "annualized_return": 0.004804,
     "annualized_vol": 0.119774
-  }
+  },
+  "data_source": "synthetic-fixture"
 }
