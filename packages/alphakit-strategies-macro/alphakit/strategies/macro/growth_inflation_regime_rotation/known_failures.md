@@ -91,10 +91,13 @@ the Session 2G regime-state group:
 * `growth_inflation_regime_rotation` (CPIAUCSL + GDPC1): both are
   index/level series — naturally positive. ✓ (after the
   level-vs-rate switch)
-* `yield_curve_regime_allocation` (T10Y3M): yield spread **can go
-  negative** (inversion!) — Commit 10 must handle this (offset the
-  spread into positive territory before passing through the bridge,
-  or read a positive proxy).
+* `yield_curve_regime_allocation` (DGS10 + DGS2): the yield-curve
+  slope **goes negative** (inversion!) so the spread itself cannot
+  be an informational column. Commit 10 reads the two raw yield-
+  *level* columns (DGS10, DGS2 — both strictly positive) and
+  computes the slope internally. `DGS2` is used over `DGS3MO`
+  because `DGS3MO` prints exactly `0.0` on ZIRP days (2011,
+  2020-2021); the 2-year always carries a term premium. ✓
 * `fed_policy_tilt` (FEDFUNDS): rate level — naturally positive. ✓
 * `inflation_regime_allocation` (CPIAUCSL): index — naturally
   positive. ✓
