@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from alphakit.bench.discovery import (
+    FAMILIES,
     benchmark_results_path,
     discover_slugs,
     find_strategy,
@@ -21,8 +22,9 @@ class TestDiscoverSlugs:
         # 60 Phase 1 (trend, meanrev, carry, value, volatility) +
         # 13 Phase 2 Session 2D rates +
         # 10 Phase 2 Session 2E commodity +
-        # 15 Phase 2 Session 2F options = 98.
-        assert len(slugs) == 98
+        # 15 Phase 2 Session 2F options +
+        # 11 Phase 2 Session 2G macro = 109.
+        assert len(slugs) == 109
 
     def test_rates_family(self) -> None:
         slugs = discover_slugs("rates")
@@ -58,6 +60,25 @@ class TestDiscoverSlugs:
         assert len(slugs) == 15
         assert "covered_call_systematic" in slugs
         assert "vix_term_structure_roll" in slugs
+
+    def test_macro_family(self) -> None:
+        assert "macro" in FAMILIES
+        slugs = discover_slugs("macro")
+        assert len(slugs) == 11
+        expected = {
+            "permanent_portfolio",
+            "gtaa_cross_asset_momentum",
+            "vigilant_asset_allocation_5",
+            "risk_parity_erc_3asset",
+            "min_variance_gtaa",
+            "max_diversification",
+            "recession_probability_rotation",
+            "growth_inflation_regime_rotation",
+            "yield_curve_regime_allocation",
+            "fed_policy_tilt",
+            "inflation_regime_allocation",
+        }
+        assert set(slugs) == expected
 
     def test_nonexistent_family(self) -> None:
         slugs = discover_slugs("nonexistent")

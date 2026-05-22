@@ -1,0 +1,16 @@
+{
+  "strategy": "inflation_regime_allocation",
+  "paper_doi": "10.2469/faj.v62.n2.4080",
+  "benchmark_data": "synthetic-fixture (10-year, seed=42, low/moderate/high inflation blocks)",
+  "note": "Real-feed benchmark deferred to Phase 2H. Synthetic-fixture Sharpes differ from paper ranges.",
+  "metrics": {
+    "sharpe": 0.135543,
+    "sortino": 0.128923,
+    "calmar": 0.026702,
+    "max_drawdown": -0.333284,
+    "final_equity": 109264.333146,
+    "total_return": 0.092643,
+    "annualized_return": 0.014901,
+    "annualized_vol": 0.109933
+  }
+}

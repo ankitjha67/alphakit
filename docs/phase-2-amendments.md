@@ -1067,3 +1067,745 @@ External AI code review (Codex) caught what human review missed.
 The process loop is: gate review identifies architectural novelty
 + spot-check exercises substrate edge cases + AI review catches
 state-machine completeness. All three are valid catches.
+
+---
+
+## 2026-05-15 — Session 2G: drop cape_country_rotation (cluster duplicate of Phase 1 country_cape_rotation)
+
+Context: The Session 2G macro/GTAA manifest listed
+`cape_country_rotation` (strategy #6 of 15) — rank countries by CAPE
+(cyclically-adjusted P/E), long the cheapest 25%, attributed in the
+master plan to "Shiller/Siegel 1998".
+
+Honesty-check failure: Two compounding problems.
+
+1. **Cluster duplicate.** Phase 1 already ships
+   `packages/alphakit-strategies-value/alphakit/strategies/value/country_cape_rotation/`
+   citing Faber (2014) "Global Value: Building Trading Models with the
+   10 Year CAPE" (SSRN DOI 10.2139/ssrn.2129474). The Phase 1 mechanic
+   is "rank countries by 10-year CAPE, rotate into the cheapest
+   quartile, rebalance monthly". This is exactly the master-plan
+   description of `cape_country_rotation` (rank countries by CAPE,
+   long cheapest 25%). Same paper-anchor genre, same universe (country
+   equity indices), same cross-sectional ranking, same rebalance
+   cadence — no methodological differentiation available.
+2. **Citation does not match the strategy.** The master plan attributes
+   the strategy to "Shiller/Siegel 1998". Campbell & Shiller (1998)
+   "Valuation Ratios and the Long-Run Stock Market Outlook" (J of
+   Portfolio Management) is about *US-only* long-horizon return
+   prediction from CAPE — not a country-rotation strategy. Siegel's
+   contemporaneous work (*Stocks for the Long Run*, 1998) is a
+   long-only buy-and-hold treatise, not a country-rotation rule.
+   Faber (2014) is the canonical country-CAPE-rotation paper, and
+   Phase 1 already cites it.
+
+Options considered:
+- Ship a "real-CAPE" variant using actual country CAPE data
+  (StarCapital, Barclays). Rejected: those datasets are licensed and
+  not in the Phase 2 free-and-open-source feed set. The FRED adapter
+  carries US-only macro series. yfinance carries price data, not
+  earnings-smoothed valuation ratios.
+- Ship a quarterly-rebalance variant with a different cheap-quartile
+  threshold. Rejected: parameterisation differences are not
+  methodological differentiation. Cluster-analysis would flag the two
+  strategies as ρ ≈ 0.95-1.0 redundant.
+
+Decision: Drop. Phase 2 ships without a second country-CAPE rotation
+strategy. Phase 1 `country_cape_rotation` (Faber 2014) covers the
+mechanic.
+
+Manifest impact: macro family ships 14 strategies after this drop;
+further Session 2G drops reduce the count further (see subsequent
+entries).
+
+---
+
+## 2026-05-15 — Session 2G: drop dollar_strength_tilt (no peer-reviewed anchor for "DXY momentum → EM equity short")
+
+Context: The Session 2G macro/GTAA manifest listed
+`dollar_strength_tilt` (strategy #7 of 15) — "short EM when DXY
+rising". The master plan provided no peer-reviewed citation.
+
+Honesty-check failure: The "short EM equity when dollar strengthening"
+signal is a Bloomberg-tape / sell-side-research narrative, not a
+published systematic strategy. Two adjacent literatures exist but
+neither anchors the specific signal proposed:
+
+- **FX-carry literature.** Lustig, Roussanov & Verdelhan (2014)
+  "Countercyclical Currency Risk Premia" (JFE, DOI
+  10.1016/j.jfineco.2013.10.009) and the prior Lustig-Roussanov-
+  Verdelhan (2011) "Common Risk Factors in Currency Markets" (RFS,
+  DOI 10.1093/rfs/hhr068) document a dollar-as-risk-factor premium
+  *in currency carry returns*, not in EM equity returns. Phase 1
+  `fx_carry_em` already exercises this literature on the EM-currency
+  side directly.
+- **Equity-vs-currency literature.** Cenedese, Sarno & Tsiakas (2014)
+  "Foreign Exchange Risk and the Predictability of Carry Trade
+  Returns" (J of Banking & Finance, DOI 10.1016/j.jbankfin.2014.01.008)
+  and Dahlquist & Hasseltoft (2013) "International Bond Risk Premia"
+  (J of International Economics) treat the dollar as a global-factor
+  exposure, not a stand-alone EM-equity signal. Neither paper
+  specifies a "long-DXY-momentum, short-EEM" rule with the entry /
+  exit / sizing logic this implementation would replicate verbatim.
+
+Options considered:
+- Reframe as "dollar-as-global-factor regime tilt" anchored on
+  Verdelhan (2018) "The Share of Systematic Variation in Bilateral
+  Exchange Rates" (J of Finance, DOI 10.1111/jofi.12587). Rejected:
+  Verdelhan's "dollar factor" is a *currency-portfolio* risk factor,
+  not a tradable equity-allocation signal. The bridge from
+  "dollar-factor exposure" to "short EM equity allocation" is a
+  practitioner inference not supported by the paper itself.
+- Ship the signal as folklore with a paper.md disclaimer. Rejected:
+  Phase 2 honesty-check explicitly disallows folklore strategies
+  without peer-reviewed citations. The Session 2E precedent
+  (`coffee_weather_asymmetry`, `calendar_spread_corn`) and Session 2F
+  precedent (`diagonal_spread`, `ratio_spread_put`) both dropped
+  similar folklore signals.
+
+Decision: Drop. Phase 2 ships without a stand-alone DXY-momentum-EM-
+equity signal. FX-side dollar premia are covered by Phase 1
+`fx_carry_em` and `fx_carry_g10`; cross-asset regime allocators in
+this session (`growth_inflation_regime_rotation`,
+`yield_curve_regime_allocation`, `recession_probability_rotation`,
+`fed_policy_tilt`, `inflation_regime_allocation`) use peer-reviewed
+state variables.
+
+Manifest impact: macro family ships 13 strategies after this drop.
+
+---
+
+## 2026-05-15 — Session 2G: drop dual_momentum_gtaa (cluster duplicate of Phase 1 dual_momentum_gem)
+
+Context: The Session 2G macro/GTAA manifest listed
+`dual_momentum_gtaa` (strategy #13 of 15) — "absolute + relative
+momentum overlay", attributed to "Antonacci 2015".
+
+Honesty-check failure: Hard cluster duplicate of Phase 1
+`packages/alphakit-strategies-trend/alphakit/strategies/trend/dual_momentum_gem/`.
+Both implement Antonacci's Global Equities Momentum:
+
+1. **Same paper.** Phase 1 `dual_momentum_gem` cites Antonacci (2014)
+   *Dual Momentum Investing* (McGraw-Hill, ISBN 978-0071849449) plus
+   the working-paper version Antonacci (2012) "Risk Premia Harvesting
+   Through Dual Momentum" (SSRN 2042750, DOI 10.2139/ssrn.2042750).
+   The master plan's "Antonacci 2015" citation appears to be a typo —
+   there is no 2015 Antonacci paper that establishes a separate dual-
+   momentum framework. The book is 2014; the working paper is 2012.
+2. **Same mechanic.** Both strategies compute (i) absolute momentum
+   (asset vs risk-free 12-month return) for the regime gate, then
+   (ii) relative momentum (US vs International equity) for the asset
+   selection, then (iii) bond fallback when the absolute filter fails.
+3. **Same universe template.** Both strategies operate on a three-leg
+   universe of US equity + International equity + bonds with a cash /
+   short-Treasury fallback (Phase 1 default tickers: SPY, VEU, AGG,
+   SHY).
+
+Options considered:
+- Ship a "5-asset dual momentum" variant. Rejected: that variant is
+  already shipping as `vigilant_asset_allocation_5` in this session
+  (Keller-Keuning 2017 VAA), which extends the dual-momentum logic
+  with breadth-momentum aggregation and canary-asset fallback — a
+  materially different mechanic.
+- Ship a "monthly dual momentum on commodity-asset universe". Rejected:
+  Antonacci does not specify this; would be folklore extension of his
+  framework rather than a separate published strategy.
+
+Decision: Drop. Phase 2 ships without a second dual-momentum
+strategy. Phase 1 `dual_momentum_gem` covers the mechanic faithfully.
+
+Manifest impact: macro family ships 12 strategies after this drop.
+
+---
+
+## 2026-05-15 — Session 2G: drop inflation_tilt_60_40_overlay (borderline cluster duplicate of inflation_regime_allocation)
+
+Context: The Session 2G macro/GTAA manifest listed
+`commodity_overlay_gtaa` (strategy #15 of 15) — "base 60/40 plus
+commodity tilt when inflation rising". The pre-flight honesty check
+proposed reframing the slug to `inflation_tilt_60_40_overlay` anchored
+on Erb/Harvey (2006) + Greer (2000).
+
+Honesty-check finding: The reframed slug would still ship alongside
+`inflation_regime_allocation` (strategy #11) in the same session.
+Both strategies:
+
+- Read the same FRED CPI series (`CPIAUCSL` or `CPILFESL`) as the
+  driving state variable.
+- Trigger on the same "inflation rising" regime classification.
+- Tilt allocation toward commodities (GSCI, DBC, GLD) when the
+  regime fires.
+
+The mechanical differences (full 4-asset rotation vs overlay on a 60/40
+base; 4-cell regime vs 2-cell rising/falling) are parameterisation
+choices over the same underlying signal driver, not methodologically
+distinct strategies. Cluster analysis would flag them as ρ ≈ 0.80-0.95
+redundant.
+
+Precedent: Session 2F shipped 3 deliberate-redundancy pairs
+(`covered_call_systematic` + `bxm_replication` on Whaley 2002;
+`cash_secured_put_systematic` as the put-call-parity sibling;
+`delta_hedged_straddle` + `gamma_scalping_daily` on Carr-Wu 2009).
+Each pair has a *distinct* citation anchor or implementation framing.
+Adding a fourth pair to v0.2.0 cluster analysis with the *same*
+citation candidates (Erb/Harvey 2006, Neville 2021) and the *same*
+signal driver would dilute the cluster-analysis signal without
+adding methodological information.
+
+Options considered:
+- Ship both with a deliberate-redundancy paper.md note. Rejected:
+  the redundancy is not parity-driven (like CSP↔CC) or framing-driven
+  (like delta-hedged-straddle vs gamma-scalping) — it is the same
+  paper applied with different parameterisations. That fails the
+  Session 2F "deliberate-pair" bar.
+- Ship as a single combined strategy. Rejected: would force a choice
+  between the rotation mechanic (Neville 2021 4-cell) and the overlay
+  mechanic; better to ship the rotation faithfully and defer overlay
+  variants to Phase 3.
+
+Decision: Drop `commodity_overlay_gtaa` / `inflation_tilt_60_40_overlay`.
+`inflation_regime_allocation` covers the CPI-driven commodity tilt
+faithfully under Neville et al. (2021) + Erb/Harvey (2006).
+
+Manifest impact: macro family ships 11 strategies after this drop —
+the final Session 2G ship count.
+
+---
+
+## 2026-05-15 — Session 2G: reframe risk_parity_3asset → risk_parity_erc_3asset (Maillard-Roncalli-Teiletche 2010 + Asness-Frazzini-Pedersen 2012)
+
+Context: The Session 2G macro/GTAA manifest listed `risk_parity_3asset`
+(strategy #2 of 15) — equal-risk-contribution weighting across stocks,
+bonds, commodities, attributed in the master plan to "Bridgewater
+All-Weather".
+
+Honesty-check finding: "Bridgewater All-Weather" is a fund-marketing
+attribution, not a peer-reviewed paper. Bridgewater's All-Weather
+methodology has never been published in detail; the public-domain
+documents are marketing summaries. The peer-reviewed literature for
+the equal-risk-contribution (ERC) construction does exist and is
+specific enough to replicate verbatim.
+
+Resolution: Reframe `risk_parity_3asset` → `risk_parity_erc_3asset`
+(slug clarifies the ERC construction explicitly, distinguishing it
+from naive risk parity / volatility-parity variants). Cite:
+
+- **Foundational:** Maillard, S., Roncalli, T. & Teiletche, J. (2010)
+  "The Properties of Equally Weighted Risk Contribution Portfolios"
+  (Journal of Portfolio Management Vol 36 No 4, DOI
+  10.3905/jpm.2010.36.4.060). The canonical paper on ERC: defines
+  the fixed-point iteration that produces equal-marginal-risk-
+  contribution weights from a covariance matrix.
+- **Primary:** Asness, C. S., Frazzini, A. & Pedersen, L. H. (2012)
+  "Leverage Aversion and Risk Parity" (Financial Analysts Journal
+  Vol 68 No 1, DOI 10.2469/faj.v68.n1.1). Provides the risk-premium
+  justification for ERC weighting and the empirical evidence across
+  stock-bond-commodity multi-asset panels.
+
+The covariance estimation, ERC solver, and rolling-window logic are
+shared across `risk_parity_erc_3asset`, `min_variance_gtaa`, and
+`max_diversification` via the `alphakit.strategies.macro._covariance`
+helper module (Commit 1.5 in the Session 2G ship order; gate-3
+reviewed before the first dependent strategy ships).
+
+Manifest impact: macro family ship count unchanged at this stage.
+Slug list updated: `risk_parity_3asset` is not a Phase 2 slug;
+`risk_parity_erc_3asset` ships in its place.
+
+---
+
+## 2026-05-15 — Session 2G: reframe economic_regime_rotation → growth_inflation_regime_rotation (Ilmanen-Maloney-Ross 2014)
+
+Context: The Session 2G macro/GTAA manifest listed
+`economic_regime_rotation` (strategy #5 of 15) — "rotate based on
+CPI/GDP growth regimes". The master plan provided no citation.
+
+Honesty-check finding: "CPI/GDP regime rotation" without a paper-
+anchor is folklore. The All-Weather conceptual framing of "four
+regimes from the cross of growth and inflation expectations" has been
+formalised in the peer-reviewed literature by Ilmanen, Maloney & Ross
+(2014).
+
+Resolution: Reframe `economic_regime_rotation` →
+`growth_inflation_regime_rotation` (slug specifies the regime
+dimensions explicitly). Cite as sole primary anchor:
+
+- **Primary:** Ilmanen, A., Maloney, T. & Ross, A. (2014) "Exploring
+  Macroeconomic Sensitivities: How Investments Respond to Different
+  Economic Environments" (Journal of Portfolio Management Vol 40 No 3,
+  DOI 10.3905/jpm.2014.40.3.087). Specifies the 4-cell growth ×
+  inflation regime taxonomy (rising-growth / falling-growth crossed
+  with rising-inflation / falling-inflation) and the empirical asset-
+  class sensitivities (equities long rising-growth; bonds long
+  falling-growth; commodities long rising-inflation; cash long
+  falling-inflation) that drive the regime-conditional allocation.
+
+The single-paper citation pattern matches Session 2F precedent of
+`calendar_spread_atm` citing Goyal/Saretto (2009) as the sole anchor —
+when a paper specifies *both* the regime taxonomy and the empirical
+asset-class sensitivities, a foundational separate citation is not
+needed.
+
+Architectural note: this is the most complex of the regime allocators
+shipping in Session 2G (4-cell regime requires both growth and
+inflation series, vs single-series regime classifiers like
+`yield_curve_regime_allocation` or `recession_probability_rotation`).
+The regime-state primitive uses the Session 2D "informational columns
+with zero weight" pattern (`docs/phase-2-amendments.md` §2D
+sub-section 3): FRED growth and inflation series enter
+`generate_signals` as input DataFrame columns and carry zero weight;
+tradable assets (equities, bonds, commodities, cash) carry the
+regime-conditional allocation.
+
+Manifest impact: macro family ship count unchanged at this stage.
+Slug list updated: `economic_regime_rotation` is not a Phase 2 slug;
+`growth_inflation_regime_rotation` ships in its place.
+
+---
+
+## 2026-05-15 — Session 2G: reframe yield_curve_regime_asset_allocation → yield_curve_regime_allocation (Estrella-Hardouvelis 1991 + Ang-Piazzesi-Wei 2006)
+
+Context: The Session 2G macro/GTAA manifest listed
+`yield_curve_regime_asset_allocation` (strategy #8 of 15) — "steep
+curve → equities; flat → bonds". The master plan provided no
+citation.
+
+Honesty-check finding: The slug is unnecessarily long. The mechanic
+itself is academically well-anchored — the yield-curve term spread
+as a state variable for equity-vs-bond allocation has been studied
+since Estrella & Hardouvelis (1991) and extended through the modern
+predictive-regression literature.
+
+Resolution: Reframe `yield_curve_regime_asset_allocation` →
+`yield_curve_regime_allocation` (shorter slug, same mechanic). Cite:
+
+- **Foundational:** Estrella, A. & Hardouvelis, G. A. (1991) "The Term
+  Structure as a Predictor of Real Economic Activity" (J of Finance
+  Vol 46 No 2, DOI 10.1111/j.1540-6261.1991.tb03747.x). The seminal
+  result that the slope of the Treasury yield curve forecasts
+  economic activity 1–4 quarters out, providing the macroeconomic
+  rationale for using the slope as an equity-vs-bond allocation
+  signal.
+- **Primary:** Ang, A., Piazzesi, M. & Wei, M. (2006) "What Does the
+  Yield Curve Tell Us About GDP Growth?" (J of Econometrics Vol 131
+  No 1-2, DOI 10.1016/j.jeconom.2005.01.032). Documents the predictive
+  power of the 3-month / 10-year yield-curve slope (`T10Y3M` on FRED)
+  for subsequent GDP growth — and via the standard equity-vs-bond
+  cyclical-allocation logic, for equity-vs-bond return differentials.
+  The empirical regime thresholds (positive-slope / flat / inverted)
+  drive the strategy's allocation switches.
+
+Differentiated from `recession_probability_rotation` (also in this
+session) which uses the Cleveland Fed's recession-probability series
+(`RECPROUSM156N`) — a derived probability output rather than the raw
+slope — and from `breakeven_inflation_rotation` (Phase 2 Session 2D)
+which trades TIPS-vs-nominal breakeven, not equity-vs-bond. No
+cluster overlap with either.
+
+Manifest impact: macro family ship count unchanged. Slug list updated:
+`yield_curve_regime_asset_allocation` is not a Phase 2 slug;
+`yield_curve_regime_allocation` ships in its place.
+
+---
+
+## 2026-05-15 — Session 2G: reframe global_macro_momentum → gtaa_cross_asset_momentum (AMP 2013 + Hurst-Ooi-Pedersen 2017)
+
+Context: The Session 2G macro/GTAA manifest listed
+`global_macro_momentum` (strategy #12 of 15) — "12-1 momentum across
+24 asset class ETFs". The master plan provided no citation.
+
+Honesty-check finding: A 12-1 multi-asset momentum strategy needs to
+clearly differentiate from two cluster anchors already shipping in
+AlphaKit:
+
+1. Phase 1 `tsmom_12_1` (Moskowitz/Ooi/Pedersen 2012) trades time-
+   series momentum across *commodity-, currency-, equity-index-, and
+   bond-* **futures** (58 instruments in MOP). Futures universe, not
+   ETF universe.
+2. Phase 1 `dual_momentum_gem` (Antonacci 2014) trades a 3-leg
+   absolute + relative momentum on US / international / bonds.
+
+The Session 2G strategy must (a) cite a paper that supports a
+multi-asset *ETF* universe specifically, and (b) be tractably
+differentiated from both Phase 1 anchors by universe breadth and
+ranking mechanic.
+
+Resolution: Reframe `global_macro_momentum` → `gtaa_cross_asset_momentum`
+(slug references the GTAA — global tactical asset allocation —
+framing explicitly and the cross-asset universe). Cite:
+
+- **Foundational:** Hurst, B., Ooi, Y. H. & Pedersen, L. H. (2017)
+  "A Century of Evidence on Trend-Following Investing" (J of Portfolio
+  Management Vol 44 No 1, DOI 10.3905/jpm.2017.44.1.015). Extends
+  MOP 2012's time-series momentum result to a century of data across
+  multiple asset classes — establishes the long-horizon evidence for
+  cross-asset momentum.
+- **Primary:** Asness, C. S., Moskowitz, T. J. & Pedersen, L. H.
+  (2013) "Value and Momentum Everywhere" (J of Finance Vol 68 No 3,
+  DOI 10.1111/jofi.12021). Provides the implementation anchor for
+  cross-sectional and time-series momentum across 8 asset classes
+  (US/UK/Continental/Japanese equity, government bonds, currencies,
+  commodities — directly mappable to the GTAA ETF universe) plus the
+  empirical Sharpe and correlation properties of the combined
+  strategy. This is the same primary anchor used by Phase 1
+  `dual_momentum_gem` and the rates-family `bond_tsmom_12_1` /
+  `real_yield_momentum`, but applied to a *broader* universe of
+  multi-asset ETFs spanning equities, bonds, commodities, real estate,
+  currency, and inflation-protection instruments.
+
+Universe differentiation from Phase 1:
+- `tsmom_12_1` (trend): futures universe, time-series-only ranking.
+- `dual_momentum_gem` (trend): 3-asset universe (US equity / intl
+  equity / bonds), absolute + relative momentum overlay.
+- `gtaa_cross_asset_momentum` (macro): 8–24 ETF universe spanning
+  multi-asset classes, cross-sectional + time-series ranking via the
+  AMP 2013 mechanic.
+
+Manifest impact: macro family ship count unchanged. Slug list updated:
+`global_macro_momentum` is not a Phase 2 slug;
+`gtaa_cross_asset_momentum` ships in its place.
+
+---
+
+## 2026-05-15 — Session 2G: reframe 5_asset_tactical → vigilant_asset_allocation_5 (Keller-Keuning 2017 + 2014)
+
+Context: The Session 2G macro/GTAA manifest listed `5_asset_tactical`
+(strategy #14 of 15) — "Vigilant Asset Allocation on 5 ETFs",
+attributed in the master plan to "Keller/Keuning 2014".
+
+Honesty-check finding: Two corrections required.
+
+1. **Slug.** Python identifiers cannot begin with a digit. The slug
+   `5_asset_tactical` cannot be imported as
+   `alphakit.strategies.macro.5_asset_tactical`. The slug must be
+   re-cast.
+2. **Citation date.** Vigilant Asset Allocation (VAA) is Keller &
+   Keuning (2017), not 2014. The 2014 Keller-Keuning paper is *Elastic
+   Asset Allocation* (EAA), which precedes VAA and uses a momentum-
+   score formulation that VAA refines with breadth-momentum and the
+   canary-asset cash-bucket fallback. Both papers are SSRN working
+   papers.
+
+Resolution: Reframe `5_asset_tactical` → `vigilant_asset_allocation_5`
+(slug references VAA explicitly and the 5-asset universe; valid
+Python identifier). Cite:
+
+- **Foundational:** Keller, W. J. & Keuning, J. W. (2014) "A Century
+  of Generalized Momentum: From Flexible Asset Allocations (FAA) to
+  Elastic Asset Allocation (EAA)" (SSRN Working Paper 2543979, DOI
+  10.2139/ssrn.2543979). The momentum-score foundation that VAA
+  builds on.
+- **Primary:** Keller, W. J. & Keuning, J. W. (2017) "Breadth
+  Momentum and Vigilant Asset Allocation: Winning More by Losing
+  Less" (SSRN Working Paper 3002624, DOI 10.2139/ssrn.3002624). The
+  canonical VAA paper: specifies the 13612W momentum-score (weighted
+  1/3/6/12-month returns) on 4 offensive assets (SPY, EFA, EEM, AGG)
+  + 1 defensive bucket switch on canary-asset breadth, plus the
+  cash-bucket fallback when canary momentum is negative.
+
+Architectural note: VAA's momentum-score with canary-fallback
+introduces a non-trivial signal-aggregation mechanic, but does not
+introduce a new state primitive. The strategy is stateless per the
+StrategyProtocol contract — each `generate_signals` call recomputes
+the 13612W score and the canary check from scratch. No gate-3
+review tier required (mild novelty per the pre-flight assessment).
+
+Manifest impact: macro family ship count unchanged. Slug list updated:
+`5_asset_tactical` is not a Phase 2 slug; `vigilant_asset_allocation_5`
+ships in its place.
+
+---
+
+## 2026-05-15 — Session 2G: covariance-primitive shared helper module
+
+Context: Session 2G ships three covariance-based portfolio-
+construction strategies (`risk_parity_erc_3asset`, `min_variance_gtaa`,
+`max_diversification`) that all require joint covariance estimation
+followed by numerical weight optimisation. Implementing covariance +
+shrinkage + solvers in each strategy independently would (1) duplicate
+~200 lines of code three times and (2) risk inconsistent shrinkage
+approaches across strategies, breaking the integrity of cluster
+predictions — cluster ρ values across the three siblings are only
+meaningful if they share the same covariance estimator and only differ
+in the weight-construction step.
+
+Resolution: Shared helper module at
+`packages/alphakit-strategies-macro/alphakit/strategies/macro/_covariance.py`
+with stateless functional design (leading underscore in the module
+name signals "package-private" — strategies in the same sub-package
+may import it; downstream consumers should not depend on its API
+across releases). The helper exposes:
+
+- `rolling_covariance(returns, window, shrinkage)` — rolling
+  covariance estimator with three shrinkage methods (`"none"`,
+  `"ledoit_wolf"` [default], `"constant"`). Returns a DataFrame
+  indexed by `MultiIndex(date, asset_i)` with `asset_j` columns;
+  `df.loc[date]` is the (N, N) covariance matrix at that date.
+- `_ledoit_wolf_shrinkage(returns_demeaned)` — Ledoit & Wolf (2004)
+  "Honey, I Shrunk the Sample Covariance Matrix" (J Portfolio Mgmt
+  Vol 30 No 4, DOI 10.3905/jpm.2004.110) constant-correlation-
+  target shrinkage with analytic optimal intensity. Translated from
+  the authors' published MATLAB reference (`shrinkage_corr.m`).
+- `solve_erc_weights(cov, max_iters, tol)` — Equal-risk-contribution
+  weights via the Spinu (2013) convex reformulation of the
+  Maillard-Roncalli-Teiletche (2010) ERC problem. Uses SciPy
+  L-BFGS-B with positive box bounds.
+- `solve_min_variance_weights(cov, long_only, max_weight)` —
+  Long-only or long-short minimum-variance weights via SciPy SLSQP
+  with sum-to-1 equality and box constraints.
+- `solve_max_diversification_weights(cov, long_only, max_weight)` —
+  Maximum-diversification weights per Choueifaty & Coignard (2008)
+  via SciPy SLSQP minimising the negative diversification ratio.
+- `diversification_ratio(weights, cov)` — Choueifaty-Coignard
+  diversification ratio helper. Scale-invariant in weights.
+
+Numerical guards documented in the module docstring:
+
+- `N == 1` (single asset): all solvers return `[1.0]`.
+- `T_eff < N` (more assets than effective observations in a window):
+  the sample covariance is singular; `rolling_covariance` falls back
+  to `np.cov` with `ddof=1` rather than producing a rank-deficient
+  shrinkage estimate.
+- Zero/negative sample variance in any asset: raises `ValueError`
+  rather than producing weights that allocate to a non-stochastic
+  asset.
+- ERC iteration with degenerate marginal risks (negative `(Σw)_i`,
+  possible with strong negative correlations): the convex
+  reformulation avoids the pathology entirely — the log-barrier
+  objective is bounded below only for positive `w`, so the
+  L-BFGS-B box-bound enforcement is sufficient.
+
+Scope: This commit adds the helper module plus comprehensive tests
+(`packages/alphakit-strategies-macro/tests/test_covariance.py`, 39
+tests). No strategy code uses the helper yet; subsequent commits 5,
+6, 7 (`risk_parity_erc_3asset`, `min_variance_gtaa`,
+`max_diversification`) are the first consumers. Backwards
+compatibility: trivial (new module, no existing code touched). A new
+hard dependency on `scipy>=1.11` is declared in
+`packages/alphakit-strategies-macro/pyproject.toml` — scipy was
+already pulled in transitively by pandas / vectorbt, so adding the
+explicit declaration carries no install-cost change.
+
+Architecture: this is a within-family helper, not a workspace-level
+extension like Session 2F's `discrete_legs` metadata or Session 2A's
+`raise_chain_not_supported`. The pattern is "shared utility module"
+not "architectural protocol extension". The leading-underscore
+module name is a deliberate signal that the API is package-private —
+strategies in `alphakit.strategies.macro` may import from it, but
+downstream consumers (Phase 3 alpha discovery, external user code)
+should not depend on it across releases.
+
+Test coverage (39 tests):
+
+- 11 tests for `rolling_covariance`: shape, indexing, symmetry,
+  known-variance recovery, NaN handling, majority-NaN omission,
+  default Ledoit-Wolf shrinkage, constant shrinkage smoke, invalid-
+  window error, invalid-shrinkage-method error, single-asset error.
+- 5 tests for `_ledoit_wolf_shrinkage`: α-in-[0,1] invariant, small-
+  sample-pushes-α-higher invariant, symmetric-positive-definite
+  output, single-asset error, singular-covariance fallback via
+  rolling.
+- 7 tests for `solve_erc_weights`: analytic inverse-vol case (3
+  uncorrelated assets with vols 10%/20%/30% → weights inversely
+  proportional to vol), sums-to-1 invariant, all-positive invariant,
+  equal-risk-contribution invariant (`w_i * (Σw)_i` constant across
+  `i`), N=1 case, zero-variance error, non-square error.
+- 7 tests for `solve_min_variance_weights`: 2-asset uncorrelated
+  Markowitz closed form (`w_1 = σ_2² / (σ_1² + σ_2²)`), 2-asset
+  correlated Markowitz closed form, sums-to-1 invariant, long-only-
+  constraint-binds invariant, long-short-allows-negatives
+  contrast, N=1 case, invalid-max-weight error.
+- 3 tests for `diversification_ratio`: single-asset (DR=1.0), 2-
+  asset hand-checked case (DR = 0.1/sqrt(0.0075) for equal-weight 2
+  assets with σ=0.1, ρ=0.5), zero-variance edge case.
+- 5 tests for `solve_max_diversification_weights`: equal-correlation
+  + equal-vol → equal weight, mixed-universe DR > equal-weight DR,
+  sums-to-1, long-only non-negative, N=1 case.
+- 1 test for N=10 cross-solver convergence: random PSD covariance,
+  all three solvers produce valid weight vectors.
+
+Gate-3 review surface: the analytic-known-result tests (ERC inverse-
+vol; min-var 2-asset Markowitz; max-div equal-correlation equal-vol)
+are the integrity check on the architectural primitive. Any future
+modification to the solvers must preserve these analytic invariants
+within the documented tolerances.
+
+---
+
+## 2026-05-15 — Session 2G: alphakit-wide rebalance-cadence convention (clarification)
+
+Context: During Session 2G's Commit 2 gate-3 review of
+`permanent_portfolio`, investigation surfaced that the vectorbt
+bridge's `SizeType.TargetPercent` semantics combined with the
+project-wide signal convention (monthly weights forward-filled
+daily) produces daily drift-correction trades rather than discrete
+monthly rebalance events. The reviewer flagged this as a possible
+methodological inconsistency in `permanent_portfolio`'s "monthly
+rebalance" claim.
+
+Investigation findings:
+
+- `vectorbt.Portfolio.from_orders(..., size_type=TargetPercent)`
+  re-evaluates the target weight on every bar and rebalances on any
+  drift, however small. There is no built-in "rebalance only when
+  target changes" gate.
+- Empirical test on a 63-bar permanent_portfolio panel: the
+  strategy emitted 25/25/25/25 target signals on 3 month-end bars,
+  but the bridge fired **156 orders across 41 distinct dates**
+  (4 legs × 39 drift-correction events post-warm-up + 4 initial
+  buys). Realised trade-event rate: ~63 events per asset per year,
+  not ~12.
+- This is the implemented behavior across **all 99 strategies on
+  `origin/main`** (60 Phase 1 + 13 rates + 10 commodity + 15 options
+  + 1 macro pending). The pattern was established in Phase 1
+  `dual_momentum_gem` (line 130:
+  `monthly_weights.reindex(prices.index).ffill().fillna(0.0)`) and
+  applied uniformly across Sessions 2D, 2E, 2F. No strategy on
+  main produces a true discrete monthly-rebalance trade pattern.
+- vectorbt **can** interpret `NaN` size as "do not rebalance this
+  bar" — verified empirically (10-bar manual test: NaN-preserved
+  weights produced 4 orders vs 17 with the project's ffill+fillna(0)
+  pattern). The opt-in path exists but requires a bridge change to
+  preserve NaN instead of `weights.reindex_like(prices).fillna(0.0)`
+  at `vectorbt_bridge.py:96`.
+
+Resolution: Document the convention explicitly. Strategy docstrings
+and per-strategy `paper.md` files should describe the cadence as
+"monthly target signal + bridge-side daily drift correction toward
+target" rather than "monthly rebalance". The economic exposure
+matches a true monthly rebalance within friction-cost noise —
+total dollar turnover is comparable because each daily drift-
+correction trade rebalances only the drift accumulated since the
+previous bar (typically 0.05–0.5% of position value), not the full
+target notional. Only the trade-event distribution differs (~63
+small events per year vs ~12 discrete events).
+
+The `rebalance_frequency` class attribute on every strategy keeps
+its existing semantics: it describes the **signal cadence**, not
+the bridge-event cadence. Clarification, not a change.
+
+Phase 3 candidate: A sparse-rebalance protocol extension —
+analogous to Session 2F's `discrete_legs` opt-in attribute — would
+let strategies declare `sparse_rebalance: bool = False` (defaulting
+to today's behavior) and have the bridge preserve `NaN` for opt-in
+strategies. Strategies that wanted the discrete-monthly-rebalance
+trade pattern would emit weights on rebalance bars only (`NaN`
+elsewhere) and opt in via the new attribute. Out of scope for
+Session 2G; tracked for Phase 3 bridge-architecture work because:
+
+- Blast radius is large (99 existing strategies need a
+  `sparse_rebalance: bool = False` default added).
+- vectorbt-bridge tests must be extended to cover both dispatch
+  paths.
+- Existing benchmark numbers under the daily-drift-correction
+  convention would need to be re-run against the sparse-rebalance
+  bridge path to confirm Sharpe-equivalence (expected: yes within
+  noise, but must be verified).
+- Backtrader bridge dispatch would also need to be audited for
+  consistent NaN handling.
+
+Scope: **Documentation only.** No code changes to any existing
+strategy. Permanent_portfolio (Commit 2) ships with updated
+strategy.py docstring + paper.md "Implementation deviations" +
+known_failures.md item 4 reflecting the project-wide convention.
+Future Session 2G strategies (Commits 3–12) inherit the clarified
+convention; explicit docstring framing prevents future reviewer
+confusion.
+
+Process lesson: Gate-3 review for a first-strategy-in-family
+should verify the bridge integration semantics match the stated
+cadence. The Session 2F precedent (covered_call_systematic
+gate-3 surfaced the discrete-leg dispatch requirement) had its
+analog here — permanent_portfolio gate-3 surfaced the
+rebalance-cadence convention. Both are caught by reviewing the
+bridge dispatch path on the simplest strategy in the family
+before the architecturally-novel strategies (covariance-based
+Commits 5-7, regime-state Commits 8-12) layer on top.
+
+---
+
+## 2026-05-16 — Session 2G: informational columns must be positive-valued (vectorbt bridge constraint)
+
+Context: Session 2G's regime-state group (Commits 8-12) uses the
+informational-column pattern (Session 2D §2D sub-section 3) — FRED
+macro series enter the strategy's input DataFrame as columns that
+drive regime classification but carry weight = 0.0 in the output.
+Commit 8 (`recession_probability_rotation`) established the pattern
+with the Cleveland Fed recession-probability series (RECPROUSM156N,
+a probability in [0, 1], naturally positive).
+
+Finding (surfaced during Commit 9 benchmark generation): the
+vectorbt bridge treats **every** input column — including the
+zero-weight informational columns — as a `close` price in
+`vbt.Portfolio.from_orders(close=prices, ...)`. vectorbt's
+order-execution kernel asserts `order.price must be finite and
+greater than 0` on every column. A negative-valued informational
+column therefore raises this error and breaks the backtest, even
+though the strategy never trades that column.
+
+Commit 9 (`growth_inflation_regime_rotation`) originally specified
+the GDP *growth-rate* series `A191RL1Q225SBEA`, which goes negative
+in recessions (e.g. -3% annualised in 2020 Q2). The first benchmark
+run with a -3% GDP value triggered the bridge's positive-price
+assertion.
+
+Resolution: consume FRED *level* series (always positive) instead
+of *rate/change* series (can go negative), and compute the
+year-over-year rate internally — parallel to the existing CPI
+index → YoY treatment. Commit 9 switched its GDP column from
+`A191RL1Q225SBEA` (growth rate) to `GDPC1` (real GDP level), and
+computes YoY growth via `pct_change(12) × 100` on the lagged
+level. This makes both of Commit 9's informational columns
+(CPIAUCSL index + GDPC1 level) positive by construction.
+
+Constraint scope across the Session 2G regime-state group:
+
+* `recession_probability_rotation` (RECPROUSM156N): probability
+  in [0, 1] — naturally positive. No change.
+* `growth_inflation_regime_rotation` (CPIAUCSL + GDPC1): both
+  index/level series — positive after the GDPC1 switch.
+* `yield_curve_regime_allocation` (Commit 10): the yield-curve
+  slope **goes negative on inversion** — precisely the regime the
+  strategy cares about — so the *spread* itself cannot be an
+  informational column. Commit 10 reads the two raw yield-level
+  columns and computes the (possibly negative) spread internally,
+  exactly as Commit 9 computes YoY internally. **Caveat on the
+  short leg:** `DGS3MO` (3-month T-bill) prints exactly `0.0` on
+  several ZIRP days (2011, 2020-2021), which would still trip the
+  bridge's `order.price > 0` assertion. Commit 10 therefore uses
+  **`DGS2`** (2-year) as the short leg instead of `DGS3MO` — the
+  2-year always carries a term premium and stays strictly
+  positive even at the ZIRP lower bound. The resulting 2s10s
+  slope is ~0.9-correlated with the 10y-3m Cleveland-Fed input,
+  so the cross-strategy cluster prediction with
+  `recession_probability_rotation` (ρ ≈ 0.50-0.70) holds. Both
+  `DGS10` and `DGS2` are reliably strictly-positive informational
+  columns.
+* `fed_policy_tilt` (Commit 11, FEDFUNDS): fed funds rate level —
+  naturally positive (the US has not had negative policy rates).
+  No change.
+* `inflation_regime_allocation` (Commit 12, CPIAUCSL): CPI index
+  — naturally positive. No change.
+
+General rule for future FRED-driven strategies: **pass raw
+positive level/index/rate series as informational columns and
+compute any derived signal (YoY, spread, change) internally
+inside `generate_signals`.** Never pass a series that can go
+non-positive (growth rates, spreads, changes) directly as an
+informational column.
+
+Scope: Documentation + Commit 9 GDP-column switch (A191RL1Q225SBEA
+→ GDPC1). No bridge code change — the constraint is inherent to
+vectorbt's order-execution model and is cheaper to honour at the
+strategy-input level than to special-case in the bridge. The
+constraint is documented in each affected strategy's
+`known_failures.md`.
+
+Process lesson: the informational-column pattern's interaction
+with the bridge's positive-price assertion was not visible at the
+Commit 8 gate-3 review (RECPROUSM156N is a probability, always
+positive). It surfaced at Commit 9 when the first negative-capable
+FRED series (GDP growth rate) was used. Future regime strategies
+must check the informational column's value range against the
+bridge's positive-price constraint *before* implementation —
+Commit 10's T10Y3M is the next case and is pre-flagged above.

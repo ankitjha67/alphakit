@@ -120,8 +120,37 @@ strategies use `^VIX` / `^VIX3M` (yfinance equity passthrough) and
 
 ## Macro family
 
-Sub-package: `packages/alphakit-strategies-macro/`. Target: 15
-strategies (Session 2G).
+Sub-package: `packages/alphakit-strategies-macro/`. Target: **11
+strategies** (reduced from the originally-planned 15 — see
+[`../phase-2-amendments.md`](../phase-2-amendments.md) Session 2G
+drop entries for `cape_country_rotation` (cluster duplicate of Phase 1
+`country_cape_rotation`), `dollar_strength_tilt` (no peer-reviewed
+anchor — folklore), `dual_momentum_gtaa` (cluster duplicate of Phase
+1 `dual_momentum_gem`), and `inflation_tilt_60_40_overlay` (borderline
+cluster duplicate of `inflation_regime_allocation`); plus reframe
+entries for `risk_parity_3asset → risk_parity_erc_3asset`,
+`economic_regime_rotation → growth_inflation_regime_rotation`,
+`yield_curve_regime_asset_allocation → yield_curve_regime_allocation`,
+`global_macro_momentum → gtaa_cross_asset_momentum`, and
+`5_asset_tactical → vigilant_asset_allocation_5`). Covariance-based
+strategies share the `alphakit.strategies.macro._covariance` helper
+(Ledoit-Wolf shrinkage + rolling-window estimation + ERC /
+minimum-variance / maximum-diversification solvers). Regime allocators
+follow the Session 2D "informational columns with zero weight" pattern
+documented in `../phase-2-amendments.md` (FRED series enter as input
+DataFrame columns with zero weight in the output; tradable assets
+carry the regime-conditional allocation).
 
 | Slug | Paper (foundational) | Paper (primary) | DOI | Feed | Real-data | Sharpe range | Known failures |
 |---|---|---|---|---|---|---|---|
+| [`permanent_portfolio`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/permanent_portfolio/) | Browne 1987 (book, ISBN 0-688-06778-6) | Estrada 2018 | [10.2139/ssrn.3168697](https://doi.org/10.2139/ssrn.3168697) | yfinance (SPY+TLT+GLD+SHY) | deferred to 2H | 0.3–0.6 (Estrada OOS) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/permanent_portfolio/known_failures.md) |
+| [`gtaa_cross_asset_momentum`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/gtaa_cross_asset_momentum/) | Hurst/Ooi/Pedersen 2017 | Asness/Moskowitz/Pedersen 2013 §V | [10.1111/jofi.12021](https://doi.org/10.1111/jofi.12021) | yfinance (SPY+EFA+EEM+AGG+TLT+HYG+GLD+DBC+VNQ) | deferred to 2H | 0.5–0.8 (AMP §V Table III; HOP century OOS ≈ 0.7) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/gtaa_cross_asset_momentum/known_failures.md) |
+| [`vigilant_asset_allocation_5`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/vigilant_asset_allocation_5/) | Keller/Keuning 2014 | Keller/Keuning 2017 | [10.2139/ssrn.3002624](https://doi.org/10.2139/ssrn.3002624) | yfinance (SPY+EFA+EEM+AGG+SHY) | deferred to 2H | 0.4–0.7 (KK 2017 Table 4 VAA-G4) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/vigilant_asset_allocation_5/known_failures.md) |
+| [`risk_parity_erc_3asset`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/risk_parity_erc_3asset/) | Maillard/Roncalli/Teiletche 2010 | Asness/Frazzini/Pedersen 2012 | [10.2469/faj.v68.n1.1](https://doi.org/10.2469/faj.v68.n1.1) | yfinance (SPY+TLT+DBC) | deferred to 2H | 0.6–0.9 (AFP 2012 3-asset Sharpe) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/risk_parity_erc_3asset/known_failures.md) |
+| [`min_variance_gtaa`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/min_variance_gtaa/) | Clarke/de Silva/Thorley 2006 | Haugen/Baker 1991 | [10.3905/jpm.1991.409335](https://doi.org/10.3905/jpm.1991.409335) | yfinance (SPY+TLT+DBC) | deferred to 2H | 0.5–0.8 (CST 2006 Table 4 long-only MV) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/min_variance_gtaa/known_failures.md) |
+| [`max_diversification`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/max_diversification/) | Choueifaty/Coignard 2008 | Choueifaty/Froidure/Reynier 2013 | [10.2139/ssrn.1895459](https://doi.org/10.2139/ssrn.1895459) | yfinance (SPY+TLT+DBC) | deferred to 2H | 0.5–0.8 (CC 2008 Table 2 MDP) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/max_diversification/known_failures.md) |
+| [`recession_probability_rotation`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/recession_probability_rotation/) | Estrella/Mishkin 1998 | Wright 2006 (FEDS WP, no DOI) | [10.1162/003465398557320](https://doi.org/10.1162/003465398557320) | yfinance (SPY+TLT+GLD) + fred (RECPROUSM156N informational) | deferred to 2H | 0.4–0.7 (EM 1998 + Cleveland Fed model) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/recession_probability_rotation/known_failures.md) |
+| [`growth_inflation_regime_rotation`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/growth_inflation_regime_rotation/) | Ilmanen/Maloney/Ross 2014 (sole anchor) | Ilmanen/Maloney/Ross 2014 | [10.3905/jpm.2014.40.3.087](https://doi.org/10.3905/jpm.2014.40.3.087) | yfinance (SPY+TLT+GLD+DBC) + fred (CPIAUCSL+GDPC1 informational) | deferred to 2H | 0.4–0.7 (IMR 2014 4-cell sensitivities) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/growth_inflation_regime_rotation/known_failures.md) |
+| [`yield_curve_regime_allocation`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/yield_curve_regime_allocation/) | Estrella/Hardouvelis 1991 (foundational) | Ang/Piazzesi/Wei 2006 | [10.1016/j.jfineco.2005.05.005](https://doi.org/10.1016/j.jfineco.2005.05.005) | yfinance (SPY+TLT+GLD) + fred (DGS10+DGS2 informational) | deferred to 2H | 0.5–0.7 (EH 1991 + APW 2006 yield-curve-slope regime) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/yield_curve_regime_allocation/known_failures.md) |
+| [`fed_policy_tilt`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/fed_policy_tilt/) | Conover/Jensen/Johnson/Mercer 2008 (foundational) | Jensen/Mercer/Johnson 1996 | [10.1016/0304-405X(96)00875-X](https://doi.org/10.1016/0304-405X(96)00875-X) | yfinance (SPY+TLT+GLD) + fred (FEDFUNDS informational) | deferred to 2H | 0.4–0.6 (JMJ 1996 tightening/easing 2-cell) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/fed_policy_tilt/known_failures.md) |
+| [`inflation_regime_allocation`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/inflation_regime_allocation/) | Neville/Draaisma/Funnell/Harvey/Van Hemert 2021 (foundational) | Erb/Harvey 2006 | [10.2469/faj.v62.n2.4080](https://doi.org/10.2469/faj.v62.n2.4080) | yfinance (SPY+TLT+GLD+DBC) + fred (CPIAUCSL informational) | deferred to 2H | 0.4–0.7 (Neville 2021 3-cell inflation regime) | [`known_failures.md`](../../packages/alphakit-strategies-macro/alphakit/strategies/macro/inflation_regime_allocation/known_failures.md) |
