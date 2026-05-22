@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
     inputs:
       tag:
@@ -26,10 +28,10 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -44,18 +46,31 @@ jobs:
 
       - name: Install sub-packages in dependency order
         run: |
-          TAG="${{ steps.tag.outputs.ref }}"
-          REPO="https://github.com/ankitjha67/alphakit.git"
+          PKGS="core data bridges \
+                strategies-trend strategies-meanrev strategies-carry \
+                strategies-value strategies-volatility strategies-rates \
+                strategies-commodity strategies-options strategies-macro \
+                bench"
 
-          for pkg in core data bridges \
-                     strategies-trend strategies-meanrev strategies-carry \
-                     strategies-value strategies-volatility strategies-rates \
-                     strategies-commodity strategies-options strategies-macro \
-                     bench; do
-            echo "::group::Installing alphakit-${pkg}"
-            pip install "alphakit-${pkg} @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-${pkg}"
-            echo "::endgroup::"
-          done
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR events validate the checked-out tree directly (the workflow
+            # file is read from the base branch, so a git+ref install can't
+            # see PR code anyway). Local-path installs in dependency order.
+            for pkg in $PKGS; do
+              echo "::group::Installing alphakit-${pkg} (local checkout)"
+              pip install "./packages/alphakit-${pkg}"
+              echo "::endgroup::"
+            done
+          else
+            # Tag push / manual dispatch: validate the published ref via git+URL.
+            TAG="${{ steps.tag.outputs.ref }}"
+            REPO="https://github.com/ankitjha67/alphakit.git"
+            for pkg in $PKGS; do
+              echo "::group::Installing alphakit-${pkg} (git+${TAG})"
+              pip install "alphakit-${pkg} @ git+${REPO}@${TAG}#subdirectory=packages/alphakit-${pkg}"
+              echo "::endgroup::"
+            done
+          fi
 
       - name: Verify imports — one strategy per family
         run: |
