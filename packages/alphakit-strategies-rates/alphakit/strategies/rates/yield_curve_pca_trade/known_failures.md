@@ -108,4 +108,4 @@ top-3 PCs — but a user expecting the PCA factors to map to
 
 (Reference ranges from Litterman/Scheinkman replication papers;
 the in-repo benchmark is authoritative for this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

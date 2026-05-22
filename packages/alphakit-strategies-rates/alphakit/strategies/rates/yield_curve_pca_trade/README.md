@@ -45,6 +45,6 @@ result = vectorbt_bridge.run(
   fit window, PCA over-fit on small panels, non-mean-reverting
   residuals during liquidity stress, cluster overlap with
   `curve_butterfly_2s5s10s`.
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed FRED DGS2/3/5/7/10/20/30 benchmark
   deferred to Session 2H.

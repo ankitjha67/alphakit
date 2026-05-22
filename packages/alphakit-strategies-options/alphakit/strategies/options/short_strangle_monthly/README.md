@@ -33,7 +33,7 @@ strategy = ShortStrangleMonthly()  # 10% OTM both legs by default
   sustained directional moves, vol-of-vol spikes (markedly worse
   than iron condor), cluster overlap with `iron_condor_monthly`
   (ρ ≈ 0.85-0.95).
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   Mode 2 degenerate baseline.
 
 ## Tests

@@ -101,4 +101,4 @@ granularity.
 inflation-momentum sleeve; the in-repo benchmark with synthetic
 fixture proxies is authoritative for this implementation but
 materially different from the IMR G7 paper version —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

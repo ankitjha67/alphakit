@@ -41,7 +41,7 @@ BXM rules. For the practitioner-aligned 2 % OTM variant, see
   vol-of-vol spikes, **strong cluster overlap with
   `covered_call_systematic`** (ρ ≈ 0.95-1.00), composition-
   wrapper transparency.
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   Mode 2 buy-and-hold-of-SPY baseline.
 
 ## Tests

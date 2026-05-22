@@ -58,7 +58,7 @@ CL=-0.5, BZ=+0.5).
   2019 Saudi attacks, 2022 Russia), Cushing-storage capacity
   events (April 2020 negative WTI price), ICE Brent contract
   specifics
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 

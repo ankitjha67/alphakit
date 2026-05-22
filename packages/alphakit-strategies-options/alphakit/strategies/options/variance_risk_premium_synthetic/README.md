@@ -36,7 +36,7 @@ Carr-Wu §2 ATM-straddle approximation. For OTM variants, see
   directional moves, vol-of-vol spikes, **2-leg-approximation
   caveat** (this is NOT literal Carr-Wu replication — Phase 3
   with Polygon ships full multi-strike).
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   Mode 2 degenerate baseline.
 
 ## Tests

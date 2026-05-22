@@ -47,7 +47,7 @@ result = vectorbt_bridge.run(
   shocks (2008-09 GFC, 2022 USD strength), trailing-return-proxy
   vs explicit-carry mismatch, fixture-vs-real-data gap (US-only
   fallback), liquidity differentials.
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics with US-only fallback universe. **Real-feed
   Session 2H benchmark with FX-hedged G10 sovereign bonds is
   required for meaningful evaluation.**

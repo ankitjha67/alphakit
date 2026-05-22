@@ -1008,12 +1008,11 @@ Mismatches get resolved before v0.2.0 tag. The manifest is ground truth for the 
 
 ### Phase 2 benchmark execution
 
-After each family session (2D-2G), the benchmark runner regenerates that family's `benchmark_results.json` files. Two variants per strategy, saved side-by-side:
+After each family session (2D-2G), the benchmark runner regenerates that family's `benchmark_results.json` file — **one per strategy** — and a `data_source` field inside each JSON records provenance: `"synthetic-fixture"` (deterministic Phase 1-pattern fixtures, CI offline-safe) or a real-feed marker (e.g. `"yfinance-real"`) where the metrics came from live data (FRED for rates, yfinance-futures + CFTC + EIA for commodity, synthetic-options for options, FRED + yfinance for macro).
 
-- `benchmark_results_synthetic.json` — against synthetic fixtures (Phase 1 pattern, keeps CI offline-safe)
-- `benchmark_results_real.json` — against real feeds where available (FRED for rates, yfinance-futures + CFTC + EIA for commodity, synthetic-options for options, FRED + yfinance for macro)
+> **Superseded design (Session 2H).** This plan originally specified two side-by-side files per strategy — `benchmark_results_synthetic.json` + `benchmark_results_real.json`. The implementation instead standardized on a **single `benchmark_results.json` per strategy with an internal `data_source` field** (discovery hardcodes `benchmark_results.json`; Phase 1 and macro already used the single-file name). The synthetic/real distinction lives inside the JSON rather than in the filename. See the deviations.md Phase 2 section.
 
-**Why both.** Synthetic results feed the README leaderboard because they're deterministic across fresh clones (no API key, no cache) and stable across CI runs. Real-feed results feed `docs/benchmark_notes.md` with honest commentary about how the strategy behaves on production-like data. Users comparing the two can see immediately which strategies are robust and which are fixture-sensitive.
+**Why synthetic feeds the leaderboard.** Synthetic results are deterministic across fresh clones (no API key, no cache) and stable across CI runs, so the README leaderboard reads them. Real-feed results (where regenerated) feed `docs/benchmark_notes.md` with honest commentary about production-like behavior; the `data_source` field lets a reader see immediately which strategies are real-feed-validated and which remain fixture-sensitive.
 
 **Benchmark runner updates needed in Session 2H.** The existing runner (`packages/alphakit-bench/alphakit/bench/runner.py`) needs two extensions:
 
@@ -1143,10 +1142,10 @@ After Session 2H, verify-install.yml's install step iterates over 13 sub-package
 
 The existing `benchmark.yml` weekly runner gets updated in Session 2H to cover Phase 2 strategies. Two matrix modes:
 
-- **Synthetic weekly run** (always-on): regenerates `benchmark_results_synthetic.json` for all 109 strategies. Runs Sunday 00:00 UTC. ~10 minutes.
-- **Real-data monthly run** (opt-in, manual workflow_dispatch): pulls FRED, CFTC, EIA and regenerates `benchmark_results_real.json`. Requires FRED_API_KEY and EIA_API_KEY as GitHub secrets. Skipped if keys missing.
+- **Synthetic weekly run** (always-on): regenerates `benchmark_results.json` (with `data_source: "synthetic-fixture"`) for all 109 strategies. Runs Sunday 00:00 UTC. ~10 minutes.
+- **Real-data monthly run** (opt-in, manual workflow_dispatch; v0.2.1 scope — needs the runner's FRED-merge enhancement + `FRED_API_KEY`/`EIA_API_KEY` secrets): re-regenerates each strategy's single `benchmark_results.json` with a real-feed `data_source` marker. Skipped if keys missing.
 
-The monthly real-data run serves as a drift detector. If `benchmark_results_real.json` for `bond_tsmom_12_1` shifts materially between runs, that's either real market change (interesting) or data-feed change (concerning). Either way, it surfaces in the monthly diff.
+The monthly real-data run serves as a drift detector. If a real-feed-sourced `benchmark_results.json` (e.g. `bond_tsmom_12_1`) shifts materially between runs, that's either real market change (interesting) or data-feed change (concerning). Either way, it surfaces in the monthly diff.
 
 ---
 
@@ -1284,7 +1283,7 @@ The most expensive rollback is Phase-level: Phase 2 is the wrong scope, drop bac
 Phase 2 is "done" when all of these are true:
 
 - 109 strategies merged to main (60 Phase 1 + 49 Phase 2; Phase 2 planned 65, 16 honest drops)
-- Each new strategy has the full per-strategy contract (strategy.py, config.yaml, paper.md with DOI, known_failures.md, README.md, tests/test_unit.py, tests/test_integration.py, benchmark_results_synthetic.json, benchmark_results_real.json where applicable)
+- Each new strategy has the full per-strategy contract (strategy.py, config.yaml, paper.md with DOI, known_failures.md, README.md, tests/test_unit.py, tests/test_integration.py, benchmark_results.json, benchmark_results_real.json where applicable)
 - v0.2.0 tagged via GitHub UI, marked pre-release
 - verify-install.yml green on the v0.2.0 tag (all 6 matrix jobs)
 - Local PowerShell verification (cache-busted, via `scripts/verify_release_windows.ps1`) green on v0.2.0 tag

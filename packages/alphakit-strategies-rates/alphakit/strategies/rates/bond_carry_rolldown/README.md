@@ -50,7 +50,7 @@ result = vectorbt_bridge.run(
   entry (2018, 2022), proxy mismatch with true yield-curve carry,
   cluster overlap with `bond_tsmom_12_1` and `g10_bond_carry`,
   single-asset concentration risk.
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed FRED benchmark deferred to Session 2H.
 
 ## Tests

@@ -48,7 +48,7 @@ result = vectorbt_bridge.run(
   curvature regimes, IEF-belly duration mismatch, imperfect DV01,
   cluster overlap with `yield_curve_pca_trade`, low-Sharpe in calm
   regimes.
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed benchmark deferred to Session 2H.
 
 ## Tests

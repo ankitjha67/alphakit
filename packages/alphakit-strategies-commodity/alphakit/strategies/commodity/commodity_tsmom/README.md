@@ -51,7 +51,7 @@ and [`strategy.py`](strategy.py) for the implementation docstring.
   sharp regime changes (2008/2014/2020), single-asset blow-ups,
   continuous-contract roll bias, **strong cluster overlap with
   `metals_momentum`** (ρ ≈ 0.75-0.90)
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 

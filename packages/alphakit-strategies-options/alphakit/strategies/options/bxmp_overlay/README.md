@@ -44,7 +44,7 @@ strategy = BXMPOverlay(underlying_symbol="SPY")
   siblings), cluster overlap with covered_call_systematic /
   cash_secured_put_systematic / bxm_replication, composition-
   wrapper transparency.
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   Mode 2 buy-and-hold-of-SPY baseline.
 
 ## Tests

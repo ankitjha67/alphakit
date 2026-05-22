@@ -144,4 +144,4 @@ feed Session 2H should test against multi-leg slippage models.
 
 (Reference ranges from public energy-spread sleeves; the in-repo
 benchmark is the authoritative source for this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

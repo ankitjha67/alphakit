@@ -56,7 +56,7 @@ and [`strategy.py`](strategy.py) for the implementation docstring.
   regimes, imperfect DV01 neutrality, ETF basket drift, cluster
   correlation with the flattener / butterfly siblings, single-pair
   concentration risk
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed benchmark deferred to Session 2H.
 
 ## Tests

@@ -107,4 +107,4 @@ curvature hedging should look at `curve_butterfly_2s5s10s`.
 (Reference ranges from CTA-reported 2s10s slope sleeves and from
 academic papers on slope-based prediction; the in-repo benchmark
 is the authoritative source for this implementation —
-see [`benchmark_results_synthetic.json`](benchmark_results_synthetic.json).)
+see [`benchmark_results.json`](benchmark_results.json).)

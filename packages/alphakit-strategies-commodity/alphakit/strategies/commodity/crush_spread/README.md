@@ -55,7 +55,7 @@ ratio.
   regime shifts, **2018 China-tariff shock (largest historical
   failure)**, drought / weather shocks (2012), bushel-equivalent
   simplification bias, multi-leg execution risk
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 

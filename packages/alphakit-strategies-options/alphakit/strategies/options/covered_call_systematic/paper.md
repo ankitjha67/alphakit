@@ -176,5 +176,5 @@ runner):** SPY-fixture buy-and-hold range (Sharpe 0.3-0.5 on the
 Session 2D/2E synthetic fixture data). This is the path the
 standard `BenchmarkRunner` exercises until Session 2H wires up
 the synthetic-options call-leg construction. Reported in
-`benchmark_results_synthetic.json` with an explicit `note` field
+`benchmark_results.json` with an explicit `note` field
 documenting the mode.

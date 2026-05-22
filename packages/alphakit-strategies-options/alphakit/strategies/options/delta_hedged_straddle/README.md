@@ -35,7 +35,7 @@ strategy = DeltaHedgedStraddle()
   daily-rebalance turnover drag, cluster overlap with
   `gamma_scalping_daily` (ρ ≈ 0.85-0.95), stateful coupling
   caveats.
-* [Synthetic benchmark](benchmark_results_synthetic.json).
+* [Synthetic benchmark](benchmark_results.json).
 
 ## Tests
 

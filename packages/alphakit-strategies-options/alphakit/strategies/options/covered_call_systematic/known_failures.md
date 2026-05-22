@@ -119,7 +119,7 @@ synthetic call-leg via `make_call_leg_prices`. In that mode, the
 strategy gracefully degrades to long-only equity (`+1.0` weight on
 the underlying), which is a buy-and-hold backtest of SPY.
 
-`benchmark_results_synthetic.json` reports the buy-and-hold-of-SPY
+`benchmark_results.json` reports the buy-and-hold-of-SPY
 metrics with an explicit `note` field documenting the dual-mode
 behaviour. The full covered-call P&L (Mode 1, two-leg) is
 exercised in `tests/test_integration.py`, which constructs the

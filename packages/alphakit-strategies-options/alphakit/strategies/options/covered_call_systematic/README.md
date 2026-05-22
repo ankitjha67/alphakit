@@ -73,7 +73,7 @@ rebalanced (which would produce runaway P&L as premium decays).
   vol-of-vol spikes, **strong cluster overlap with Phase 1
   `covered_call_proxy`** (ρ ≈ 0.85-0.95), expected Session 2F
   sibling correlations.
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed Polygon verification deferred to Phase 3
   (ADR-004 stub).
 

@@ -43,7 +43,7 @@ wiring (or a config-level flip once that wiring reads from a
 settings file, which is a Phase 3 convenience, not a prerequisite).
 No strategy logic or schema changes are required, because both
 feeds implement the same `DataFeedProtocol` and return the same
-`OptionChain` schema. The `benchmark_results_synthetic.json` files
+`OptionChain` schema. The `benchmark_results.json` files
 remain in place as the offline-reproducible baseline;
 `benchmark_results_real.json` will be generated from live chains
 for strategies where production accuracy matters.

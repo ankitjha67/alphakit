@@ -49,7 +49,7 @@ violated.
   (less severe than uncapped variants due to wing protection),
   cluster overlap with `short_strangle_monthly` (ρ ≈ 0.85-0.95),
   4-leg substrate bias cancellation.
-* [Synthetic benchmark](benchmark_results_synthetic.json) —
+* [Synthetic benchmark](benchmark_results.json) —
   Mode 2 degenerate baseline (zero trade, zero return).
 
 ## Tests

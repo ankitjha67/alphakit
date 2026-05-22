@@ -57,7 +57,7 @@ and [`strategy.py`](strategy.py) for the implementation docstring.
   shifts (2008 H2 demand collapse, 2014-15 shale-glut, 2020 H1
   COVID), hurricane / refinery outages, RBOB transition (2006),
   multi-leg execution risk
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-
+* [Synthetic benchmark](benchmark_results.json) — fixture-
   based metrics. Real-feed yfinance-futures benchmark deferred to
   Session 2H.
 

@@ -49,7 +49,7 @@ and [`strategy.py`](strategy.py) for the implementation docstring.
   whipsaw, single-asset under-performance vs diversified book,
   duration-approximation bias, cluster correlation with sibling rates
   strategies
-* [Synthetic benchmark](benchmark_results_synthetic.json) — fixture-based
+* [Synthetic benchmark](benchmark_results.json) — fixture-based
   Sharpe / Sortino / Calmar / max-drawdown reference. Real-feed
   benchmark deferred to Session 2H.
 
