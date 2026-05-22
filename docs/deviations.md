@@ -502,12 +502,16 @@ synthetic data — the per-strategy `known_failures.md` rho ranges remain
 authoritative pending the v0.2.1 real-feed cluster pass. See
 `docs/benchmark_notes.md` Phase 2 section.
 
-## 8. CI: verify-install trigger gap (tracked for v0.2.1)
+## 8. CI: verify-install now runs on PRs (Session 2H)
 
 `verify-install.yml` historically ran only on `push: tags: v*` and
 `workflow_dispatch`, so it did not auto-run on PRs to `main` and required a
 manual branch-ref dispatch at PR time. Session 2H adds a `pull_request:
-[main]` trigger (installing from the local checkout on PR events; git+URL
-for tag/dispatch). Note the self-reference caveat: for `pull_request` events
-GitHub reads the workflow from the base branch, so the trigger benefits PRs
-opened *after* it merges to `main`, not its own PR.
+[main]` trigger with an Option-1 conditional install (local-checkout on PR
+events, git+URL for tag/dispatch). For **same-repo** `pull_request` events
+GitHub uses the workflow file from the **PR head**, so the trigger takes
+effect immediately on its own PR — verified on PR #20, which ran the full
+6-job verify-install matrix via the local-checkout path. (The base-branch
+rule applies to `pull_request_target` and to first-time-contributor fork
+PRs, which require manual approval.) Manual `workflow_dispatch` is now needed
+only to validate a published tag ref.
