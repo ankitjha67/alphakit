@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-22
+
+Multi-feed data architecture + 49 new strategies across four families
+(planned 65; 16 honest drops). Total on `main`: **109** (60 Phase 1 + 49
+Phase 2). Pre-release / silent build.
+
+### Added
+
+**49 new strategies:**
+
+- **Rates (13)**: bond_tsmom_12_1, curve_steepener_2s10s, curve_flattener_2s10s,
+  curve_butterfly_2s5s10s, bond_carry_rolldown, duration_targeted_momentum,
+  breakeven_inflation_rotation, real_yield_momentum, yield_curve_pca_trade,
+  g10_bond_carry, credit_spread_momentum, swap_spread_mean_rev,
+  global_inflation_momentum
+- **Commodity (10)**: commodity_tsmom, commodity_curve_carry,
+  cot_speculator_position, wti_brent_spread, wti_backwardation_carry,
+  ng_contango_short, crack_spread, crush_spread, grain_seasonality,
+  metals_momentum
+- **Options (15)**: covered_call_systematic, cash_secured_put_systematic,
+  bxm_replication, bxmp_overlay, calendar_spread_atm, iron_condor_monthly,
+  short_strangle_monthly, delta_hedged_straddle, gamma_scalping_daily,
+  variance_risk_premium_synthetic, put_skew_premium, skew_reversal,
+  vix_term_structure_roll, vix_3m_basis, weekly_short_volatility
+- **Macro / GTAA (11)**: permanent_portfolio, gtaa_cross_asset_momentum,
+  vigilant_asset_allocation_5, risk_parity_erc_3asset, min_variance_gtaa,
+  max_diversification, recession_probability_rotation,
+  growth_inflation_regime_rotation, yield_curve_regime_allocation,
+  fed_policy_tilt, inflation_regime_allocation
+
+**Data architecture:** FeedRegistry, disk-backed parquet cache (TTL),
+rate-limit coordinator, offline mode (`ALPHAKIT_OFFLINE=1`),
+`DataFeedProtocol.fetch_chain` extension. Four free-feed adapters (FRED,
+yfinance-futures, EIA, CFTC COT), a Polygon placeholder, and a
+synthetic-options chain generator. ADRs 003-007.
+
+**Architectural primitives:** shared `_covariance` helper (Ledoit-Wolf
+shrinkage + ERC/MV/MDP solvers); the informational-column pattern (FRED
+series at weight 0.0); publication-lag handling; the `discrete_legs`
+bridge metadata (Session 2F).
+
+### Changed
+
+- Standardized all 109 benchmarks on `benchmark_results.json` with a
+  `data_source` field (`synthetic-fixture` / `yfinance-real`), retiring the
+  dual-filename and macro custom-schema variants.
+- Real-feed (yfinance) benchmarks for 17 ETF-only strategies (11 rates + 6
+  macro). The other 92 remain synthetic-fixture; FRED-gated regime
+  strategies, `swap_spread_mean_rev`, `global_inflation_momentum`, and the
+  commodity/options families are deferred to a v0.2.1 real-feed pass.
+
+### Fixed
+
+- Benchmark runner test isolation: `test_write_benchmark` no longer mutates
+  the tracked `tsmom_12_1/benchmark_results.json` on every run (Issue #1).
+
+### Notes
+
+- **Honest reduction:** 16 strategies dropped from the planned 65 for missing
+  peer-reviewed anchors, missing data feeds, or cluster duplication.
+- Synthetic benchmarks test that strategies run correctly end-to-end, not
+  that they produce alpha. See `docs/benchmark_notes.md` and
+  `docs/deviations.md`.
+
 ## [0.1.0] - 2026-04-16
 
 ### Added

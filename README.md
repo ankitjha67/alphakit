@@ -113,45 +113,61 @@ Live site: <https://ankitjha67.github.io/alphakit>
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 
-## Benchmark Leaderboard (v0.1.0, synthetic data)
+## Benchmark Leaderboard (v0.2.0)
 
-> Benchmarked on deterministic fixture data with 5 bps commission.
-> See [docs/benchmark_notes.md](docs/benchmark_notes.md) for honest analysis.
+> 109 strategies, 5 bps commission, OOS 2020-2025. v0.2.0 mixes data
+> sources: **17 real-feed (yfinance, 2005-2025)** + **92 synthetic-fixture**.
+> Each `benchmark_results.json` carries a `data_source` field. Synthetic
+> Sharpes — especially the regime-state strategies, which run on favorable
+> hand-crafted panels — are **not** real-feed-validated; treat the real-feed
+> table below as the meaningful v0.2.0 ranking. See
+> [docs/benchmark_notes.md](docs/benchmark_notes.md) for the honest analysis.
 
-**Top 10 by Sharpe:**
+**Top 10 real-feed (`yfinance-real`) by Sharpe** — the v0.2.0 headline:
 
 | # | Strategy | Family | Sharpe | Max DD | Ann. Return |
 |---|----------|--------|-------:|-------:|------------:|
-| 1 | vol_targeting | volatility | +0.66 | -10.0% | +4.7% | ^1
-| 2 | vix_roll_short | volatility | +0.58 | -15.7% | +5.8% |
-| 3 | sma_cross_50_200 | trend | +0.45 | -20.0% | +2.7% |
-| 4 | dual_momentum_gem | trend | +0.44 | -29.7% | +6.2% |
-| 5 | gap_fill | meanrev | +0.31 | -2.8% | +0.4% |
-| 6 | crypto_funding_carry | carry | +0.29 | -13.2% | +3.3% |
-| 7 | vrp_harvest | volatility | +0.29 | -12.0% | +2.1% |
-| 8 | xs_momentum_jt | trend | +0.19 | -18.9% | +1.8% |
-| 9 | ev_ebitda | value | +0.10 | -12.1% | +0.7% | ^2
-| 10 | ou_process_trade | meanrev | -0.03 | -5.1% | -0.1% |
+| 1 | permanent_portfolio | macro | +0.97 | -18.6% | +8.3% |
+| 2 | vigilant_asset_allocation_5 | macro | +0.58 | -15.0% | +6.3% |
+| 3 | risk_parity_erc_3asset | macro | +0.52 | -19.5% | +5.7% |
+| 4 | max_diversification | macro | +0.46 | -19.9% | +5.1% |
+| 5 | gtaa_cross_asset_momentum | macro | +0.43 | -68.2% | +17.0% |
+| 6 | min_variance_gtaa | macro | +0.43 | -21.6% | +4.7% |
+| 7 | real_yield_momentum | rates | +0.37 | -11.2% | +2.5% |
+| 8 | bond_carry_rolldown | rates | +0.16 | -30.6% | +1.9% |
+| 9 | credit_spread_momentum | rates | +0.09 | -22.8% | +0.9% |
+| 10 | g10_bond_carry | rates | +0.07 | -13.7% | +0.6% |
 
-^1 **Vol proxy cluster:** 5 additional strategies (covered_call_proxy,
+**Top 10 by Sharpe across all 109** (with `data_source`):
+
+| # | Strategy | Family | Sharpe | Max DD | Source |
+|---|----------|--------|-------:|-------:|--------|
+| 1 | yield_curve_regime_allocation | macro | +1.29 | -16.1% | synthetic ‡ |
+| 2 | inflation_regime_allocation | macro | +1.24 | -25.9% | synthetic ‡ |
+| 3 | growth_inflation_regime_rotation | macro | +1.20 | -25.9% | synthetic ‡ |
+| 4 | permanent_portfolio | macro | +0.97 | -18.6% | **real** |
+| 5 | recession_probability_rotation | macro | +0.96 | -18.8% | synthetic ‡ |
+| 6 | fed_policy_tilt | macro | +0.77 | -22.1% | synthetic ‡ |
+| 7 | vol_targeting (+5 proxies ^1) | volatility | +0.66 | -10.0% | synthetic |
+| 8 | vigilant_asset_allocation_5 | macro | +0.58 | -15.0% | **real** |
+| 9 | vix_roll_short | volatility | +0.58 | -15.7% | synthetic |
+| 10 | risk_parity_erc_3asset | macro | +0.52 | -19.5% | **real** |
+
+‡ **Regime-state strategies run on hand-crafted synthetic panels that
+exercise their regimes favorably** (real-feed needs `FRED_API_KEY` + a runner
+FRED-merge enhancement, deferred to v0.2.1). Their high synthetic Sharpes are
+illustrative, not validated — see [docs/deviations.md](docs/deviations.md)
+Phase 2 section.
+
+^1 **Vol proxy cluster:** 5 additional Phase 1 strategies (covered_call_proxy,
 cash_secured_put_proxy, wheel_strategy_proxy, iron_condor_systematic_proxy,
-short_strangle_proxy) produce this identical Sharpe. All 6 share the same
-vol-scaled equity overlay until the real options engine ships in Phase 4.
-See [ADR-002](docs/adr/002-proxy-suffix-convention.md).
+short_strangle_proxy) produce this identical Sharpe — same vol-scaled overlay
+until the real options engine ships in Phase 4. See
+[ADR-002](docs/adr/002-proxy-suffix-convention.md).
 
-^2 **Value proxy cluster:** 3 additional strategies (fcf_yield, pb_value,
-pe_value) produce this identical Sharpe. All 4 use the same long-term-reversal
-value proxy until real fundamental data feeds ship in Phase 3.
-
-**Top 5 by Calmar (return/max-drawdown):**
-
-| # | Strategy | Family | Calmar | Max DD | Ann. Return |
-|---|----------|--------|-------:|-------:|------------:|
-| 1 | vol_targeting ^1 | volatility | 0.45 | -10.0% | +4.7% |
-| 2 | vix_roll_short | volatility | 0.36 | -15.7% | +5.8% |
-| 3 | gap_fill | meanrev | 0.28 | -2.8% | +0.4% |
-| 4 | vrp_harvest | volatility | 0.24 | -12.0% | +2.1% |
-| 5 | dual_momentum_gem | trend | 0.18 | -29.7% | +6.2% |
+Summary: mean Sharpe -0.06, median -0.01, 45/109 positive. Cluster analysis
+(49×49, Phase 2) found no undocumented near-duplicates — see
+[docs/benchmark_notes.md](docs/benchmark_notes.md).
 
 ## Roadmap
 
@@ -159,7 +175,7 @@ value proxy until real fundamental data feeds ship in Phase 3.
 |---|---|---|
 | 0 — Foundation | 1 reference | v0.0.1 |
 | 1 — Core families | 60 | v0.1.0 |
-| 2 — Asset breadth | 125 | v0.2.0 |
+| 2 — Asset breadth | 109 (49 new; planned 65) | v0.2.0 |
 | 3 — ML / RL | 165 | v0.3.0 |
 | 4 — Long tail | 500+ | v1.0.0 |
 | 5 — Multi-language | + C# / R | v1.1+ |
