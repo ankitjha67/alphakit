@@ -52,6 +52,9 @@ from alphakit.strategies.macro.growth_inflation_regime_rotation.strategy import 
 from alphakit.strategies.macro.gtaa_cross_asset_momentum.strategy import (
     GtaaCrossAssetMomentum,
 )
+from alphakit.strategies.macro.inflation_regime_allocation.strategy import (
+    InflationRegimeAllocation,
+)
 from alphakit.strategies.macro.max_diversification.strategy import MaxDiversification
 from alphakit.strategies.macro.min_variance_gtaa.strategy import MinVarianceGtaa
 from alphakit.strategies.macro.permanent_portfolio.strategy import PermanentPortfolio
@@ -72,6 +75,7 @@ __all__: list[str] = [
     "FedPolicyTilt",
     "GrowthInflationRegimeRotation",
     "GtaaCrossAssetMomentum",
+    "InflationRegimeAllocation",
     "MaxDiversification",
     "MinVarianceGtaa",
     "PermanentPortfolio",
