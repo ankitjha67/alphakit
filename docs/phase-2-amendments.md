@@ -1721,3 +1721,86 @@ rebalance-cadence convention. Both are caught by reviewing the
 bridge dispatch path on the simplest strategy in the family
 before the architecturally-novel strategies (covariance-based
 Commits 5-7, regime-state Commits 8-12) layer on top.
+
+---
+
+## 2026-05-16 — Session 2G: informational columns must be positive-valued (vectorbt bridge constraint)
+
+Context: Session 2G's regime-state group (Commits 8-12) uses the
+informational-column pattern (Session 2D §2D sub-section 3) — FRED
+macro series enter the strategy's input DataFrame as columns that
+drive regime classification but carry weight = 0.0 in the output.
+Commit 8 (`recession_probability_rotation`) established the pattern
+with the Cleveland Fed recession-probability series (RECPROUSM156N,
+a probability in [0, 1], naturally positive).
+
+Finding (surfaced during Commit 9 benchmark generation): the
+vectorbt bridge treats **every** input column — including the
+zero-weight informational columns — as a `close` price in
+`vbt.Portfolio.from_orders(close=prices, ...)`. vectorbt's
+order-execution kernel asserts `order.price must be finite and
+greater than 0` on every column. A negative-valued informational
+column therefore raises this error and breaks the backtest, even
+though the strategy never trades that column.
+
+Commit 9 (`growth_inflation_regime_rotation`) originally specified
+the GDP *growth-rate* series `A191RL1Q225SBEA`, which goes negative
+in recessions (e.g. -3% annualised in 2020 Q2). The first benchmark
+run with a -3% GDP value triggered the bridge's positive-price
+assertion.
+
+Resolution: consume FRED *level* series (always positive) instead
+of *rate/change* series (can go negative), and compute the
+year-over-year rate internally — parallel to the existing CPI
+index → YoY treatment. Commit 9 switched its GDP column from
+`A191RL1Q225SBEA` (growth rate) to `GDPC1` (real GDP level), and
+computes YoY growth via `pct_change(12) × 100` on the lagged
+level. This makes both of Commit 9's informational columns
+(CPIAUCSL index + GDPC1 level) positive by construction.
+
+Constraint scope across the Session 2G regime-state group:
+
+* `recession_probability_rotation` (RECPROUSM156N): probability
+  in [0, 1] — naturally positive. No change.
+* `growth_inflation_regime_rotation` (CPIAUCSL + GDPC1): both
+  index/level series — positive after the GDPC1 switch.
+* `yield_curve_regime_allocation` (Commit 10, T10Y3M): the
+  10y-minus-3m Treasury spread **goes negative on yield-curve
+  inversion** — this is precisely the regime the strategy cares
+  about. Commit 10 MUST handle this: either (a) read a positive
+  proxy (e.g. the two raw yield columns DGS10 and DGS3MO and
+  compute the spread internally — both raw yields are positive),
+  or (b) offset the spread into positive territory before it
+  passes through the bridge. Option (a) is preferred — it keeps
+  the informational columns as raw positive FRED series and
+  computes the (possibly negative) spread internally, exactly
+  as Commit 9 computes the (always positive here, but the
+  pattern generalises) YoY internally.
+* `fed_policy_tilt` (Commit 11, FEDFUNDS): fed funds rate level —
+  naturally positive (the US has not had negative policy rates).
+  No change.
+* `inflation_regime_allocation` (Commit 12, CPIAUCSL): CPI index
+  — naturally positive. No change.
+
+General rule for future FRED-driven strategies: **pass raw
+positive level/index/rate series as informational columns and
+compute any derived signal (YoY, spread, change) internally
+inside `generate_signals`.** Never pass a series that can go
+non-positive (growth rates, spreads, changes) directly as an
+informational column.
+
+Scope: Documentation + Commit 9 GDP-column switch (A191RL1Q225SBEA
+→ GDPC1). No bridge code change — the constraint is inherent to
+vectorbt's order-execution model and is cheaper to honour at the
+strategy-input level than to special-case in the bridge. The
+constraint is documented in each affected strategy's
+`known_failures.md`.
+
+Process lesson: the informational-column pattern's interaction
+with the bridge's positive-price assertion was not visible at the
+Commit 8 gate-3 review (RECPROUSM156N is a probability, always
+positive). It surfaced at Commit 9 when the first negative-capable
+FRED series (GDP growth rate) was used. Future regime strategies
+must check the informational column's value range against the
+bridge's positive-price constraint *before* implementation —
+Commit 10's T10Y3M is the next case and is pre-flagged above.

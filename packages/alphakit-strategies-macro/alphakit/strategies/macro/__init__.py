@@ -45,6 +45,9 @@ allocation.
 
 from __future__ import annotations
 
+from alphakit.strategies.macro.growth_inflation_regime_rotation.strategy import (
+    GrowthInflationRegimeRotation,
+)
 from alphakit.strategies.macro.gtaa_cross_asset_momentum.strategy import (
     GtaaCrossAssetMomentum,
 )
@@ -62,6 +65,7 @@ from alphakit.strategies.macro.vigilant_asset_allocation_5.strategy import (
 )
 
 __all__: list[str] = [
+    "GrowthInflationRegimeRotation",
     "GtaaCrossAssetMomentum",
     "MaxDiversification",
     "MinVarianceGtaa",
