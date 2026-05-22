@@ -147,13 +147,35 @@ def run(
             missing_legs,
         )
 
-    if present_legs:
+    # Restrict the order simulation to columns the strategy actually trades.
+    # A column whose target weight is identically zero across every bar — the
+    # canonical case being an *informational* regime input (a raw FRED
+    # level/probability carried in ``prices`` only so ``generate_signals`` can
+    # read it) — contributes nothing to P&L, yet vectorbt still issues a
+    # zero-target order for it and rejects its price via
+    # "order.price must be finite and greater than 0". A recession probability
+    # of 0.0, or a negative real-yield level, legitimately violates that. We
+    # drop such columns before ``from_orders``; doing so is exactly P&L-neutral
+    # (0 shares * any finite price = 0). The full ``weights`` panel is still
+    # returned in the result for transparency/turnover accounting.
+    traded_mask = (weights != 0.0).any(axis=0)
+    if bool(traded_mask.any()):
+        traded_cols = [c for c in weights.columns if traded_mask[c]]
+        close_in = prices[traded_cols]
+        size_in = weights[traded_cols]
+    else:
+        # Degenerate all-cash strategy: keep the full panel (original behavior).
+        close_in = prices
+        size_in = weights
+
+    active_legs = tuple(c for c in present_legs if c in close_in.columns)
+    if active_legs:
         size_type_per_column = np.array(
             [
                 vbt.portfolio.enums.SizeType.Amount
-                if col in present_legs
+                if col in active_legs
                 else vbt.portfolio.enums.SizeType.TargetPercent
-                for col in prices.columns
+                for col in close_in.columns
             ],
             dtype=int,
         )
@@ -164,8 +186,8 @@ def run(
     slippage = slippage_bps / 10_000.0
 
     portfolio = vbt.Portfolio.from_orders(
-        close=prices,
-        size=weights,
+        close=close_in,
+        size=size_in,
         size_type=size_type_per_column,
         init_cash=initial_cash,
         fees=fees,

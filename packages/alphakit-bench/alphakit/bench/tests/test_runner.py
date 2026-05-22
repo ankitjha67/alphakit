@@ -113,6 +113,31 @@ class TestBenchmarkRunner:
         assert target.exists(), "redirected write should land in tmp_path"
         assert real_path.read_bytes() == before, "tracked repo file must be untouched"
 
+    def test_write_benchmark_overwrites_existing_and_stale_tmp(
+        self,
+        runner: BenchmarkRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Regression for the Windows atomic-write bug: on a regen the target
+        # benchmark_results.json already exists (and a crashed prior run may have
+        # left a stale .tmp). Path.rename raised FileExistsError on Windows;
+        # Path.replace must overwrite cleanly on every platform.
+        target = tmp_path / "benchmark_results.json"
+        target.write_text('{"old": true}\n')
+        stale_tmp = target.with_suffix(".json.tmp")
+        stale_tmp.write_text("garbage from a crashed run")
+        monkeypatch.setattr(discovery, "benchmark_results_path", lambda family, slug: target)
+
+        result = runner.run_single("tsmom_12_1")
+        path = runner.write_benchmark("tsmom_12_1", result, family="trend")
+
+        assert path == target
+        with open(path) as f:
+            written = json.load(f)
+        assert written["slug"] == "tsmom_12_1"  # overwritten, not the old content
+        assert not stale_tmp.exists()  # the temp file was consumed by the replace
+
     def test_auto_detect_family(self, runner: BenchmarkRunner) -> None:
         result = runner.run_single("vol_targeting")
         assert result["slug"] == "vol_targeting"
@@ -291,12 +316,152 @@ class TestMultiFeedFetch:
         assert panel.index[0] == idx[0]  # no leading rows trimmed
 
 
-class TestPositivityValidation:
-    def test_negative_informational_raises(
+class _StubGrowthInflation:
+    """Stub mirroring growth_inflation: monthly CPI + quarterly GDP informational."""
+
+    tradable_symbols = ("SPY", "TLT", "GLD", "DBC")
+    required_symbols = ("SPY", "TLT", "GLD", "DBC", "CPIAUCSL", "GDPC1")
+
+
+class TestMultiFeedAlignment:
+    """Regression for the real-feed alignment bugs S2I-1 mocks hid.
+
+    The earlier ``_fred_panel`` fixtures were always-finite single-frequency
+    ramps, so they never exercised: (a) mixed-frequency series assembled into one
+    DataFrame by the adapter (quarterly GDP gets internal NaN on a monthly union
+    index), (b) daily series with holiday NaN, or (c) trailing publication lag.
+    A plain ``reindex(method="ffill")`` is index-based and preserves those NaN;
+    the runner now does a value-based as-of fill over the union index.
+    """
+
+    def test_mixed_frequency_union_nan_filled(
         self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        idx = _bdays("2012-01-01", "2014-12-31")
-        monthly = pd.date_range("2012-01-01", "2014-12-31", freq="MS")
+        etf_idx = _bdays("2005-01-03", "2025-12-31")
+        universe = ["SPY", "TLT", "GLD", "DBC", "CPIAUCSL", "GDPC1"]
+
+        def _yf(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return _etf_panel(list(symbols), etf_idx)
+
+        def _fred(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            # Mimic FREDAdapter.fetch: pd.DataFrame({id: get_series(...)}) aligns
+            # mixed-frequency series on the UNION index → quarterly GDPC1 carries
+            # internal NaN on every off-quarter month, and ends earlier than CPI
+            # (a deeper publication lag).
+            series: dict[str, pd.Series] = {}
+            if "CPIAUCSL" in symbols:
+                cpi_idx = pd.date_range("2005-01-01", "2025-11-01", freq="MS")
+                series["CPIAUCSL"] = pd.Series(
+                    np.linspace(250.0, 320.0, len(cpi_idx)), index=cpi_idx
+                )
+            if "GDPC1" in symbols:
+                gdp_idx = pd.date_range("2005-01-01", "2025-07-01", freq="QS")
+                series["GDPC1"] = pd.Series(
+                    np.linspace(20000.0, 23000.0, len(gdp_idx)), index=gdp_idx
+                )
+            return pd.DataFrame(series)
+
+        monkeypatch.setattr(_YF_PATH, _yf)
+        monkeypatch.setattr(_FRED_PATH, _fred)
+        panel = runner._fetch_prices(universe, strategy=_StubGrowthInflation())
+
+        assert list(panel.columns) == universe
+        # The bug: GDPC1 (and the whole panel) was riddled with NaN before the fix.
+        assert np.isfinite(panel.to_numpy()).all()
+        assert panel["GDPC1"].notna().all()
+        # Trailing publication lag: GDPC1's last obs (2025-07-01) is carried to
+        # the panel's final bar (2025-12-31) rather than left NaN.
+        assert panel["GDPC1"].iloc[-1] == pytest.approx(23000.0)
+
+    def test_daily_holiday_nan_filled(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        etf_idx = _bdays("2005-01-03", "2025-12-31")
+
+        def _yf(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return _etf_panel(list(symbols), etf_idx)
+
+        def _fred(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            # Daily yields: business-day index with NaN on market holidays
+            # (FRED serves "." → NaN) and ending before today (publication lag).
+            day_idx = pd.date_range("2005-01-03", "2025-12-19", freq="B")
+            out: dict[str, pd.Series] = {}
+            for s in symbols:
+                lo, hi = _FRED_MAG.get(s, (1.0, 5.0))
+                ser = pd.Series(np.linspace(lo, hi, len(day_idx)), index=day_idx)
+                ser.iloc[40::40] = np.nan  # scattered holiday gaps (not the first row)
+                out[s] = ser
+            return pd.DataFrame(out)
+
+        monkeypatch.setattr(_YF_PATH, _yf)
+        monkeypatch.setattr(_FRED_PATH, _fred)
+        panel = runner._fetch_prices(
+            ["SPY", "TLT", "GLD", "DGS10", "DGS2"], strategy=_StubFREDGated()
+        )
+        # Holiday NaN (mid-panel) and trailing-lag NaN are both ffilled away.
+        assert np.isfinite(panel.to_numpy()).all()
+
+
+class TestFeedValueValidation:
+    """Contract for ``_validate_feed_values``: finite everywhere; tradable > 0.
+
+    Informational columns are *not* required positive — the bridge drops
+    identically-zero-weight columns before ``from_orders``, so a recession
+    probability of 0.0 or a negative real-yield level is valid input.
+    """
+
+    @staticmethod
+    def _panel() -> pd.DataFrame:
+        idx = _bdays("2012-01-01", "2012-06-30")
+        return _etf_panel(["SPY", "TLT"], idx)
+
+    def test_nonfinite_raises(self, runner: BenchmarkRunner) -> None:
+        panel = self._panel()
+        panel["DGS10"] = 2.0
+        panel.loc[panel.index[3], "DGS10"] = np.nan
+        with pytest.raises(ValueError, match="non-finite"):
+            runner._validate_feed_values(panel, informational=["DGS10"])
+
+    def test_negative_tradable_raises(self, runner: BenchmarkRunner) -> None:
+        panel = self._panel()
+        panel["DGS10"] = 2.0
+        panel.loc[panel.index[3], "SPY"] = -1.0
+        with pytest.raises(ValueError, match="non-positive"):
+            runner._validate_feed_values(panel, informational=["DGS10"])
+
+    def test_zero_informational_allowed(self, runner: BenchmarkRunner) -> None:
+        # The exact value that crashed S2I-1 on real data: a probability of 0.0.
+        panel = self._panel()
+        panel["RECPROUSM156N"] = 0.0
+        runner._validate_feed_values(panel, informational=["RECPROUSM156N"])  # no raise
+
+    def test_negative_informational_allowed(self, runner: BenchmarkRunner) -> None:
+        panel = self._panel()
+        panel["DFII10"] = -0.5  # real yields can be negative; never traded
+        runner._validate_feed_values(panel, informational=["DFII10"])  # no raise
+
+
+class TestInformationalZeroEndToEnd:
+    @pytest.mark.integration
+    def test_zero_informational_runs_through_bridge(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A weight-0 informational column holding 0.0 must not crash the bridge.
+
+        Regression for S2I-1's real-feed failure: vectorbt rejected
+        ``order.price`` for the (untraded) RECPROUSM156N column when it hit 0.0.
+        The bridge now drops identically-zero-weight columns before from_orders.
+        """
+        idx = _bdays("2005-01-01", "2025-12-31")
+        monthly = pd.date_range("2005-01-01", "2025-12-31", freq="MS")
 
         def _yf(
             self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
@@ -306,14 +471,16 @@ class TestPositivityValidation:
         def _fred(
             self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
         ) -> pd.DataFrame:
-            df = _fred_panel(list(symbols), monthly)
-            df.iloc[5, 0] = -1.0  # inject a negative informational value
-            return df
+            # RECPROUSM156N spends whole stretches at exactly 0.0, crossing the
+            # regime threshold so the strategy still rotates among tradables.
+            vals = np.where(np.arange(len(monthly)) % 24 < 12, 0.0, 0.5)
+            return pd.DataFrame(dict.fromkeys(symbols, vals), index=monthly)
 
         monkeypatch.setattr(_YF_PATH, _yf)
         monkeypatch.setattr(_FRED_PATH, _fred)
-        with pytest.raises(ValueError, match="non-positive"):
-            runner._fetch_prices(["SPY", "TLT", "GLD", "DGS10", "DGS2"], strategy=_StubFREDGated())
+        result = runner.run_single("recession_probability_rotation", family="macro")
+        assert np.isfinite(result["metrics"]["sharpe"])
+        assert np.isfinite(result["metrics"]["max_drawdown"])
 
 
 class TestStrictFeed:

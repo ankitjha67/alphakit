@@ -197,12 +197,16 @@ class BenchmarkRunner:
             backup = path.with_suffix(".json.bak")
             shutil.copy2(path, backup)
 
-        # Atomic write via temp file
+        # Atomic write via temp file. Open in "w" so a stale .tmp from a crashed
+        # prior run is overwritten, and use ``Path.replace`` (atomic, overwrites
+        # the destination on both POSIX and Windows) rather than ``Path.rename``,
+        # which raises FileExistsError on Windows when the target already exists
+        # — the common regen case where benchmark_results.json is already there.
         tmp = path.with_suffix(".json.tmp")
         with open(tmp, "w") as f:
             json.dump(result, f, indent=2, default=str)
             f.write("\n")
-        tmp.rename(path)
+        tmp.replace(path)
         return path
 
     def _informational_columns(self, strategy: object | None, universe: list[str]) -> list[str]:
@@ -238,28 +242,43 @@ class BenchmarkRunner:
         etf = self._fetch_feed(tradable, "yfinance", self._yfinance_fetch)
         fred = self._fetch_feed(informational, "fred", self._fred_fetch)
 
-        # Align FRED (native freq, e.g. monthly CPI / quarterly GDP) onto the
-        # daily tradable index via as-of forward-fill: each daily bar takes the
-        # most recent FRED observation on-or-before it. ``method="ffill"`` (not
-        # plain reindex + ffill) is required because FRED observations are dated
-        # on the 1st of the month/quarter, which is frequently a weekend and so
-        # absent from the business-day index — plain reindex would drop those.
-        # No back-fill: that would inject look-ahead. Publication lag is the
-        # strategy's concern (.shift), not the runner's — FRED returns
-        # reference-period-dated observations.
-        fred_aligned = fred.sort_index().reindex(etf.index, method="ffill")
+        # Align FRED (native freq, e.g. monthly CPI / quarterly GDP / daily
+        # yields) onto the daily tradable index via an as-of forward-fill: each
+        # daily bar takes the most recent FRED observation on-or-before it.
+        #
+        # Implementation: reindex onto the *union* of both indices, value-based
+        # ``ffill``, then select the tradable index. This is required (over a
+        # plain ``reindex(method="ffill")``) for two reasons the real feed
+        # exposes but clean fixtures hide:
+        #   1. The adapter assembles mixed-frequency series into one DataFrame
+        #      (``pd.DataFrame({id: get_series(...)})``), so a quarterly series
+        #      (GDPC1) lands on the monthly/union index with internal NaN on its
+        #      off-quarter rows, and a daily yield series (DGS10) carries NaN on
+        #      market holidays. ``reindex(method="ffill")`` is *index*-based and
+        #      keeps those in-place NaN, poisoning the merged panel; a
+        #      *value*-based ``ffill`` skips them.
+        #   2. FRED obs dated on the 1st of the month/quarter are frequently
+        #      weekends, absent from the business-day index — folding them into
+        #      the union before ffill carries them onto the following bdays.
+        # No back-fill: that would inject look-ahead. Trailing publication lag
+        # is handled honestly by ffill (the last observed value is the best
+        # as-of estimate); reference-period dating means publication-lag
+        # shifting remains the strategy's concern (.shift), not the runner's.
+        union_index = etf.index.union(fred.index)
+        fred_aligned = fred.sort_index().reindex(union_index).ffill().reindex(etf.index)
         merged = pd.concat([etf, fred_aligned], axis=1)
         merged = merged.loc[:, universe]
 
         # Trim leading rows where any column is still NaN (warm-up before the
-        # first observation of some column), so the bridge never sees a
-        # non-finite close. ffill guarantees no mid-panel gaps in FRED columns.
+        # first observation of some column), so the strategy/bridge never see a
+        # non-finite value. The value-based ffill above guarantees no mid-panel
+        # or trailing gaps, so all remaining incompleteness is leading.
         complete = merged.notna().all(axis=1)
         if not complete.any():
             raise ValueError(f"no rows where all of {universe} are simultaneously present")
         merged = merged.loc[complete.idxmax() :]
 
-        self._validate_positive(merged)
+        self._validate_feed_values(merged, informational)
         return cast(pd.DataFrame, merged)
 
     def _yfinance_fetch(self, symbols: list[str]) -> pd.DataFrame:
@@ -309,23 +328,36 @@ class BenchmarkRunner:
             )
 
     @staticmethod
-    def _validate_positive(panel: pd.DataFrame) -> None:
-        """Fail loud if any column has a non-finite or non-positive value.
+    def _validate_feed_values(panel: pd.DataFrame, informational: list[str]) -> None:
+        """Fail loud on values the downstream pipeline cannot consume.
 
-        Enforces the vectorbt bridge constraint (``order.price`` finite and
-        > 0) on every column — tradable *and* informational — per the
-        2026-05-16 amendment. The bridge treats informational columns as
-        ``close`` prices too.
+        Two distinct contracts, because tradable and informational columns are
+        used differently downstream (see ``vectorbt_bridge.run``):
+
+        * **Every** column must be finite. A NaN/inf would be read by the
+          strategy as a non-finite signal (informational) or handed to the
+          bridge as a non-finite close (tradable).
+        * **Tradable** columns must additionally be strictly ``> 0``: the
+          bridge computes ``shares = target_value / close`` for traded columns,
+          so a zero or negative close is undefined.
+        * **Informational** columns are *not* required to be positive. They are
+          never traded — the bridge drops identically-zero-weight columns before
+          ``from_orders`` — so raw FRED inputs that are legitimately zero (a
+          recession probability) or negative (a real-yield level) are valid;
+          they need only be finite. (This supersedes the 2026-05-16 amendment's
+          blanket "every column strictly positive" rule, which assumed the
+          bridge traded informational columns; it does not.)
         """
-        arr = panel.to_numpy(dtype=float)
-        if not np.isfinite(arr).all():
-            bad = [c for c in panel.columns if not np.isfinite(panel[c]).all()]
-            raise ValueError(f"non-finite values in feed columns: {bad}")
-        if not (arr > 0).all():
-            bad = [c for c in panel.columns if not (panel[c] > 0).all()]
+        informational_set = set(informational)
+        nonfinite = [c for c in panel.columns if not np.isfinite(panel[c]).all()]
+        if nonfinite:
+            raise ValueError(f"non-finite values in feed columns: {nonfinite}")
+        tradable = [c for c in panel.columns if c not in informational_set]
+        nonpositive = [c for c in tradable if not (panel[c] > 0).all()]
+        if nonpositive:
             raise ValueError(
-                f"non-positive values in feed columns {bad}; the vectorbt bridge "
-                "requires every column (incl. informational) to be strictly "
-                "positive — pass raw positive level/index series and derive "
-                "signals internally (see docs/phase-2-amendments.md 2026-05-16)"
+                f"non-positive values in tradable feed columns {nonpositive}; the "
+                "vectorbt bridge computes shares = value / close for traded "
+                "columns and so requires every tradable column to be strictly "
+                "positive"
             )
