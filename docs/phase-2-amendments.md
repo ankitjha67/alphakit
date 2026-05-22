@@ -1764,18 +1764,23 @@ Constraint scope across the Session 2G regime-state group:
   in [0, 1] — naturally positive. No change.
 * `growth_inflation_regime_rotation` (CPIAUCSL + GDPC1): both
   index/level series — positive after the GDPC1 switch.
-* `yield_curve_regime_allocation` (Commit 10, T10Y3M): the
-  10y-minus-3m Treasury spread **goes negative on yield-curve
-  inversion** — this is precisely the regime the strategy cares
-  about. Commit 10 MUST handle this: either (a) read a positive
-  proxy (e.g. the two raw yield columns DGS10 and DGS3MO and
-  compute the spread internally — both raw yields are positive),
-  or (b) offset the spread into positive territory before it
-  passes through the bridge. Option (a) is preferred — it keeps
-  the informational columns as raw positive FRED series and
-  computes the (possibly negative) spread internally, exactly
-  as Commit 9 computes the (always positive here, but the
-  pattern generalises) YoY internally.
+* `yield_curve_regime_allocation` (Commit 10): the yield-curve
+  slope **goes negative on inversion** — precisely the regime the
+  strategy cares about — so the *spread* itself cannot be an
+  informational column. Commit 10 reads the two raw yield-level
+  columns and computes the (possibly negative) spread internally,
+  exactly as Commit 9 computes YoY internally. **Caveat on the
+  short leg:** `DGS3MO` (3-month T-bill) prints exactly `0.0` on
+  several ZIRP days (2011, 2020-2021), which would still trip the
+  bridge's `order.price > 0` assertion. Commit 10 therefore uses
+  **`DGS2`** (2-year) as the short leg instead of `DGS3MO` — the
+  2-year always carries a term premium and stays strictly
+  positive even at the ZIRP lower bound. The resulting 2s10s
+  slope is ~0.9-correlated with the 10y-3m Cleveland-Fed input,
+  so the cross-strategy cluster prediction with
+  `recession_probability_rotation` (ρ ≈ 0.50-0.70) holds. Both
+  `DGS10` and `DGS2` are reliably strictly-positive informational
+  columns.
 * `fed_policy_tilt` (Commit 11, FEDFUNDS): fed funds rate level —
   naturally positive (the US has not had negative policy rates).
   No change.

@@ -63,6 +63,9 @@ from alphakit.strategies.macro.risk_parity_erc_3asset.strategy import (
 from alphakit.strategies.macro.vigilant_asset_allocation_5.strategy import (
     VigilantAssetAllocation5,
 )
+from alphakit.strategies.macro.yield_curve_regime_allocation.strategy import (
+    YieldCurveRegimeAllocation,
+)
 
 __all__: list[str] = [
     "GrowthInflationRegimeRotation",
@@ -73,4 +76,5 @@ __all__: list[str] = [
     "RecessionProbabilityRotation",
     "RiskParityErc3Asset",
     "VigilantAssetAllocation5",
+    "YieldCurveRegimeAllocation",
 ]

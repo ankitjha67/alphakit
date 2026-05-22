@@ -1,0 +1,16 @@
+{
+  "strategy": "yield_curve_regime_allocation",
+  "paper_doi": "10.1016/j.jfineco.2005.05.005",
+  "benchmark_data": "synthetic-fixture (10-year, seed=42, steep/flat/inverted blocks)",
+  "note": "Real-feed benchmark deferred to Phase 2H. Synthetic-fixture Sharpes differ from paper ranges.",
+  "metrics": {
+    "sharpe": 0.040106,
+    "sortino": 0.039985,
+    "calmar": -0.007821,
+    "max_drawdown": -0.30213,
+    "final_equity": 97662.061693,
+    "total_return": -0.023379,
+    "annualized_return": 0.004804,
+    "annualized_vol": 0.119774
+  }
+}
