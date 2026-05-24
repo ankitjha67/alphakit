@@ -1809,3 +1809,77 @@ FRED series (GDP growth rate) was used. Future regime strategies
 must check the informational column's value range against the
 bridge's positive-price constraint *before* implementation —
 Commit 10's T10Y3M is the next case and is pre-flagged above.
+
+---
+
+## 2026-05-22 — Session 2I: informational-column validation refinement (supersedes 2026-05-16)
+
+**Supersedes** the 2026-05-16 entry ("informational columns must be
+positive-valued"). That entry's resolution — honour vectorbt's positive-price
+constraint at the strategy-input level rather than special-case the bridge — was
+the cheaper fix at the time, but it embedded an artificial constraint into the
+data contract for every FRED-driven strategy. Session 2I's keyed real-feed
+validation pass made the cleaner bridge-level fix worthwhile.
+
+**Original rule (2026-05-16).** Every input column, *including* zero-weight
+informational columns, had to be finite and strictly `> 0`.
+
+**Reason for the original rule.** The vectorbt bridge passes the full price panel
+as `close` to `vbt.Portfolio.from_orders(close=prices, ...)`, and vectorbt's
+order-execution kernel asserts `order.price must be finite and greater than 0`
+for **every** column — even one whose target weight is identically zero. A zero
+or negative informational column therefore raised this error and broke the
+backtest, despite never being traded.
+
+**S2I-1.5 bridge enhancement.** `vectorbt_bridge.run` now drops columns whose
+target weight is identically zero across every bar before calling `from_orders`
+(while still returning the full `weights` panel in the result for
+turnover/transparency). This is exactly P&L-neutral — a zero-weight column
+contributes `0 shares × any finite price = 0` to portfolio value — verified to
+match a run with the informational column entirely absent (zero, all-zero, and
+negative cases). The order-price constraint no longer reaches informational
+columns because they are never handed to the order simulator.
+
+**Refined rule.** Validation now distinguishes the two column roles
+(`BenchmarkRunner._validate_feed_values`):
+
+* **Tradable** columns must be finite **and** strictly `> 0` — the bridge
+  computes `shares = target_value / close` for traded columns, so a zero/negative
+  close is undefined.
+* **Informational** columns must be **finite only**. Zero and negative values are
+  now permitted, because the bridge never trades them.
+
+**Implication.** Informational FRED series no longer need a positive-by-
+construction level/index form to satisfy the bridge:
+
+* `RECPROUSM156N` (recession probability ∈ [0, 1], **including exactly 0.0**) —
+  the value that actually crashed the S2I-1 keyed real-feed run — is now valid.
+* Growth/inflation **rate or change** series that can go negative (e.g. a GDP
+  growth rate at −3% annualised, or a yield-curve spread on inversion) could now
+  be passed directly as informational columns.
+
+**Existing Session 2G strategies are unchanged.** They still consume positive
+level/index series (GDPC1 over the growth rate; DGS2 over DGS3MO) and derive
+YoY/spread signals internally. That remains good practice for clarity and is
+unaffected here — **the refinement is permissive, not a mandate to change them.**
+The real-feed regen of all five regime strategies reproduces under the refined
+rule with no strategy-code change.
+
+**Scope.** `packages/alphakit-bridges/.../vectorbt_bridge.py` (drop zero-weight
+columns before `from_orders`); `packages/alphakit-bench/.../runner.py`
+(`_validate_positive` → `_validate_feed_values`, dual contract). Tests added for
+the validation contract, an end-to-end zero-informational run through the bridge,
+and realistic mixed-frequency/holiday/publication-lag alignment regressions. No
+`StrategyProtocol` change.
+
+**Process lesson.** The 2026-05-16 "cheaper to honour at the strategy-input level
+than to special-case in the bridge" judgment held under mock-only testing but was
+wrong against real data: it pushed an artificial positivity requirement into the
+data contract. The keyed real-feed run exposed it (`RECPROUSM156N` = 0.0), and
+the bridge-level fix removes the constraint at its source. **Architectural
+principle: when a substrate constraint (here, vectorbt's `order.price > 0`)
+forces a workaround on every strategy, fix it once at the bridge layer instead of
+replicating the workaround across N strategies.** Forward recommendation: run at
+least one keyed real-feed smoke test as part of pre-release verification, so the
+next data-contract assumption is caught before a release rather than after. See
+`docs/sessions/2i-closeout.md`.

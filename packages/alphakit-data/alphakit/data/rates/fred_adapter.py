@@ -77,8 +77,13 @@ class FREDAdapter:
         api_key = os.environ.get("FRED_API_KEY")
         if not api_key:
             raise FeedNotConfiguredError(
-                f"{self.name!r} requires FRED_API_KEY. Register at "
-                "https://fred.stlouisfed.org/docs/api/api_key.html"
+                f"{self.name!r} requires the FRED_API_KEY environment variable "
+                "(not set). Get a free key at "
+                "https://fred.stlouisfed.org/docs/api/api_key.html, then set it:\n"
+                "  Linux/macOS:  export FRED_API_KEY=your_key_here\n"
+                "  Windows (PowerShell, persistent):  "
+                "[Environment]::SetEnvironmentVariable('FRED_API_KEY','your_key_here','User')\n"
+                "  (reopen the terminal after setting it on Windows)"
             )
 
         ratelimit_acquire(self.name)
