@@ -44,7 +44,10 @@ from alphakit.data.rate_limit import acquire as ratelimit_acquire
 from alphakit.data.registry import FeedRegistry
 
 _CACHE_TTL_SECONDS = 604_800  # 7 days — COT is weekly
-_COT_URL_TEMPLATE = "https://www.cftc.gov/dea/newcot/deacot{year}.zip"
+# CFTC moved the legacy COT archive in 2024+ from /dea/newcot/ to
+# /files/dea/history/; the old ``dea/newcot`` path now returns 404. Verified
+# empirically on PR #22 S2J-2.6 (and one HEAD probe in S2J-2.5).
+_COT_URL_TEMPLATE = "https://www.cftc.gov/files/dea/history/deacot{year}.zip"
 _REQUEST_TIMEOUT_SECONDS = 60.0
 
 # Legacy COT column headers. These names are stable across reports

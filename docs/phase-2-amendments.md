@@ -1883,3 +1883,12 @@ replicating the workaround across N strategies.** Forward recommendation: run at
 least one keyed real-feed smoke test as part of pre-release verification, so the
 next data-contract assumption is caught before a release rather than after. See
 `docs/sessions/2i-closeout.md`.
+
+**Operational complement (Session 2J S2J-2.6).** The dual contract above still
+holds; rare *real-world* tradable-anomaly bars (the 2020-04-20 WTI -$37.63
+settlement, Thanksgiving NaN gaps in futures continuous contracts) are handled
+by the runner-level **anomaly filter** (`drop_nonpositive_tradable_bars=True`,
+default off). The amendment is the *contract*; the filter is the *operational
+handling* for the singletons that violate it. See
+[`docs/known-data-anomalies.md`](known-data-anomalies.md) for the per-ticker
+event log, the filter contract, and the audit-trail format.

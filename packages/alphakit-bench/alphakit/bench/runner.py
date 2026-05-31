@@ -8,6 +8,7 @@ extended metrics, and writes benchmark_results.json atomically.
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import subprocess
 from datetime import date, datetime
@@ -19,6 +20,8 @@ import pandas as pd
 from alphakit.bench import discovery, metrics
 from alphakit.bridges import vectorbt_bridge
 from alphakit.data.registry import FeedRegistry
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_commit_sha() -> str | None:
@@ -72,6 +75,7 @@ class BenchmarkRunner:
         out_of_sample_end: str = "2025-12-31",
         initial_cash: float = 100_000.0,
         strict_feed: bool = False,
+        drop_nonpositive_tradable_bars: bool = False,
     ) -> None:
         self.commission_bps = commission_bps
         self.data_start = data_start
@@ -79,6 +83,17 @@ class BenchmarkRunner:
         self.out_of_sample_end = out_of_sample_end
         self.initial_cash = initial_cash
         self.strict_feed = strict_feed
+        # Session 2J S2J-2.6: opt-in anomaly filter. Drops tradable rows whose
+        # any tradable column is ``<= 0`` or ``NaN`` (e.g. 2020-04-20 WTI's
+        # negative settlement, Thanksgiving NaN gaps in futures data). Default
+        # off — the runner's strict-positive contract is preserved. The
+        # ``commodity --feed real`` regen path turns it on; see
+        # ``docs/known-data-anomalies.md``.
+        self.drop_nonpositive_tradable_bars = drop_nonpositive_tradable_bars
+        # Populated by ``_apply_anomaly_filter`` and surfaced into the
+        # benchmark result by ``run_single``. ``enabled=False`` for runs with
+        # the filter off; ``enabled=True`` records what the filter dropped.
+        self.last_anomaly_filter: dict[str, Any] = {"enabled": False}
 
     def run_single(
         self,
@@ -173,6 +188,14 @@ class BenchmarkRunner:
             "transaction_costs_assumed_bps": self.commission_bps,
             "commit_sha": _get_commit_sha(),
             "engine": "vectorbt",
+            # Anomaly filter audit trail (Session 2J S2J-2.6). Present only when
+            # the filter was enabled — keeps the v0.2.1 / v0.2.0 schema clean
+            # for runs that didn't opt in. See docs/known-data-anomalies.md.
+            **(
+                {"anomaly_filter": self.last_anomaly_filter}
+                if self.last_anomaly_filter.get("enabled")
+                else {}
+            ),
         }
         return result
 
@@ -308,12 +331,12 @@ class BenchmarkRunner:
         if not informational_symbols and len(tradable_parts) == 1:
             # Single-feed path (no informational, one tradable feed):
             # byte-identical to the pre-S2J shortcut for ETF-only /
-            # yfinance-real benchmarks. Multi-feed tradable panels (e.g. a
-            # hypothetical ETF + futures universe) fall through to the
-            # trim/validate path below, because ``pd.concat`` unions the
-            # calendars and can leave leading/mid gaps that the bridge must
-            # not see — guard requested by review on PR #22.
-            return cast(pd.DataFrame, tradable_df)
+            # yfinance-real benchmarks when the anomaly filter is off
+            # (default). With the filter on, applies the silent leading-trim +
+            # mid-panel anomaly drop. Multi-feed tradable panels fall through
+            # to the explicit trim/validate path below.
+            tradable_df = self._apply_anomaly_filter(tradable_df, tradable_symbols)
+            return tradable_df
 
         if not informational_symbols:
             # Multi-feed tradable, no informational: still go through the
@@ -325,8 +348,9 @@ class BenchmarkRunner:
             if not complete.any():
                 raise ValueError(f"no rows where all of {full_universe} are simultaneously present")
             merged = merged.loc[complete.idxmax() :]
+            merged = self._apply_anomaly_filter(merged, tradable_symbols)
             self._validate_feed_values(merged, informational_symbols)
-            return cast(pd.DataFrame, merged)
+            return merged
 
         # Informational: group by resolved feed; one adapter call per feed.
         informational_by_feed: dict[str, list[str]] = {}
@@ -360,8 +384,9 @@ class BenchmarkRunner:
             raise ValueError(f"no rows where all of {full_universe} are simultaneously present")
         merged = merged.loc[complete.idxmax() :]
 
+        merged = self._apply_anomaly_filter(merged, tradable_symbols)
         self._validate_feed_values(merged, informational_symbols)
-        return cast(pd.DataFrame, merged)
+        return merged
 
     def _fetch_feed(self, symbols: list[str], feed_name: str) -> pd.DataFrame:
         """Dispatch one fetch via ``FeedRegistry``, honouring ``strict_feed``.
@@ -434,3 +459,82 @@ class BenchmarkRunner:
                 "columns and so requires every tradable column to be strictly "
                 "positive"
             )
+
+    def _apply_anomaly_filter(self, panel: pd.DataFrame, tradable_cols: list[str]) -> pd.DataFrame:
+        """Drop rows with non-positive or NaN values in any tradable column.
+
+        Off by default; opt-in via ``drop_nonpositive_tradable_bars=True``.
+        Singleton historical anomalies that would otherwise violate the bridge
+        ``order.price > 0`` invariant — e.g. the 2020-04-20 WTI -$37.63
+        settlement, Thanksgiving NaN gaps in futures continuous contracts —
+        are dropped here so the bridge sees only investable bars. Each
+        mid-panel drop is logged with its classification ("missing data" /
+        "negative price" / "mixed") and the dropped dates are surfaced via
+        ``self.last_anomaly_filter`` for inclusion in the benchmark JSON
+        (``run_single`` mirrors them into ``result["anomaly_filter"]``). See
+        ``docs/known-data-anomalies.md``.
+
+        The filter silently trims any **leading** invalid block (pre-inception
+        warm-up for a tradable ticker) — that's the same warm-up the
+        multi-feed path's existing leading-trim removes — and only logs
+        **mid-panel** drops, so the audit trail stays signal-noise free.
+        """
+        if not self.drop_nonpositive_tradable_bars or not tradable_cols:
+            self.last_anomaly_filter = {"enabled": False}
+            return panel
+
+        tradable = panel[tradable_cols]
+        valid = (tradable.notna() & (tradable > 0)).all(axis=1)
+        if not valid.any():
+            self.last_anomaly_filter = {
+                "enabled": True,
+                "bars_dropped": 0,
+                "dropped_dates": [],
+            }
+            raise ValueError(
+                f"anomaly filter found no valid rows in tradable columns "
+                f"{tradable_cols}; every bar has a non-positive or NaN tradable value"
+            )
+
+        first_valid = valid.idxmax()
+        panel_post = panel.loc[first_valid:]
+        valid_post = valid.loc[first_valid:]
+        tradable_post = tradable.loc[first_valid:]
+
+        dropped_idx = panel_post.index[~valid_post]
+        dropped_dates_str: list[str] = []
+        log_lines: list[str] = []
+        for date_ts in dropped_idx:
+            row = tradable_post.loc[date_ts]
+            nan_cols = [c for c in tradable_cols if pd.isna(row[c])]
+            neg_cols = [c for c in tradable_cols if not pd.isna(row[c]) and row[c] <= 0]
+            if nan_cols and not neg_cols:
+                classification = f"NaN in {', '.join(nan_cols)} (missing data)"
+            elif neg_cols and not nan_cols:
+                worst_col = min(neg_cols, key=lambda c: float(row[c]))
+                classification = f"{float(row[worst_col]):.2f} in {worst_col} (negative price)"
+            else:
+                parts: list[str] = []
+                if nan_cols:
+                    parts.append(f"NaN in {', '.join(nan_cols)}")
+                if neg_cols:
+                    worst_col = min(neg_cols, key=lambda c: float(row[c]))
+                    parts.append(f"{float(row[worst_col]):.2f} in {worst_col}")
+                classification = " + ".join(parts) + " (mixed)"
+            date_str = pd.Timestamp(date_ts).strftime("%Y-%m-%d")
+            dropped_dates_str.append(date_str)
+            log_lines.append(f"  {date_str}: {classification}")
+
+        if log_lines:
+            _logger.warning(
+                "Dropped %d tradable-anomaly bar(s):\n%s",
+                len(log_lines),
+                "\n".join(log_lines),
+            )
+
+        self.last_anomaly_filter = {
+            "enabled": True,
+            "bars_dropped": len(dropped_dates_str),
+            "dropped_dates": dropped_dates_str,
+        }
+        return cast(pd.DataFrame, panel_post.loc[valid_post])

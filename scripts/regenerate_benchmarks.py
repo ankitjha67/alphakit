@@ -393,6 +393,13 @@ def regen_commodity_real(slug: str) -> tuple[bool, str]:
     failure; the existing benchmark is kept on a fetch error. ``data_source``
     is ``yfinance+cftc-real`` when the strategy is in ``_COMMODITY_MIXED``
     (currently only ``cot_speculator_position``), else ``yfinance-futures-real``.
+
+    ``drop_nonpositive_tradable_bars=True`` enables the S2J-2.6 anomaly filter
+    so the runner drops singleton tradable-anomaly bars before the bridge sees
+    them — e.g. the 2020-04-20 WTI -$37.63 settlement and Thanksgiving NaN
+    gaps in futures continuous contracts. The filter records the dropped
+    dates in ``result["anomaly_filter"]`` for audit. See
+    ``docs/known-data-anomalies.md``.
     """
     runner = BenchmarkRunner(
         commission_bps=5.0,
@@ -400,6 +407,7 @@ def regen_commodity_real(slug: str) -> tuple[bool, str]:
         in_sample_end=_IN_SAMPLE_END,
         out_of_sample_end=_OOS_END,
         strict_feed=True,
+        drop_nonpositive_tradable_bars=True,
     )
     try:
         result = runner.run_single(slug, family="commodity")
@@ -409,7 +417,12 @@ def regen_commodity_real(slug: str) -> tuple[bool, str]:
     _write(slug, "commodity", result, data_source)
     sharpe = result["metrics"]["sharpe"]
     universe = result["universe"]
-    return True, f"{data_source} OK  Sharpe={sharpe:+.4f}  ({len(universe)} cols)"
+    dropped = result.get("anomaly_filter", {}).get("bars_dropped", 0)
+    anomaly_suffix = f"  [{dropped} anomaly bar(s) dropped]" if dropped else ""
+    return (
+        True,
+        f"{data_source} OK  Sharpe={sharpe:+.4f}  ({len(universe)} cols){anomaly_suffix}",
+    )
 
 
 def main() -> int:
