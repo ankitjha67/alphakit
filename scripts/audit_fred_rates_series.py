@@ -198,13 +198,13 @@ def probe_one(fred: object, probe: SeriesProbe) -> dict[str, object]:
             "status": f"FETCH_FAILED: {type(exc).__name__}: {exc}",
         }
 
+    series = series.sort_index().dropna()
     if series.empty:
         return {
             "series_id": probe.series_id,
             "status": "EMPTY_RESPONSE",
         }
 
-    series = series.sort_index().dropna()
     start, end = series.index[0], series.index[-1]
     covers_audit_window = start <= pd.Timestamp(AUDIT_START) and end >= pd.Timestamp(AUDIT_END)
 
