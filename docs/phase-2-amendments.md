@@ -1892,3 +1892,69 @@ default off). The amendment is the *contract*; the filter is the *operational
 handling* for the singletons that violate it. See
 [`docs/known-data-anomalies.md`](known-data-anomalies.md) for the per-ticker
 event log, the filter contract, and the audit-trail format.
+
+---
+
+## 2026-05-31 — Session 2J: 3 commodity strategies blocked by yfinance's lack of continuous second-month futures
+
+Context: Session 2J commodity real-feed pass (v0.2.2 pt 1). Three of the 10
+commodity strategies — `commodity_curve_carry`, `ng_contango_short`,
+`wti_backwardation_carry` — require a **second-month continuous futures**
+series alongside the front-month: `CL2=F`, `NG2=F`, `GC2=F`, etc. Their
+`known_failures.md` files assume yfinance serves these.
+
+Honesty-check failure (empirical). Smoke probe of yfinance via
+`yf.download(["CL2=F", "NG2=F", "GC2=F"], ...)` returned **404 / "possibly
+delisted; no timezone found"** for all three back-month tickers. Probed
+again with a wider variety of likely tickers — none resolve. The front-month
+`=F` tickers (`CL=F`, `NG=F`, `GC=F`, etc.) all return data, but yfinance
+does not publish continuous back-month series.
+
+This is the same substrate constraint that dropped `vix_front_back_spread`
+in Session 2F (2026-05-01 amendment): yfinance is a front-month-only
+continuous-contract feed for futures. Back-month contracts are available
+only via paid feeds (CME, ICE, Refinitiv, Bloomberg) or via per-expiry
+contract scraping that requires its own data-engineering effort.
+
+Options considered:
+
+* Add a CME-direct adapter for individual expiry contracts. Rejected: not on
+  the Phase 2 free-and-open-source feed roadmap.
+* Compute a synthetic second-month series from the front roll (e.g.
+  multiply by a constant contango factor). Rejected: methodology
+  fabrication — the actual second-month price contains real curve
+  information (contango/backwardation level + slope) that a constant
+  factor cannot reproduce.
+* Reframe to use the front-month plus a different reference series.
+  Rejected: each of the three strategies' methodology is anchored on the
+  front-vs-next basis specifically (NG contango short, WTI carry on the
+  front-back slope, commodity curve carry across the whole curve). A
+  reframe would require a different anchor paper and a different strategy
+  altogether.
+
+Decision: **3 strategies remain `synthetic-fixture` for v0.2.2.** Their
+strategy code and `front_to_position_map` / `next_symbols` config schema
+stay in place; only the real-feed regen path is gated on the missing
+substrate. Phase 3 candidate for re-instatement once a back-month data
+source is wired. Implementation path requires either (a) a CME-direct
+adapter for individual expiry contracts with rollover logic for
+continuous-series construction, or (b) a per-expiry contract scraper with
+same rollover requirements. Either path is a multi-session effort outside
+Session 2K (whose scope is cot CFTC wiring + rates symbol-mapping).
+
+Manifest impact: commodity family ships 6/10 strategies real-feed in
+v0.2.2 (`commodity_tsmom`, `crack_spread`, `crush_spread`,
+`grain_seasonality`, `metals_momentum`, `wti_brent_spread`). The 4th
+deferral, `cot_speculator_position`, is **not** part of this amendment —
+its block is at the *adapter* layer (CFTC symbol-mapping + long-to-wide
+shape mismatch) rather than the *substrate* layer, and is documented in
+[`docs/known-data-anomalies.md`](known-data-anomalies.md) → "Deferred to
+Session 2K" as the operational handling. The 2026-05-22 amendment defines
+the runner's dual-contract validation that interacts with both deferrals.
+
+Process precedent: this is the same pattern as Session 2F
+`vix_front_back_spread` (2026-05-01) — substrate constraint surfaced by
+keyed real-feed verification, honest deferral with Phase 3 re-instatement
+path documented. Network-gated tests (Session 2J-2.5+) are the future
+prevention layer: a back-month substrate-boundary check would have
+surfaced this before scope commitment.
