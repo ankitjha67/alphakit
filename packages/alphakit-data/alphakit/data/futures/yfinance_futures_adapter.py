@@ -55,17 +55,24 @@ class YFinanceFuturesAdapter:
         end: datetime,
         frequency: str = "1d",
     ) -> pd.DataFrame:
-        """Return an OHLCV DataFrame for continuous-contract symbols.
+        """Return a wide DataFrame of adjusted-close prices.
 
         ``symbols`` should carry the ``=F`` suffix yfinance uses for
         continuous contracts (``"CL=F"``, ``"GC=F"``, ``"NG=F"``, ...).
-        The suffix is passed through unchanged.
+        The suffix is passed through unchanged. Columns of the returned
+        frame are the requested ticker symbols (one column per ticker),
+        matching the wide-DataFrame contract every other
+        ``DataFeedProtocol`` adapter satisfies.
+
+        yfinance returns MultiIndex columns (outer=OHLCV, inner=ticker)
+        for multi-ticker downloads and single-level OHLCV for
+        single-ticker; the adapter flattens both into the canonical
+        ``columns = symbols`` shape, mirroring :class:`YFinanceAdapter`.
 
         Offline mode (``ALPHAKIT_OFFLINE=1``) returns a deterministic
         close-price panel from
         :func:`alphakit.data.offline.offline_fixture` instead of hitting
-        the network. Callers that need true OHLCV columns offline must
-        substitute their own fixture.
+        the network.
         """
         if is_offline():
             return offline_fixture(symbols, start, end, frequency)
@@ -88,10 +95,22 @@ class YFinanceFuturesAdapter:
             progress=False,
         )
 
-        data = data.dropna(how="all")
-        data.index = pd.DatetimeIndex(data.index)
-        data.index.name = None
-        return pd.DataFrame(data)
+        # Flatten yfinance's multi-ticker MultiIndex to the wide-Close
+        # contract. Bug surfaced on PR #22 keyed regen (Session 2J-2.5):
+        # without this, strategies received tuple-keyed columns like
+        # ``('Close', 'CL=F')`` instead of ``'CL=F'``, causing both
+        # missing-column failures and false "non-positive" trips on
+        # ``Volume=0`` rows. Mirrors :class:`YFinanceAdapter`.
+        if isinstance(data.columns, pd.MultiIndex):
+            prices = data["Close"]
+        else:
+            prices = data[["Close"]]
+            prices.columns = symbols
+
+        prices = prices.dropna(how="all")
+        prices.index = pd.DatetimeIndex(prices.index)
+        prices.index.name = None
+        return pd.DataFrame(prices)
 
     def fetch_chain(self, underlying: str, as_of: datetime) -> OptionChain:
         """Options on futures are out of scope for this adapter."""

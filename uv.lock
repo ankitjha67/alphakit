@@ -431,6 +431,9 @@ all-free-feeds = [
     { name = "requests" },
     { name = "yfinance" },
 ]
+cftc-cot = [
+    { name = "requests" },
+]
 eia = [
     { name = "requests" },
 ]
@@ -450,11 +453,12 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2" },
     { name = "pyarrow", specifier = ">=14.0" },
     { name = "requests", marker = "extra == 'all-free-feeds'", specifier = ">=2.31" },
+    { name = "requests", marker = "extra == 'cftc-cot'", specifier = ">=2.31" },
     { name = "requests", marker = "extra == 'eia'", specifier = ">=2.31" },
     { name = "yfinance", marker = "extra == 'all-free-feeds'", specifier = ">=0.2" },
     { name = "yfinance", marker = "extra == 'yfinance'", specifier = ">=0.2" },
 ]
-provides-extras = ["yfinance", "fred", "eia", "all-free-feeds"]
+provides-extras = ["yfinance", "fred", "eia", "cftc-cot", "all-free-feeds"]
 
 [[package]]
 name = "alphakit-strategies-carry"

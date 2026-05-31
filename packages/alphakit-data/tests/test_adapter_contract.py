@@ -229,11 +229,22 @@ def _install_cftc_cot_mock(
     call_log: list[str],
     payload_variant: int,
 ) -> None:
-    """Replace ``cftc_cot_adapter.urlopen`` with a fake returning a COT-shaped ZIP."""
+    """Mock ``requests.get`` with a fake returning a COT-shaped ZIP response.
+
+    The S2J-2.5 adapter switched the CFTC HTTP layer from ``urllib.request``
+    to ``requests`` (Windows SSL fix); contract tests follow.
+    """
     import io
     import zipfile
 
-    def fake_urlopen(_url: str, timeout: float | None = None) -> io.BytesIO:
+    class _FakeResponse:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(_url: str, timeout: float | None = None, **_: Any) -> _FakeResponse:
         call_log.append("http")
         csv = (
             "Report_Date_as_YYYY-MM-DD,CFTC_Contract_Market_Code,"
@@ -247,10 +258,9 @@ def _install_cftc_cot_mock(
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as z:
             z.writestr("deacot2024.txt", csv)
-        buf.seek(0)
-        return buf
+        return _FakeResponse(buf.getvalue())
 
-    monkeypatch.setattr("alphakit.data.positioning.cftc_cot_adapter.urlopen", fake_urlopen)
+    monkeypatch.setattr("requests.get", fake_get)
 
 
 def _install_synthetic_underlying(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -9,9 +9,12 @@ date-range filtering.
 from __future__ import annotations
 
 import io
+import os
 import zipfile
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -35,6 +38,32 @@ def _build_cot_zip(rows: list[tuple[str, str, int, int, int, int]]) -> io.BytesI
         z.writestr("deacot.txt", header + body + "\n")
     buf.seek(0)
     return buf
+
+
+class _FakeResponse:
+    """Minimal ``requests.Response`` stand-in: ``.content`` + no-op
+    ``.raise_for_status()``. The S2J-2.5 adapter switch to ``requests``
+    reads ``response.content`` (bytes) and asserts via ``raise_for_status``;
+    tests mock ``requests.get`` to return one of these.
+    """
+
+    def __init__(self, content: bytes) -> None:
+        self.content = content
+
+    def raise_for_status(self) -> None:
+        return None
+
+
+def _wrap_response(legacy_urlopen: Callable[..., io.BytesIO]) -> Callable[..., _FakeResponse]:
+    """Adapt a ``urlopen``-style fake (returns BytesIO) to a ``requests.get``
+    fake (returns ``_FakeResponse``). Lets the original test fixtures keep
+    their shape while exercising the new HTTP path.
+    """
+
+    def _get(url: str, timeout: float | None = None, **_: Any) -> _FakeResponse:
+        return _FakeResponse(legacy_urlopen(url).getvalue())
+
+    return _get
 
 
 def test_fetch_raises_offline_mode_error_when_offline(
@@ -64,7 +93,7 @@ def test_fetch_returns_long_format_with_expected_columns(
             [("2024-01-02", "067651", 100, 200, 300, 400)],
         )
 
-    monkeypatch.setattr("alphakit.data.positioning.cftc_cot_adapter.urlopen", fake_urlopen)
+    monkeypatch.setattr("requests.get", _wrap_response(fake_urlopen))
 
     adapter = CFTCCOTAdapter()
     df = adapter.fetch(["067651"], datetime(2024, 1, 2), datetime(2024, 1, 10))
@@ -111,7 +140,7 @@ def test_fetch_filters_by_market_code(
             ],
         )
 
-    monkeypatch.setattr("alphakit.data.positioning.cftc_cot_adapter.urlopen", fake_urlopen)
+    monkeypatch.setattr("requests.get", _wrap_response(fake_urlopen))
 
     adapter = CFTCCOTAdapter()
     df = adapter.fetch(["067651"], datetime(2024, 1, 2), datetime(2024, 1, 10))
@@ -140,7 +169,7 @@ def test_fetch_filters_by_date_range(
             ],
         )
 
-    monkeypatch.setattr("alphakit.data.positioning.cftc_cot_adapter.urlopen", fake_urlopen)
+    monkeypatch.setattr("requests.get", _wrap_response(fake_urlopen))
 
     adapter = CFTCCOTAdapter()
     df = adapter.fetch(["067651"], datetime(2024, 1, 2), datetime(2024, 1, 10))
@@ -169,7 +198,7 @@ def test_fetch_spans_multiple_years(
             [(f"{year}-06-15", "067651", 100, 200, 300, 400)],
         )
 
-    monkeypatch.setattr("alphakit.data.positioning.cftc_cot_adapter.urlopen", fake_urlopen)
+    monkeypatch.setattr("requests.get", _wrap_response(fake_urlopen))
 
     adapter = CFTCCOTAdapter()
     df = adapter.fetch(["067651"], datetime(2023, 6, 1), datetime(2024, 7, 1))
@@ -178,3 +207,72 @@ def test_fetch_spans_multiple_years(
     assert "deacot2023" in fetched_urls[0]
     assert "deacot2024" in fetched_urls[1]
     assert len(df) == 2
+
+
+# ---------------------------------------------------------------------------
+# Session 2J-2.5 — urllib → requests switch (Windows SSL cert verify failure)
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_raises_if_requests_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The S2J-2.5 ``requests`` import is lazy and surfaces a clear error
+    when the package is unavailable — mirrors the EIA adapter pattern."""
+    import builtins
+    import sys
+
+    monkeypatch.delenv("ALPHAKIT_OFFLINE", raising=False)
+    monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        "alphakit.data.positioning.cftc_cot_adapter.ratelimit_acquire", lambda _n: None
+    )
+
+    real_import = builtins.__import__
+
+    def _fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == "requests" or name.startswith("requests."):
+            raise ImportError("simulated: no requests")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
+    monkeypatch.delitem(sys.modules, "requests", raising=False)
+
+    adapter = CFTCCOTAdapter()
+    with pytest.raises(ImportError, match="requests"):
+        adapter.fetch(["067651"], datetime(2024, 1, 2), datetime(2024, 1, 10))
+
+
+_NETWORK_GATE = pytest.mark.skipif(
+    os.environ.get("ALPHAKIT_RUN_NETWORK_TESTS") != "1",
+    reason="network/substrate-boundary test; set ALPHAKIT_RUN_NETWORK_TESTS=1 to run",
+)
+
+
+@_NETWORK_GATE
+def test_real_cftc_download_returns_long_format(tmp_path: Path) -> None:
+    """Substrate-boundary regression guard for CFTC HTTPS / SSL.
+
+    Performs a real ZIP download from cftc.gov and asserts the adapter
+    still produces the long-format frame. Skipped by default (CI does
+    not set ``ALPHAKIT_RUN_NETWORK_TESTS``); intended for local /
+    pre-release verification. Catches future Windows SSL config issues
+    (the Session 2J-2.5 ``urlopen → requests`` switch root cause), and
+    any CFTC URL / archive-layout change that would break parsing.
+    """
+    os.environ["ALPHAKIT_CACHE_DIR"] = str(tmp_path)
+    df = CFTCCOTAdapter().fetch(
+        symbols=["067651"],  # E-mini S&P 500
+        start=datetime(2024, 11, 1),
+        end=datetime(2024, 11, 30),
+    )
+    assert not df.empty
+    expected = {
+        "date",
+        "market_code",
+        "long_positions",
+        "short_positions",
+        "net_positions",
+    }
+    assert expected.issubset(df.columns)

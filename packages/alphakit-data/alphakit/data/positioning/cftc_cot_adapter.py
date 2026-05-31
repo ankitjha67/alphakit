@@ -33,7 +33,6 @@ import contextlib
 import io
 import zipfile
 from datetime import datetime
-from urllib.request import urlopen
 
 import pandas as pd
 from alphakit.core.data import OptionChain
@@ -46,7 +45,7 @@ from alphakit.data.registry import FeedRegistry
 
 _CACHE_TTL_SECONDS = 604_800  # 7 days — COT is weekly
 _COT_URL_TEMPLATE = "https://www.cftc.gov/dea/newcot/deacot{year}.zip"
-_URLOPEN_TIMEOUT_SECONDS = 60.0
+_REQUEST_TIMEOUT_SECONDS = 60.0
 
 # Legacy COT column headers. These names are stable across reports
 # going back many years.
@@ -91,12 +90,26 @@ class CFTCCOTAdapter:
                 "or mock the adapter in tests."
             )
 
+        # Lazy ``requests`` import: ``urllib.request`` (the pre-S2J-2.5
+        # implementation) fails with ``CERTIFICATE_VERIFY_FAILED`` on Windows
+        # because Python's built-in SSL context isn't auto-configured with a CA
+        # bundle. ``requests`` ships with ``certifi`` and handles SSL correctly
+        # on every platform. Caught on PR #22 keyed regen.
+        try:
+            import requests
+        except ImportError as exc:
+            raise ImportError(
+                "requests is required for cftc-cot. Install with: "
+                "pip install 'alphakit-data[cftc-cot]'"
+            ) from exc
+
         frames: list[pd.DataFrame] = []
         for year in range(start.year, end.year + 1):
             ratelimit_acquire(self.name)
             url = _COT_URL_TEMPLATE.format(year=year)
-            with urlopen(url, timeout=_URLOPEN_TIMEOUT_SECONDS) as response:
-                zip_bytes: bytes = response.read()
+            response = requests.get(url, timeout=_REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            zip_bytes: bytes = response.content
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
                 inner_name = zf.namelist()[0]
                 with zf.open(inner_name) as handle:
