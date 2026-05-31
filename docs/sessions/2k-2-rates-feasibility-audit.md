@@ -206,25 +206,79 @@ holidays/release lag.
    shipping 3-country v0.2.2 with a documented caveat; expand to G7
    in a separate session.
 
-## Verdict (post-primary-probe, pending secondary)
+## Verdict (final, post-secondary-probe 2026-05-31)
 
-* **swap_spread_mean_rev** — **likely blocked**. Primary probe shows
-  the ICE replacement isn't at the expected ID. Secondary probe runs
-  4 free-text searches against FRED's catalog; if none surface a
-  continuous post-2016 USD 10Y swap rate, the strategy is blocked
-  under the FRED-only path. Cross-substrate alternative (ICE direct
-  feed, Bloomberg-replication, or BIS swap-rate data) is outside
-  v0.2.2 scope per S2J §8(c) "honest deferral".
-* **global_inflation_momentum** — **conditionally feasible** pending
-  secondary probe of `M659N` suffix or BIS-OECD alternative naming.
-  Yields are confirmed clean. CPI level is the open question.
+Both strategies **deferred to Phase 3** under the v0.2.2 FRED-only path.
+S2K-2 ships 0 rates strategies real-feed. Coverage remains 29/109 (26.6%)
+post-S2K-1, unchanged.
 
-### Possible S2K-2 scopes
+### `swap_spread_mean_rev` — DEFINITIVELY BLOCKED
 
-| Outcome | Coverage | Build cost |
-|---|---|---|
-| Both feasible (secondary probe surfaces both swap-rate replacement + CPI level) | 31/109 (28.4%) | ~5-7h shared adapter |
-| inflation only (swap blocked, CPI level confirmed) | 30/109 (27.5%) | ~2-3h |
-| Both blocked (CPI suffix attempts all fail) | 29/109 (26.6%) | 0h, proceed to S2K-3 |
+* `DSWP10` discontinued 2016-10-28 (confirmed).
+* `ICERATES1100USD10Y` returned "Bad Request. The series does not exist."
+* `fred.search()` over 4 queries returned no usable continuous 10Y USD
+  swap rate series:
+  - `"10-year swap rate USD"` — no hits.
+  - `"ICE swap rate"` — 4 hits, all mortgage credit spreads
+    (`CROASTIER0`-`CROASTIER3`), no interest-rate swaps.
+  - `"USD interest rate swap"` — no hits.
+  - `"SOFR swap rate 10"` — no hits.
 
-No code build until secondary probe results land in this thread.
+10Y USD swap rates exist at ICE Data Services / Bloomberg / Refinitiv
+(subscription only) and the BIS Effective Rate database (research access,
+not for systematic backtesting). Same substrate-constraint pattern as the
+Session 2F `vix_front_back_spread` and Session 2J commodity back-month
+deferrals.
+
+### `global_inflation_momentum` — PARTIALLY BLOCKED by Japan CPI gap
+
+* US (`CPIAUCSL`): LEVEL, continuous 1947-2026. ✓
+* US 10Y yield (`IRLTLT01USM156N`): continuous. ✓
+* DE 10Y yield (`IRLTLT01DEM156N`): continuous, went negative 2015-2022. ✓
+* JP 10Y yield (`IRLTLT01JPM156N`): continuous, went negative 2016-2022. ✓
+* DE CPI LEVEL: `DEUCPIALLMINMEI` (BIS-OECD naming) — range
+  `[20.75, 127.78]`, LEVEL confirmed, continuous 1955-01 → 2025-03. ✓
+* JP CPI LEVEL: `JPNCPIALLMINMEI` (BIS-OECD naming) — range
+  `[16.73, 102.32]`, LEVEL confirmed BUT stops at **2021-06**. ✗
+
+The OECD MEI suffix variants (`M657N`, `M659N`) both return
+RATE-OF-CHANGE series for Germany and Japan despite the naming
+convention typically distinguishing them — the LEVEL series live at the
+BIS-OECD names. Discovery of this substrate-boundary quirk is itself a
+finding (prevents shipping silently-wrong inflation calculations under
+the wrong-suffix interpretation).
+
+Japan CPI gap of 4 years (2021-07 → 2025-12) on a strategy whose OOS
+window extends to 2025-12-31. Options considered:
+
+* **A**: Truncate OOS to 2021-06 → 1.5y OOS test, methodologically weak.
+* **B**: Hunt for alternative JP CPI series with 2025+ coverage —
+  uncertain outcome, extends Session 2K beyond the agreed scope.
+* **C**: Reframe to US + DE 2-country — mathematically workable but
+  methodologically thin (rank at N=2 is just "is US > DE", strategy's
+  cross-sectional rank loses its rationale).
+* **D**: **Defer to Phase 3 with amendment**. ← selected
+
+### Phase 3 re-instatement paths
+
+* **swap_spread_mean_rev**: BIS rate-database systematic-backtest access
+  probe; ICE Data Services / Bloomberg / Refinitiv subscription-feed
+  adapter (commercial-feed adapter architecture, out of v1.0
+  silent-build scope); or synthetic swap rate from forward-rate-curve
+  construction (technically valid but a fundamentally different
+  strategy).
+* **global_inflation_momentum**: probe for JP CPI alternative with
+  2025+ coverage (Statistics Bureau Japan analogue, BLS international
+  comparable series). If found: ship 3-country via the duration adapter.
+  If not: document the substrate gap and ship 2-country (US/DE) as
+  alternative scope.
+
+### Manifest impact
+
+* S2K-2 ships 0 strategies real-feed.
+* Coverage **29/109 (26.6%)** unchanged from S2K-1.
+* Rates family: 0/2 real-feed in v0.2.2 pt 2.
+* Proceed directly to S2K-3 (setup-uv version bump).
+
+See the 2026-05-31 Session 2K rates-deferral amendment in
+`docs/phase-2-amendments.md` for the formal record.

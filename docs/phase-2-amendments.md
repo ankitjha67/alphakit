@@ -1958,3 +1958,146 @@ keyed real-feed verification, honest deferral with Phase 3 re-instatement
 path documented. Network-gated tests (Session 2J-2.5+) are the future
 prevention layer: a back-month substrate-boundary check would have
 surfaced this before scope commitment.
+
+---
+
+## 2026-05-31 — Session 2K: 2 rates strategies blocked by FRED substrate gaps
+
+Context: Session 2K S2K-2 feasibility audit phase. Both strategies in
+scope (`swap_spread_mean_rev`, `global_inflation_momentum`) require FRED
+data series that have either been discontinued or have coverage gaps
+that prevent v0.2.2 real-feed shipping. The audit was structured as a
+two-phase empirical probe (primary IDs → corrected IDs + `fred.search()`
+free-text hunt + LEVEL-vs-rate-of-change classifier) rather than a
+documents-only feasibility review — the pattern instituted by Sessions
+2J-2.8 and S2K-1 ("verify adapter contract end-to-end against real
+substrate data BEFORE scope commitment").
+
+### `swap_spread_mean_rev` — DEFINITIVELY BLOCKED
+
+Required: continuous 10Y USD interest-rate swap rate for 2005-2025 (vs
+`DGS10` Treasury rate, for the swap spread).
+
+Empirical evidence (S2K-2 audit, see
+`scripts/audit_fred_rates_series.py`):
+
+* `DSWP10` (legacy ICE swap rate via H.15 release) discontinued
+  2016-10-28.
+* `ICERATES1100USD10Y` returned `"Bad Request. The series does not
+  exist."` on FRED — the ICE replacement isn't at this ID.
+* 4 `fred.search()` queries returned no usable continuous 10Y USD swap
+  rate series:
+  - `"10-year swap rate USD"` — no hits.
+  - `"ICE swap rate"` — 4 hits, all mortgage credit spreads
+    (`CROASTIER0`-`CROASTIER3`), no interest-rate swaps.
+  - `"USD interest rate swap"` — no hits.
+  - `"SOFR swap rate 10"` — no hits.
+* Daily 10Y USD swap rates are available at ICE Data Services
+  (subscription required), Bloomberg / Refinitiv (subscription), and
+  the BIS Effective Rate database (research access, not for systematic
+  backtesting).
+
+Same substrate-constraint pattern as:
+
+* Session 2F `vix_front_back_spread` (yfinance lacks back-month
+  continuous VIX, 2026-05-01 amendment).
+* Session 2J `commodity_curve_carry` / `ng_contango_short` /
+  `wti_backwardation_carry` (yfinance lacks continuous second-month
+  futures, 2026-05-31 amendment).
+* Session 2D `fed_funds_surprise` / `fra_ois_spread` (paid-feed-required
+  for fed-funds futures, 2026-05-01 amendment).
+
+Phase 3 candidate. Implementation path:
+
+* Probe BIS Effective Rate database for systematic-backtest access
+  (research scope; may not satisfy alphakit's free-and-open-source
+  roadmap).
+* Subscription-feed integration (ICE Data Services / Bloomberg /
+  Refinitiv) — would require a commercial-feed adapter architecture,
+  out of v1.0 silent-build scope.
+* Alternative methodology: synthetic swap rate from forward-rate-curve
+  construction (technically valid but fundamentally a different
+  strategy).
+
+### `global_inflation_momentum` — PARTIALLY BLOCKED by Japan CPI gap
+
+Required: continuous CPI LEVEL series for US/DE/JP 2005-2025 +
+corresponding 10Y bond-yield series (adapter-converted to
+duration-implied prices per the methodology determination — see
+`docs/sessions/2k-2-rates-feasibility-audit.md` §"Methodology
+determination").
+
+Empirical evidence (S2K-2 audit):
+
+* US CPI (`CPIAUCSL`): LEVEL, continuous 1947-2026. ✓
+* DE CPI level alternatives probed:
+  - `CPALTT01DEM659N` — RATE-OF-CHANGE (range `[-1.04, 8.82]`, fails
+    the `looks_like_level` classifier).
+  - `CPALTT01DEM657N` — RATE-OF-CHANGE (range `[-1.16, 1.98]`).
+  - `DEUCPIALLMINMEI` — LEVEL (range `[20.75, 127.78]`). ✓
+* JP CPI level alternatives probed:
+  - `CPALTT01JPM659N` — RATE-OF-CHANGE (range `[-2.50, 24.90]`).
+  - `CPALTT01JPM657N` — RATE-OF-CHANGE (range `[-2.35, 4.10]`).
+  - `JPNCPIALLMINMEI` — LEVEL (range `[16.73, 102.32]`) BUT stops at
+    2021-06. ✗
+* US/DE/JP 10Y yields (`IRLTLT01{US,DE,JP}M156N`): all continuous
+  through 2026 (DE+JP went negative 2015-2022, fine under the duration
+  adapter).
+
+Japan CPI LEVEL (`JPNCPIALLMINMEI`) stops at 2021-06 — FRED
+discontinued the OECD MEI feed for this series. Strategy's
+out-of-sample period extends to 2025-12-31, leaving 4 years unsubstituted
+for Japan.
+
+Options considered:
+
+* **A** — Truncate strategy OOS to 2021-06: 1.5-year OOS test,
+  methodologically weak.
+* **B** — Hunt for alternative JP CPI series with 2025 coverage:
+  uncertain outcome, extends Session 2K beyond the agreed scope.
+* **C** — Reframe to US + DE 2-country: mathematically workable (rank
+  at N=2 is just "is US > DE"), but methodologically thin —
+  cross-sectional rank loses its rationale below
+  `known_failures.md` §6's stated 5-country minimum.
+* **D** — Defer to Phase 3 with amendment.
+
+Decision: **Option D**. Phase 3 implementation path:
+
+* Probe FRED for JP CPI alternative series with 2025+ coverage
+  (Statistics Bureau Japan analogue, BLS international comparable
+  series, OECD's superseding feed).
+* If found: ship 3-country (US/DE/JP) via the duration adapter built
+  to spec in this audit.
+* If not found: document the substrate gap and ship 2-country (US/DE)
+  as alternative scope, accepting the methodological caveat.
+
+### Methodological discovery: CPI LEVEL vs rate-of-change substrate quirk
+
+S2K-2 audit revealed the OECD MEI suffix convention is non-obvious.
+Both `M657N` and `M659N` suffix variants return RATE-OF-CHANGE series
+for the same OECD MEI source despite naming convention typically
+distinguishing them. The LEVEL series live at the BIS-OECD alternative
+names (`DEUCPIALLMINMEI`, `JPNCPIALLMINMEI`). This is a
+substrate-boundary discovery that prevented shipping silently-wrong
+inflation calculations under the wrong-suffix interpretation, and is
+the kind of finding the S2J-2.8 / S2K-1 empirical-verification pattern
+is designed to surface.
+
+### Manifest impact
+
+Rates family ships 0/2 strategies real-feed in v0.2.2 pt 2. Real-feed
+coverage remains 29/109 = 26.6% (unchanged from S2K-1).
+
+The S2K-2 audit pattern (multi-candidate probe + `fred.search()`
+negative-evidence trail + LEVEL-vs-rate-of-change empirical
+verification) is the substrate-boundary verification framework Sessions
+2J-2.8 and S2K-1 institutionalised. Documenting both deferrals in this
+amendment establishes the standard for future feasibility-uncertain
+strategies.
+
+Process precedent: this is the same pattern as Session 2F
+`vix_front_back_spread` (2026-05-01) and the Session 2J commodity
+back-month deferrals — substrate constraint surfaced by empirical
+probe, honest deferral with Phase 3 re-instatement path documented.
+The S2K-2 audit shows the framework replicates cleanly for future rates
+and international-data strategies.
