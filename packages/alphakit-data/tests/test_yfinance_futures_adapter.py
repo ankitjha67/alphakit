@@ -185,7 +185,10 @@ _NETWORK_GATE = pytest.mark.skipif(
 
 
 @_NETWORK_GATE
-def test_real_yfinance_multi_ticker_returns_flat_close(tmp_path: Path) -> None:
+def test_real_yfinance_multi_ticker_returns_flat_close(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """Substrate-boundary regression guard for yfinance API drift.
 
     Performs a real 2-ticker fetch and asserts the adapter still produces
@@ -194,7 +197,7 @@ def test_real_yfinance_multi_ticker_returns_flat_close(tmp_path: Path) -> None:
     pre-release verification. Catches future yfinance API changes that
     would re-introduce the Session 2J-2.5 multi-level-column bug.
     """
-    os.environ["ALPHAKIT_CACHE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
     df = YFinanceFuturesAdapter().fetch(
         symbols=["CL=F", "GC=F"],
         start=datetime(2024, 1, 2),

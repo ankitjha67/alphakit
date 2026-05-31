@@ -117,6 +117,14 @@ class BenchmarkRunner:
         if family is None:
             family, slug = discovery.find_strategy(slug)
 
+        # Reset the anomaly-filter audit at the start of each run so a stale
+        # value from a prior ``run_single`` on this same runner instance can't
+        # leak into this run's result JSON. Important when the caller supplies
+        # ``prices=...`` directly (no ``_fetch_prices`` → no filter call), and
+        # for any reuse pattern (e.g. cluster analysis iterating a single
+        # runner over many strategies). Caught by CodeRabbit on PR #22 S2J-2.7.
+        self.last_anomaly_filter = {"enabled": False}
+
         strategy = discovery.instantiate(family, slug)
         config = discovery.load_config(family, slug)
         universe = config.get("universe", ["SPY", "EFA", "AGG"])

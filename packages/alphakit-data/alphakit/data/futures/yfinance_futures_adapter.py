@@ -107,6 +107,11 @@ class YFinanceFuturesAdapter:
             prices = data[["Close"]]
             prices.columns = symbols
 
+        # Lock the column order to the requested ``symbols`` and turn any
+        # silently-dropped ticker into an explicit NaN column (rather than a
+        # missing column the downstream merge would KeyError on). Caught by
+        # CodeRabbit on PR #22 S2J-2.7.
+        prices = prices.reindex(columns=symbols)
         prices = prices.dropna(how="all")
         prices.index = pd.DatetimeIndex(prices.index)
         prices.index.name = None

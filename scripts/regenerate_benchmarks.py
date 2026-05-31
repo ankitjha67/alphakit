@@ -150,11 +150,12 @@ def _require_yfinance() -> None:
 def _require_commodity_real() -> None:
     """Fail loud if Tier-commodity ``--feed real`` prerequisites are missing.
 
-    Only yfinance is checked — the cftc-cot adapter ships with stdlib-only
-    deps (``urllib`` + ``zipfile``) and registers from
-    ``alphakit.data.__init__``, so no separate check is needed. No FRED key
-    is needed (commodity universe carries no FRED series), no EIA key is
-    needed (none of the 7 in-scope commodity strategies consume EIA).
+    Only yfinance is checked — the cftc-cot adapter (post Session 2J S2J-2.5)
+    uses ``requests`` for the ZIP download, which is also a yfinance transitive
+    dependency, so once yfinance is importable ``requests`` is too. No FRED
+    key is needed (commodity universe carries no FRED series); no EIA key is
+    needed (none of the 7 in-scope commodity strategies consume EIA). CFTC
+    itself has no API key — the COT archive is a public ZIP download.
     """
     try:
         import yfinance  # noqa: F401

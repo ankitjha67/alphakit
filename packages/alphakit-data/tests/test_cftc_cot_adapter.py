@@ -251,7 +251,10 @@ _NETWORK_GATE = pytest.mark.skipif(
 
 
 @_NETWORK_GATE
-def test_real_cftc_download_returns_long_format(tmp_path: Path) -> None:
+def test_real_cftc_download_returns_long_format(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """Substrate-boundary regression guard for CFTC HTTPS / SSL.
 
     Performs a real ZIP download from cftc.gov and asserts the adapter
@@ -261,7 +264,7 @@ def test_real_cftc_download_returns_long_format(tmp_path: Path) -> None:
     (the Session 2J-2.5 ``urlopen → requests`` switch root cause), and
     any CFTC URL / archive-layout change that would break parsing.
     """
-    os.environ["ALPHAKIT_CACHE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
     df = CFTCCOTAdapter().fetch(
         symbols=["067651"],  # E-mini S&P 500
         start=datetime(2024, 11, 1),

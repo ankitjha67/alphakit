@@ -284,6 +284,8 @@ def test_regen_commodity_real_integration_cot_via_mocked_feeds(
     def fake_yf_futures(
         self: Any, symbols: list[str], start: Any, end: Any, frequency: str = "1d"
     ) -> _pd.DataFrame:
+        missing = [s for s in symbols if s not in futures]
+        assert not missing, f"mock missing symbols: {missing}"
         return _pd.DataFrame({s: futures[s] for s in symbols}, index=idx)
 
     cot_idx = _pd.date_range("2010-01-05", "2025-12-31", freq="W-TUE")

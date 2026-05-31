@@ -53,7 +53,7 @@ strict-positive contract from the
   the existing leading-NaN trim) and drops any **mid-panel** rows where
   one or more tradable columns are NaN or `<= 0`. Each mid-panel drop is
   logged with its classification:
-  ```
+  ```text
   Dropped 4 tradable-anomaly bar(s):
     2006-11-24: NaN in CL=F, NG=F (missing data)
     2018-01-29: NaN in GC=F (missing data)
