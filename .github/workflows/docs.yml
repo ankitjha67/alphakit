@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0  # mkdocs-material "git-revision-date" needs full history
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: "0.8.17"
           enable-cache: true
