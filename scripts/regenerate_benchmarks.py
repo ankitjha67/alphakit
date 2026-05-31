@@ -44,8 +44,8 @@ for Tier-2 ``--feed real``), rather than silently falling back to synthetic
 fixtures (the trap in ``BenchmarkRunner._fetch_prices``).
 
 Modes: ``smoke`` (3 single-ETF rates), ``tier1`` (17 real), ``tier2``
-(5 macro), ``commodity`` (7 commodity, ``--feed real`` required), ``all``
-(Tier-1 + Tier-2). ``--feed`` governs the Tier-2 + commodity paths.
+(5 macro), ``commodity`` (6 front-month slugs, ``--feed real`` required),
+``all`` (Tier-1 + Tier-2). ``--feed`` governs the Tier-2 + commodity paths.
 """
 
 from __future__ import annotations
@@ -161,12 +161,10 @@ def _require_yfinance() -> None:
 def _require_commodity_real() -> None:
     """Fail loud if Tier-commodity ``--feed real`` prerequisites are missing.
 
-    Only yfinance is checked — the cftc-cot adapter (post Session 2J S2J-2.5)
-    uses ``requests`` for the ZIP download, which is also a yfinance transitive
-    dependency, so once yfinance is importable ``requests`` is too. No FRED
-    key is needed (commodity universe carries no FRED series); no EIA key is
-    needed (none of the 7 in-scope commodity strategies consume EIA). CFTC
-    itself has no API key — the COT archive is a public ZIP download.
+    Only yfinance is checked — the 6 in-scope front-month commodity strategies
+    are pure yfinance-futures (cot_speculator_position is Session 2K-deferred).
+    No FRED key is needed (commodity universe carries no FRED series); no EIA
+    key is needed (no in-scope strategy consumes EIA).
     """
     try:
         import yfinance  # noqa: F401
@@ -453,12 +451,12 @@ def main() -> int:
 
     if args.mode == "commodity" and args.feed != "real":
         raise SystemExit(
-            "commodity mode requires --feed real (the 7 in-scope commodity "
-            "strategies are regenerated from yfinance-futures + CFTC). The 3 "
+            "commodity mode requires --feed real (the 6 in-scope front-month "
+            "commodity slugs are regenerated from yfinance-futures). The 3 "
             "second-month-blocked commodity strategies (commodity_curve_carry, "
             "ng_contango_short, wti_backwardation_carry) remain synthetic-fixture "
-            "— see the 2026-05-31 amendment for the yfinance "
-            "no-continuous-second-month constraint."
+            "per the 2026-05-31 amendment, and cot_speculator_position is "
+            "deferred to Session 2K (see docs/known-data-anomalies.md)."
         )
 
     if args.mode in ("smoke", "tier1", "all"):
@@ -530,10 +528,7 @@ def main() -> int:
         if fred_fail:
             print(f"  failed (kept existing):  {fred_fail}")
     if commodity_ok or commodity_fail:
-        print(
-            f"commodity real (yfinance-futures + cftc-cot): "
-            f"{commodity_ok} ok, {len(commodity_fail)} failed"
-        )
+        print(f"commodity real (yfinance-futures): {commodity_ok} ok, {len(commodity_fail)} failed")
         if commodity_fail:
             print(f"  failed (kept existing):  {commodity_fail}")
     return 1 if ((args.mode == "smoke" and real_fail) or fred_fail or commodity_fail) else 0
