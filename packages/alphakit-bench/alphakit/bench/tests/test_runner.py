@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 import pandas as pd
@@ -683,6 +684,118 @@ class TestCotIntegrationMultiFeed:
         monkeypatch.setattr(_YF_FUTURES_PATH, _fake_yf_futures)
         with pytest.raises(ValueError, match="cftc_market_codes"):
             runner._fetch_prices(["CL=F", "CL=F_NET_SPEC"], strategy=_BareCotStub())
+
+    def test_partial_cftc_market_codes_raises_naming_missing_symbols(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Partial ``cftc_market_codes`` (some NET_SPEC symbols mapped, others
+        not) must fail-loud with a message naming the *missing* symbols, not
+        silently skip them or fall through to the unmapped names as codes."""
+
+        class _PartialCotStub:
+            tradable_symbols = ("CL=F", "NG=F")
+            required_symbols = ("CL=F", "NG=F", "CL=F_NET_SPEC", "NG=F_NET_SPEC")
+            cftc_market_codes: ClassVar[dict[str, str]] = {
+                "CL=F_NET_SPEC": "067651",  # NG=F_NET_SPEC absent
+            }
+
+        idx = _bdays("2020-01-01", "2020-12-31")
+
+        def _fake_yf_futures(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return pd.DataFrame({s: np.full(len(idx), 50.0) for s in symbols}, index=idx)
+
+        monkeypatch.setattr(_YF_FUTURES_PATH, _fake_yf_futures)
+        with pytest.raises(ValueError, match=r"missing entries for \['NG=F_NET_SPEC'\]"):
+            runner._fetch_prices(
+                ["CL=F", "NG=F", "CL=F_NET_SPEC", "NG=F_NET_SPEC"],
+                strategy=_PartialCotStub(),
+            )
+
+    def test_cftc_market_code_absent_from_archive_yields_actionable_failure(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Mapping points at a code the adapter returns no data for — the
+        adapter's defensive ``reindex(columns=symbols)`` produces a NaN
+        column, the runner renames it to NET_SPEC (still NaN), and the
+        complete-rows guard in ``_fetch_prices`` raises with a clear
+        'no rows where all of ... are simultaneously present' message.
+        This is the fail-loud surface for misidentified market codes."""
+
+        class _StaleCodeStub:
+            tradable_symbols = ("CL=F",)
+            required_symbols = ("CL=F", "CL=F_NET_SPEC")
+            cftc_market_codes: ClassVar[dict[str, str]] = {"CL=F_NET_SPEC": "DELISTED_999"}
+
+        idx = _bdays("2020-01-01", "2020-12-31")
+
+        def _fake_yf_futures(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return pd.DataFrame({s: np.full(len(idx), 50.0) for s in symbols}, index=idx)
+
+        def _fake_cftc_wide_missing(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            # Adapter contract under "code not in archive": reindex(columns=
+            # symbols) produces an explicit NaN column. Mirror that here.
+            cot_idx = pd.date_range("2020-01-07", "2020-12-29", freq="W-TUE")
+            return pd.DataFrame(dict.fromkeys(symbols, np.nan), index=cot_idx)
+
+        monkeypatch.setattr(_YF_FUTURES_PATH, _fake_yf_futures)
+        monkeypatch.setattr(_CFTC_WIDE_PATH, _fake_cftc_wide_missing)
+        with pytest.raises(ValueError, match="no rows where all"):
+            runner._fetch_prices(["CL=F", "CL=F_NET_SPEC"], strategy=_StaleCodeStub())
+
+    def test_cftc_wide_skipped_week_forward_fills_via_asof_alignment(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A missing weekly COT observation (CFTC skipped a Tuesday — e.g.
+        holiday or operational gap) must value-ffill from the last available
+        observation onto the daily tradable index. Standard as-of semantics:
+        you don't know next week's positioning until it's published, so
+        using last-known is causally correct (S2I-1.5 amendment)."""
+
+        class _CotStub:
+            tradable_symbols = ("CL=F",)
+            required_symbols = ("CL=F", "CL=F_NET_SPEC")
+            cftc_market_codes: ClassVar[dict[str, str]] = {"CL=F_NET_SPEC": "067651"}
+
+        idx = _bdays("2020-01-01", "2020-03-31")
+
+        def _fake_yf_futures(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return pd.DataFrame({s: np.full(len(idx), 50.0) for s in symbols}, index=idx)
+
+        # COT observations published weekly Tuesdays — but week of 2020-02-04
+        # is intentionally absent (simulated gap). The Feb-11 value should
+        # forward-fill across the entire Feb-04 → Feb-11 daily window.
+        cot_dates = pd.DatetimeIndex(
+            ["2020-01-07", "2020-01-14", "2020-01-21", "2020-01-28", "2020-02-11", "2020-02-18"]
+        )
+        cot_values = [0.10, 0.15, 0.20, 0.25, 0.40, 0.45]
+
+        def _fake_cftc_wide(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return pd.DataFrame({symbols[0]: cot_values}, index=cot_dates)
+
+        monkeypatch.setattr(_YF_FUTURES_PATH, _fake_yf_futures)
+        monkeypatch.setattr(_CFTC_WIDE_PATH, _fake_cftc_wide)
+        prices = runner._fetch_prices(["CL=F", "CL=F_NET_SPEC"], strategy=_CotStub())
+
+        # Daily ffill across the skipped Feb-4 week: every business day from
+        # 2020-01-28 (the last pre-gap Tuesday) through 2020-02-10 carries
+        # 0.25; 2020-02-11 onward jumps to 0.40.
+        assert prices.loc[pd.Timestamp("2020-01-28"), "CL=F_NET_SPEC"] == pytest.approx(0.25)
+        assert prices.loc[pd.Timestamp("2020-02-03"), "CL=F_NET_SPEC"] == pytest.approx(0.25)
+        assert prices.loc[pd.Timestamp("2020-02-10"), "CL=F_NET_SPEC"] == pytest.approx(0.25)
+        assert prices.loc[pd.Timestamp("2020-02-11"), "CL=F_NET_SPEC"] == pytest.approx(0.40)
+        assert prices.loc[pd.Timestamp("2020-02-18"), "CL=F_NET_SPEC"] == pytest.approx(0.45)
+        # No mid-panel NaN — gap was successfully bridged by ffill.
+        assert not prices["CL=F_NET_SPEC"].isna().any()
 
 
 # ---------------------------------------------------------------------------
