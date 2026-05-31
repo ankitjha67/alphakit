@@ -155,3 +155,91 @@ def test_regen_tier2_real_integration_mocked_feeds(monkeypatch: pytest.MonkeyPat
     assert result["data_source"] == "yfinance+fred-real"
     assert result["status"] == "populated"
     assert "sharpe" in result["metrics"]
+
+
+# ---------------------------------------------------------------------------
+# Session 2J — commodity --feed real (yfinance-futures only).
+# cot_speculator_position was deferred from this regen path in S2J-2.8 and
+# moves to Session 2K (architectural symbol→market-code mapping work). Its
+# routing tests live in ``test_runner.py::TestCotIntegrationMultiFeed`` —
+# those continue to exercise the multi-feed dispatch independent of the
+# regen script.
+# ---------------------------------------------------------------------------
+
+_FRONT_MONTH_SLUGS = (
+    "commodity_tsmom",
+    "crack_spread",
+    "crush_spread",
+    "grain_seasonality",
+    "metals_momentum",
+    "wti_brent_spread",
+)
+
+
+def test_require_commodity_real_without_yfinance_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``commodity --feed real`` without yfinance importable fails loud."""
+    import builtins
+    import sys as _sys
+
+    real_import = builtins.__import__
+
+    def _fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == "yfinance" or name.startswith("yfinance."):
+            raise ImportError("simulated: no yfinance")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
+    monkeypatch.delitem(_sys.modules, "yfinance", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        regen._require_commodity_real()
+    assert "yfinance" in str(exc.value)
+    assert "commodity --feed real" in str(exc.value)
+
+
+@pytest.mark.parametrize("slug", _FRONT_MONTH_SLUGS)
+def test_regen_commodity_real_stamps_yfinance_futures(
+    monkeypatch: pytest.MonkeyPatch, slug: str
+) -> None:
+    """Each of the 6 front-month commodity strategies stamps ``yfinance-futures-real``."""
+    written: list[dict[str, Any]] = []
+    ctor_kwargs: list[dict[str, Any]] = []
+
+    class StubRunner:
+        def __init__(self, **kwargs: Any) -> None:
+            ctor_kwargs.append(kwargs)
+
+        def run_single(
+            self, slug: str, prices: Any = None, *, family: str | None = None
+        ) -> dict[str, Any]:
+            assert prices is None, "commodity real path must let the runner fetch"
+            assert family == "commodity"
+            return {
+                "slug": slug,
+                "status": "populated",
+                "metrics": {"sharpe": 0.33},
+                "universe": ["CL=F", "NG=F"],
+            }
+
+        def write_benchmark(
+            self, slug: str, result: dict[str, Any], *, family: str | None = None
+        ) -> None:
+            written.append(result)
+
+    monkeypatch.setattr(regen, "BenchmarkRunner", StubRunner)
+    ok, msg = regen.regen_commodity_real(slug)
+
+    assert ok, msg
+    assert written and written[-1]["data_source"] == "yfinance-futures-real"
+    assert any(k.get("strict_feed") is True for k in ctor_kwargs)
+
+
+def test_main_commodity_requires_feed_real(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``commodity`` mode without ``--feed real`` fails with an actionable message."""
+    import sys as _sys
+
+    monkeypatch.setattr(_sys, "argv", ["regenerate_benchmarks.py", "commodity"])
+    with pytest.raises(SystemExit) as exc:
+        regen.main()
+    msg = str(exc.value)
+    assert "--feed real" in msg
+    assert "second-month" in msg  # mentions the constraint for the 3 blocked

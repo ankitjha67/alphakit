@@ -541,3 +541,289 @@ class TestMultiFeedIntegration:
         assert result["slug"] == slug
         assert np.isfinite(result["metrics"]["sharpe"])
         assert np.isfinite(result["metrics"]["max_drawdown"])
+
+
+# ---------------------------------------------------------------------------
+# Session 2J — within-role feed routing (yfinance-futures + cftc-cot)
+# ---------------------------------------------------------------------------
+
+_YF_FUTURES_PATH = "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch"
+_CFTC_PATH = "alphakit.data.positioning.cftc_cot_adapter.CFTCCOTAdapter.fetch"
+
+
+class TestFeedRouting:
+    """The within-role pattern dispatcher behind ``BenchmarkRunner._fetch_prices``.
+
+    The Session 2G role split (tradable vs informational) is upstream of this
+    dispatch, so patterns only need to disambiguate within each role.
+    """
+
+    @pytest.mark.parametrize(
+        "symbol,expected",
+        [
+            ("SPY", "yfinance"),
+            ("TLT", "yfinance"),
+            ("CL=F", "yfinance-futures"),
+            ("NG=F", "yfinance-futures"),
+        ],
+    )
+    def test_resolves_tradable(self, symbol: str, expected: str) -> None:
+        assert BenchmarkRunner._resolve_feed(symbol, "tradable") == expected
+
+    @pytest.mark.parametrize(
+        "symbol,expected",
+        [
+            ("CPIAUCSL", "fred"),
+            ("DGS10", "fred"),
+            ("CL=F_NET_SPEC", "cftc-cot"),
+            ("GC=F_NET_SPEC", "cftc-cot"),
+        ],
+    )
+    def test_resolves_informational(self, symbol: str, expected: str) -> None:
+        assert BenchmarkRunner._resolve_feed(symbol, "informational") == expected
+
+    @pytest.mark.parametrize(
+        "slug",
+        [
+            "commodity_tsmom",
+            "crack_spread",
+            "crush_spread",
+            "grain_seasonality",
+            "metals_momentum",
+            "wti_brent_spread",
+        ],
+    )
+    def test_front_month_commodity_routes_to_yfinance_futures(self, slug: str) -> None:
+        """Every tradable column of the 6 front-month commodity strategies must
+        route to ``yfinance-futures`` — verifies the routing resolution without
+        actually executing the strategies (S2J-2 covers the keyed regen)."""
+        universe = discovery.load_config("commodity", slug)["universe"]
+        assert universe and all(
+            BenchmarkRunner._resolve_feed(sym, "tradable") == "yfinance-futures" for sym in universe
+        )
+
+
+class TestCotIntegrationMultiFeed:
+    """End-to-end ``cot_speculator_position`` via the new yfinance-futures +
+    cftc-cot routing, mirroring ``TestMultiFeedIntegration`` for the regime
+    strategies. The strategy declares the Session 2G informational pattern, so
+    the runner splits tradable ``=F`` (→ yfinance-futures) from informational
+    ``*_NET_SPEC`` (→ cftc-cot) and merges them via the same as-of fill."""
+
+    @pytest.mark.integration
+    def test_cot_runs_end_to_end_via_futures_and_cftc(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        idx = _bdays("2010-01-01", "2025-12-31")
+        rng = np.random.default_rng(0)
+        prices_by_sym = {
+            s: 50.0 * np.exp(np.cumsum(rng.normal(0.0, 0.012, len(idx))))
+            for s in ("CL=F", "NG=F", "GC=F", "ZC=F")
+        }
+
+        def _fake_yf_futures(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return pd.DataFrame({s: prices_by_sym[s] for s in symbols}, index=idx)
+
+        # CFTC publishes weekly (Tuesday-as-of, Friday-released). Net-spec
+        # series legitimately cross zero — exactly the kind of informational
+        # value the S2I bridge/runner refinement made valid.
+        cot_idx = pd.date_range("2010-01-05", "2025-12-31", freq="W-TUE")
+
+        def _fake_cftc(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            t = np.linspace(0.0, 8.0 * np.pi, len(cot_idx))
+            return pd.DataFrame(
+                {s: 0.7 * np.sin(t + 0.4 * i) for i, s in enumerate(symbols)},
+                index=cot_idx,
+            )
+
+        monkeypatch.setattr(_YF_FUTURES_PATH, _fake_yf_futures)
+        monkeypatch.setattr(_CFTC_PATH, _fake_cftc)
+
+        result = runner.run_single("cot_speculator_position", family="commodity")
+        assert result["slug"] == "cot_speculator_position"
+        assert np.isfinite(result["metrics"]["sharpe"])
+        assert np.isfinite(result["metrics"]["max_drawdown"])
+
+
+# ---------------------------------------------------------------------------
+# Session 2J-2.6 — anomaly filter (drop_nonpositive_tradable_bars)
+# ---------------------------------------------------------------------------
+
+
+def _yf_with_anomalies(symbols: list[str], index: pd.DatetimeIndex) -> pd.DataFrame:
+    """Positive panel with one mid-panel anomaly per known pattern injected.
+
+    Row layout:
+      idx[0..29]      clean positive
+      idx[30]         NaN in symbols[0] (Thanksgiving-style missing data)
+      idx[31..59]     clean positive
+      idx[60]         negative price -37.63 in symbols[0] (2020-04-20 style)
+      idx[61..]       clean positive
+    """
+    base = np.full((len(index), len(symbols)), 50.0)
+    df = pd.DataFrame(base, index=index, columns=symbols)
+    df.iloc[30, 0] = np.nan
+    df.iloc[60, 0] = -37.63
+    return df
+
+
+class TestAnomalyFilter:
+    """``drop_nonpositive_tradable_bars`` opt-in filter (Session 2J S2J-2.6).
+
+    Default off keeps the runner's strict-positive invariant. Opt-in drops
+    rows with non-positive or NaN tradable values and records the audit
+    trail in ``last_anomaly_filter`` (mirrored into the benchmark JSON).
+    """
+
+    def test_filter_default_off_preserves_strict_invariant(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Default off: a non-positive tradable still propagates as a failure."""
+        idx = _bdays("2020-01-01", "2020-12-31")
+        anomalous = _yf_with_anomalies(["CL=F", "NG=F"], idx)
+
+        def _yf(self: object, *a: object, **k: object) -> pd.DataFrame:
+            return anomalous
+
+        monkeypatch.setattr(
+            "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch", _yf
+        )
+
+        # Default runner — filter off.
+        assert runner.drop_nonpositive_tradable_bars is False
+        # A strategy declaring no informational columns hits the single-feed
+        # shortcut; with filter off it just returns the raw fetched panel
+        # (anomaly bars still present). The downstream strategy / bridge
+        # would then fail on the negative — that's the strict-invariant
+        # contract we want preserved when filter is off.
+        panel = runner._fetch_prices(["CL=F", "NG=F"], strategy=object())
+        assert runner.last_anomaly_filter == {"enabled": False}
+        # The negative row from _yf_with_anomalies survived.
+        assert (panel["CL=F"] < 0).any()
+
+    def test_filter_drops_negative_and_nan_with_audit_trail(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Filter on: drops both NaN and negative rows; logs + metadata correct."""
+        idx = _bdays("2020-01-01", "2020-12-31")
+        anomalous = _yf_with_anomalies(["CL=F", "NG=F"], idx)
+
+        def _yf(self: object, *a: object, **k: object) -> pd.DataFrame:
+            return anomalous
+
+        monkeypatch.setattr(
+            "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch", _yf
+        )
+
+        runner = BenchmarkRunner(drop_nonpositive_tradable_bars=True)
+        panel = runner._fetch_prices(["CL=F", "NG=F"], strategy=object())
+
+        meta = runner.last_anomaly_filter
+        assert meta["enabled"] is True
+        assert meta["bars_dropped"] == 2  # the NaN row + the negative row
+        assert len(meta["dropped_dates"]) == 2
+        # Dates must be strings in YYYY-MM-DD form, ascending.
+        assert all(isinstance(d, str) and len(d) == 10 for d in meta["dropped_dates"])
+        # Neither anomaly value survived in the returned panel.
+        assert not (panel["CL=F"] < 0).any()
+        assert not panel["CL=F"].isna().any()
+
+    def test_filter_classifies_log_lines_distinctly(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Log entries identify NaN vs negative-price causes per dropped bar."""
+        idx = _bdays("2020-01-01", "2020-12-31")
+        anomalous = _yf_with_anomalies(["CL=F", "NG=F"], idx)
+
+        def _yf(self: object, *a: object, **k: object) -> pd.DataFrame:
+            return anomalous
+
+        monkeypatch.setattr(
+            "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch", _yf
+        )
+
+        runner = BenchmarkRunner(drop_nonpositive_tradable_bars=True)
+        with caplog.at_level("WARNING", logger="alphakit.bench.runner"):
+            runner._fetch_prices(["CL=F", "NG=F"], strategy=object())
+
+        log_text = caplog.text
+        assert "Dropped 2 tradable-anomaly bar(s)" in log_text
+        assert "NaN in CL=F (missing data)" in log_text
+        assert "-37.63 in CL=F (negative price)" in log_text
+
+    @pytest.mark.integration
+    def test_filter_records_metadata_in_benchmark_result_json(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``run_single`` mirrors the filter metadata into ``result['anomaly_filter']``."""
+        idx = _bdays("2010-01-01", "2025-12-31")
+        anomalous = _yf_with_anomalies(["CL=F", "NG=F", "GC=F", "ZC=F"], idx)
+
+        def _yf_futures(self: object, *a: object, **k: object) -> pd.DataFrame:
+            return anomalous
+
+        cot_idx = pd.date_range("2010-01-05", "2025-12-31", freq="W-TUE")
+
+        def _cftc(self: object, *a: object, **k: object) -> pd.DataFrame:
+            t = np.linspace(0.0, 8.0 * np.pi, len(cot_idx))
+            return pd.DataFrame(
+                {f"{s}_NET_SPEC": 0.7 * np.sin(t) for s in ("CL=F", "NG=F", "GC=F", "ZC=F")},
+                index=cot_idx,
+            )
+
+        monkeypatch.setattr(
+            "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch",
+            _yf_futures,
+        )
+        monkeypatch.setattr(
+            "alphakit.data.positioning.cftc_cot_adapter.CFTCCOTAdapter.fetch", _cftc
+        )
+
+        runner = BenchmarkRunner(
+            data_start="2010-01-01",
+            in_sample_end="2019-12-31",
+            out_of_sample_end="2025-12-31",
+            drop_nonpositive_tradable_bars=True,
+        )
+        result = runner.run_single("cot_speculator_position", family="commodity")
+
+        assert "anomaly_filter" in result
+        assert result["anomaly_filter"]["enabled"] is True
+        assert result["anomaly_filter"]["bars_dropped"] == 2
+        # Dates are ascending, ISO-format strings.
+        dropped = result["anomaly_filter"]["dropped_dates"]
+        assert dropped == sorted(dropped)
+
+    def test_filter_silently_trims_leading_warmup(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Leading invalid block is silently trimmed; only mid-panel drops logged."""
+        idx = _bdays("2020-01-01", "2020-12-31")
+        symbols = ["CL=F", "NG=F"]
+        panel = pd.DataFrame(np.full((len(idx), 2), 50.0), index=idx, columns=symbols)
+        # First 10 rows: PL-style inception warm-up (NaN). These should be
+        # silently trimmed by the filter — NOT counted as anomalies.
+        panel.iloc[:10, 0] = np.nan
+        # Plus one true mid-panel anomaly.
+        panel.iloc[50, 0] = -1.0
+
+        def _yf(self: object, *a: object, **k: object) -> pd.DataFrame:
+            return panel
+
+        monkeypatch.setattr(
+            "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch", _yf
+        )
+
+        runner = BenchmarkRunner(drop_nonpositive_tradable_bars=True)
+        out = runner._fetch_prices(symbols, strategy=object())
+        meta = runner.last_anomaly_filter
+
+        # Only the one mid-panel bar is reported as an anomaly.
+        assert meta["bars_dropped"] == 1
+        # Returned panel starts at the first valid row (index 10), and does
+        # not contain the trimmed leading rows or the dropped anomaly row.
+        assert len(out) == len(idx) - 10 - 1
+        assert not out["CL=F"].isna().any()
+        assert (out["CL=F"] > 0).all()

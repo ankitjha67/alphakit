@@ -81,19 +81,25 @@ Output is a DataFrame with one column per **traded front symbol**
 (the keys of ``front_to_position_map``). Position columns are
 consumed for the signal but not traded.
 
-The positioning column should contain the **non-commercial long
+The positioning column can be either the **non-commercial long
 fraction of open interest** (range ``(0, 1]``):
 
     long_fraction(t) = non_commercial_long(t) / open_interest(t)
 
-The strictly-positive convention satisfies vectorbt-bridge price
-validation (the bridge treats every input column as a tradeable
-price even when the strategy assigns zero weight). Users with raw
-**net** positioning data (range ``[-1, +1]``) should shift to
-``(net + 1) / 2`` (range ``[0, 1]``, strictly positive after a
-small floor) before passing in. The percentile rank used by the
-trading rule is invariant to monotonic transformations, so the
-shift does not change the signal — only the input scale.
+or the raw **net** non-commercial position (range ``[-1, +1]``,
+signed; negative values when speculators are net short). Either
+form works: the trading rule is the rolling-percentile rank of the
+positioning series, which is invariant to monotonic
+transformations. Real CFTC ``*_NET_SPEC`` feeds typically come as
+the signed net form, which is now accepted directly — no
+shift-to-positive workaround required.
+
+Input contract (post Session 2I 2026-05-22 amendment + Session 2J
+bridge zero-weight drop): front-month price columns must be
+**finite and strictly positive** (they are traded), and positioning
+columns must be **finite** (they are informational — declared via
+``required_symbols`` and dropped by the bridge before
+``from_orders``, so the bridge no longer requires them positive).
 
 Sign convention
 ---------------
@@ -108,11 +114,11 @@ Edge cases
   the percentile is undefined and the signal is zero.
 * Constant positioning (no historical variation) → percentile
   undefined → zero signal.
-* Non-positive values in **any** input column (price or
-  positioning) → ``ValueError``. Positioning data must be passed
-  in the long-fraction or shifted-net form (range ``(0, 1]`` or
-  ``(0, 2]``) so the bridge can validate it as a tradeable
-  series.
+* Front-month price columns: ``NaN`` / ``inf`` or non-positive
+  values → ``ValueError`` (these are traded closes the bridge
+  needs to value the portfolio).
+* Positioning columns: ``NaN`` / ``inf`` → ``ValueError``; negative
+  values are valid (signed ``NET_SPEC``).
 """
 
 from __future__ import annotations
@@ -220,6 +226,18 @@ class COTSpeculatorPosition:
     def position_columns(self) -> list[str]:
         return list(self.front_to_position_map.values())
 
+    # Session 2G informational-column-pattern aliases. The runner's
+    # ``_informational_columns`` (and the S2J feed router) read these to
+    # split tradable futures (yfinance-futures) from informational CFTC
+    # positioning columns (cftc-cot) — see ``BenchmarkRunner._fetch_prices``.
+    @property
+    def tradable_symbols(self) -> tuple[str, ...]:
+        return tuple(self.front_to_position_map.keys())
+
+    @property
+    def required_symbols(self) -> tuple[str, ...]:
+        return (*self.front_to_position_map.keys(), *self.front_to_position_map.values())
+
     def generate_signals(self, prices: pd.DataFrame) -> pd.DataFrame:
         """Return a contrarian COT signal DataFrame.
 
@@ -251,8 +269,23 @@ class COTSpeculatorPosition:
                 f"prices is missing required columns: {sorted(missing)}; "
                 f"got columns={list(prices.columns)}"
             )
-        if (prices[list(required)] <= 0).any().any():
-            raise ValueError("prices must be strictly positive")
+        # Front-month futures (tradable) must be finite AND strictly positive —
+        # they are priced and traded. CFTC positioning columns are
+        # *informational* (carry weight 0 in the output, per the Session 2G
+        # pattern and the bridge's zero-weight-column drop) and are
+        # legitimately signed: NET_SPEC is the net non-commercial position
+        # scaled by open interest and can be negative when speculators are net
+        # short. Per the 2026-05-22 amendment, informational columns require
+        # only finite values, not positivity. (Finiteness is checked *before*
+        # the positivity comparison because ``NaN <= 0`` is False, so the
+        # positivity check alone would let non-finite tradable prices through —
+        # review request on PR #22.)
+        if not np.isfinite(prices[self.front_symbols].to_numpy()).all():
+            raise ValueError("front-month price columns must be finite")
+        if (prices[self.front_symbols] <= 0).any().any():
+            raise ValueError("front-month price columns must be strictly positive")
+        if not np.isfinite(prices[self.position_columns].to_numpy()).all():
+            raise ValueError("positioning columns must be finite")
 
         # 1. Apply the Friday-for-Tuesday COT lag to the positioning
         # series before computing the signal.

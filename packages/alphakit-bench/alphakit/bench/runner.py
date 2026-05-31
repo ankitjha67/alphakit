@@ -8,17 +8,20 @@ extended metrics, and writes benchmark_results.json atomically.
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import subprocess
-from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
 from alphakit.bench import discovery, metrics
 from alphakit.bridges import vectorbt_bridge
+from alphakit.data.registry import FeedRegistry
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_commit_sha() -> str | None:
@@ -72,6 +75,7 @@ class BenchmarkRunner:
         out_of_sample_end: str = "2025-12-31",
         initial_cash: float = 100_000.0,
         strict_feed: bool = False,
+        drop_nonpositive_tradable_bars: bool = False,
     ) -> None:
         self.commission_bps = commission_bps
         self.data_start = data_start
@@ -79,6 +83,17 @@ class BenchmarkRunner:
         self.out_of_sample_end = out_of_sample_end
         self.initial_cash = initial_cash
         self.strict_feed = strict_feed
+        # Session 2J S2J-2.6: opt-in anomaly filter. Drops tradable rows whose
+        # any tradable column is ``<= 0`` or ``NaN`` (e.g. 2020-04-20 WTI's
+        # negative settlement, Thanksgiving NaN gaps in futures data). Default
+        # off — the runner's strict-positive contract is preserved. The
+        # ``commodity --feed real`` regen path turns it on; see
+        # ``docs/known-data-anomalies.md``.
+        self.drop_nonpositive_tradable_bars = drop_nonpositive_tradable_bars
+        # Populated by ``_apply_anomaly_filter`` and surfaced into the
+        # benchmark result by ``run_single``. ``enabled=False`` for runs with
+        # the filter off; ``enabled=True`` records what the filter dropped.
+        self.last_anomaly_filter: dict[str, Any] = {"enabled": False}
 
     def run_single(
         self,
@@ -101,6 +116,14 @@ class BenchmarkRunner:
         """
         if family is None:
             family, slug = discovery.find_strategy(slug)
+
+        # Reset the anomaly-filter audit at the start of each run so a stale
+        # value from a prior ``run_single`` on this same runner instance can't
+        # leak into this run's result JSON. Important when the caller supplies
+        # ``prices=...`` directly (no ``_fetch_prices`` → no filter call), and
+        # for any reuse pattern (e.g. cluster analysis iterating a single
+        # runner over many strategies). Caught by CodeRabbit on PR #22 S2J-2.7.
+        self.last_anomaly_filter = {"enabled": False}
 
         strategy = discovery.instantiate(family, slug)
         config = discovery.load_config(family, slug)
@@ -173,6 +196,14 @@ class BenchmarkRunner:
             "transaction_costs_assumed_bps": self.commission_bps,
             "commit_sha": _get_commit_sha(),
             "engine": "vectorbt",
+            # Anomaly filter audit trail (Session 2J S2J-2.6). Present only when
+            # the filter was enabled — keeps the v0.2.1 / v0.2.0 schema clean
+            # for runs that didn't opt in. See docs/known-data-anomalies.md.
+            **(
+                {"anomaly_filter": self.last_anomaly_filter}
+                if self.last_anomaly_filter.get("enabled")
+                else {}
+            ),
         }
         return result
 
@@ -225,94 +256,169 @@ class BenchmarkRunner:
         tradable_set = set(tradable)
         return [s for s in universe if s not in tradable_set]
 
-    def _fetch_prices(self, universe: list[str], strategy: object | None = None) -> pd.DataFrame:
-        """Fetch a price panel for ``universe``, routing per feed.
+    @staticmethod
+    def _resolve_feed(symbol: str, role: Literal["tradable", "informational"]) -> str:
+        """Map ``symbol`` to a ``FeedRegistry``-registered adapter name.
 
-        If ``strategy`` declares informational (non-tradable) columns, those
-        are fetched from FRED and the tradable columns from yfinance, then
-        aligned (FRED reindexed onto the daily tradable index and
-        forward-filled) and merged. Otherwise the whole universe takes the
-        single-feed (yfinance → fixture) path. See ``strict_feed``.
+        Within-role pattern dispatch. The runner has already classified every
+        symbol as tradable or informational via the Session 2G informational-
+        column pattern (see ``_informational_columns``), so the pattern only
+        needs to disambiguate **within** each role — there is no risk of, e.g.,
+        an ETF ticker being mistaken for a FRED series ID, because they arrive
+        here already separated by role.
+
+        Rules:
+
+        * **Tradable**
+          * ``"...=F"`` (Yahoo futures suffix) → ``"yfinance-futures"``
+          * everything else (ETFs, equities) → ``"yfinance"``
+        * **Informational**
+          * ``"..._NET_SPEC"`` (CFTC COT net-speculator positioning) → ``"cftc-cot"``
+          * everything else (FRED series IDs) → ``"fred"``
+
+        A future strategy that needs to break the convention — e.g. an
+        EIA-anchored commodity using non-suffixed series IDs — can either
+        extend the patterns here or carry an explicit strategy-side override
+        (a ``feed_map`` property hooked in above this dispatcher). YAGNI today;
+        the seam is intentional.
         """
-        informational = self._informational_columns(strategy, universe)
-        if not informational:
-            return self._fetch_feed(universe, "yfinance", self._yfinance_fetch)
+        if role == "tradable":
+            return "yfinance-futures" if symbol.endswith("=F") else "yfinance"
+        return "cftc-cot" if symbol.endswith("_NET_SPEC") else "fred"
 
-        tradable = [s for s in universe if s not in set(informational)]
-        etf = self._fetch_feed(tradable, "yfinance", self._yfinance_fetch)
-        fred = self._fetch_feed(informational, "fred", self._fred_fetch)
+    def _fetch_prices(self, universe: list[str], strategy: object | None = None) -> pd.DataFrame:
+        """Fetch a price panel for ``universe``, routing each symbol per feed.
 
-        # Align FRED (native freq, e.g. monthly CPI / quarterly GDP / daily
-        # yields) onto the daily tradable index via an as-of forward-fill: each
-        # daily bar takes the most recent FRED observation on-or-before it.
-        #
-        # Implementation: reindex onto the *union* of both indices, value-based
-        # ``ffill``, then select the tradable index. This is required (over a
-        # plain ``reindex(method="ffill")``) for two reasons the real feed
-        # exposes but clean fixtures hide:
-        #   1. The adapter assembles mixed-frequency series into one DataFrame
-        #      (``pd.DataFrame({id: get_series(...)})``), so a quarterly series
-        #      (GDPC1) lands on the monthly/union index with internal NaN on its
-        #      off-quarter rows, and a daily yield series (DGS10) carries NaN on
-        #      market holidays. ``reindex(method="ffill")`` is *index*-based and
-        #      keeps those in-place NaN, poisoning the merged panel; a
-        #      *value*-based ``ffill`` skips them.
-        #   2. FRED obs dated on the 1st of the month/quarter are frequently
-        #      weekends, absent from the business-day index — folding them into
-        #      the union before ffill carries them onto the following bdays.
-        # No back-fill: that would inject look-ahead. Trailing publication lag
-        # is handled honestly by ffill (the last observed value is the best
-        # as-of estimate); reference-period dating means publication-lag
-        # shifting remains the strategy's concern (.shift), not the runner's.
-        union_index = etf.index.union(fred.index)
-        fred_aligned = fred.sort_index().reindex(union_index).ffill().reindex(etf.index)
-        merged = pd.concat([etf, fred_aligned], axis=1)
-        merged = merged.loc[:, universe]
+        Each universe symbol is classified as tradable or informational by the
+        Session 2G ``_informational_columns`` pattern, then routed to a
+        ``FeedRegistry``-registered adapter via ``_resolve_feed`` (within-role
+        ticker patterns: ``=F`` → yfinance-futures, ``_NET_SPEC`` → cftc-cot;
+        defaults to yfinance / fred respectively). Symbols sharing a feed are
+        fetched in one adapter call. The tradable panel is concatenated
+        horizontally; the informational panel(s) are union-aligned and
+        value-based-ffilled onto the tradable business-day index (the S2I-1.5
+        as-of fill that handles mixed-frequency and holiday NaN), then merged.
 
-        # Trim leading rows where any column is still NaN (warm-up before the
-        # first observation of some column), so the strategy/bridge never see a
-        # non-finite value. The value-based ffill above guarantees no mid-panel
-        # or trailing gaps, so all remaining incompleteness is leading.
+        Behaviour preserved from Session 2I: ``strict_feed`` controls fail-loud
+        vs deterministic-fixture fallback, the leading-NaN trim removes warm-up,
+        and ``_validate_feed_values`` enforces the tradable-> 0 / informational-
+        finite contract. Strategies without informational columns return their
+        tradable panel as-is (no validation, matching the pre-S2J single-feed
+        path used by every ETF-only and yfinance-real benchmark).
+        """
+        # Expand the fetch target to the strategy's full required column set.
+        # Regime strategies' ``config.universe`` already contains every column
+        # they read (tradable + informational), so this is a no-op for them.
+        # ``cot_speculator_position`` only lists tradable futures in
+        # ``config.universe``; its informational ``*_NET_SPEC`` columns live in
+        # a separate config field and are surfaced via ``required_symbols``.
+        # Using the union preserves caller-defined column order while
+        # appending any informational columns the strategy needs.
+        tradable_decl = getattr(strategy, "tradable_symbols", None)
+        required_decl = getattr(strategy, "required_symbols", None)
+        if tradable_decl and required_decl:
+            full_universe = list(dict.fromkeys([*universe, *required_decl]))
+        else:
+            full_universe = list(universe)
+
+        informational_set = set(self._informational_columns(strategy, full_universe))
+        tradable_symbols = [s for s in full_universe if s not in informational_set]
+        informational_symbols = [s for s in full_universe if s in informational_set]
+
+        # Tradable: group by resolved feed; one adapter call per feed; concat.
+        tradable_by_feed: dict[str, list[str]] = {}
+        for s in tradable_symbols:
+            tradable_by_feed.setdefault(self._resolve_feed(s, "tradable"), []).append(s)
+        tradable_parts = [self._fetch_feed(syms, feed) for feed, syms in tradable_by_feed.items()]
+        tradable_df = (
+            pd.concat(tradable_parts, axis=1).sort_index()
+            if len(tradable_parts) > 1
+            else tradable_parts[0]
+        )
+
+        if not informational_symbols and len(tradable_parts) == 1:
+            # Single-feed path (no informational, one tradable feed):
+            # byte-identical to the pre-S2J shortcut for ETF-only /
+            # yfinance-real benchmarks when the anomaly filter is off
+            # (default). With the filter on, applies the silent leading-trim +
+            # mid-panel anomaly drop. Multi-feed tradable panels fall through
+            # to the explicit trim/validate path below.
+            tradable_df = self._apply_anomaly_filter(tradable_df, tradable_symbols)
+            return tradable_df
+
+        if not informational_symbols:
+            # Multi-feed tradable, no informational: still go through the
+            # leading-trim + ``_validate_feed_values`` path. There is no
+            # informational alignment to do; ``tradable_df`` is already the
+            # concatenated panel.
+            merged = tradable_df.loc[:, full_universe]
+            complete = merged.notna().all(axis=1)
+            if not complete.any():
+                raise ValueError(f"no rows where all of {full_universe} are simultaneously present")
+            merged = merged.loc[complete.idxmax() :]
+            merged = self._apply_anomaly_filter(merged, tradable_symbols)
+            self._validate_feed_values(merged, informational_symbols)
+            return merged
+
+        # Informational: group by resolved feed; one adapter call per feed.
+        informational_by_feed: dict[str, list[str]] = {}
+        for s in informational_symbols:
+            informational_by_feed.setdefault(self._resolve_feed(s, "informational"), []).append(s)
+        informational_parts = [
+            self._fetch_feed(syms, feed) for feed, syms in informational_by_feed.items()
+        ]
+        informational_df = (
+            pd.concat(informational_parts, axis=1).sort_index()
+            if len(informational_parts) > 1
+            else informational_parts[0].sort_index()
+        )
+
+        # Align informational onto the tradable business-day index via an as-of
+        # forward-fill — value-based ``ffill`` over the union index so quarterly
+        # GDPC1 / monthly CPI / weekly CFTC observations + holiday NaN in daily
+        # yield series are all skipped properly. See the 2026-05-22 amendment.
+        union_index = tradable_df.index.union(informational_df.index)
+        informational_aligned = (
+            informational_df.reindex(union_index).ffill().reindex(tradable_df.index)
+        )
+
+        merged = pd.concat([tradable_df, informational_aligned], axis=1)
+        merged = merged.loc[:, full_universe]
+
+        # Trim leading warm-up rows; the value-based ffill above guarantees no
+        # mid-panel or trailing gaps, so all incompleteness is leading.
         complete = merged.notna().all(axis=1)
         if not complete.any():
-            raise ValueError(f"no rows where all of {universe} are simultaneously present")
+            raise ValueError(f"no rows where all of {full_universe} are simultaneously present")
         merged = merged.loc[complete.idxmax() :]
 
-        self._validate_feed_values(merged, informational)
-        return cast(pd.DataFrame, merged)
+        merged = self._apply_anomaly_filter(merged, tradable_symbols)
+        self._validate_feed_values(merged, informational_symbols)
+        return merged
 
-    def _yfinance_fetch(self, symbols: list[str]) -> pd.DataFrame:
-        from alphakit.data.equities.yfinance_adapter import YFinanceAdapter
+    def _fetch_feed(self, symbols: list[str], feed_name: str) -> pd.DataFrame:
+        """Dispatch one fetch via ``FeedRegistry``, honouring ``strict_feed``.
 
-        return YFinanceAdapter().fetch(
-            symbols=symbols,
-            start=datetime.fromisoformat(self.data_start),
-            end=datetime.fromisoformat(self.out_of_sample_end),
-        )
+        Replaces the pre-S2J hardcoded ``_yfinance_fetch`` / ``_fred_fetch``
+        helpers: the feed name comes from ``_resolve_feed`` and the adapter
+        from ``FeedRegistry.get(name)``. ``strict_feed=True`` re-raises any
+        real-feed failure (missing package, unconfigured key, offline, network,
+        empty result); ``strict_feed=False`` falls back to deterministic
+        fixtures (CI/test-safe).
 
-    def _fred_fetch(self, symbols: list[str]) -> pd.DataFrame:
-        from alphakit.data.rates.fred_adapter import FREDAdapter
-
-        return FREDAdapter().fetch(
-            symbols=symbols,
-            start=datetime.fromisoformat(self.data_start),
-            end=datetime.fromisoformat(self.out_of_sample_end),
-        )
-
-    def _fetch_feed(
-        self,
-        symbols: list[str],
-        feed_name: str,
-        real_fetch: Callable[[list[str]], pd.DataFrame],
-    ) -> pd.DataFrame:
-        """Fetch ``symbols`` from a real feed, or fixtures per ``strict_feed``.
-
-        ``strict_feed=True`` re-raises any real-feed failure (missing package,
-        unconfigured key, offline, network, empty result). ``strict_feed=False``
-        falls back to deterministic fixtures (CI/test-safe).
+        ``FeedRegistry.get`` is resolved **outside** the strict_feed try: a
+        missing adapter registration is a wiring bug (the router pointed at a
+        feed nobody registered), not a real-feed failure, and must surface as
+        a ``KeyError`` regardless of ``strict_feed`` rather than be silently
+        masked by the fixture fallback. Review request on PR #22.
         """
+        adapter = FeedRegistry.get(feed_name)
         try:
-            df = real_fetch(symbols)
+            df = adapter.fetch(
+                symbols=symbols,
+                start=datetime.fromisoformat(self.data_start),
+                end=datetime.fromisoformat(self.out_of_sample_end),
+            )
             if df.empty:
                 raise RuntimeError(f"{feed_name!r} returned an empty DataFrame")
             return df
@@ -361,3 +467,82 @@ class BenchmarkRunner:
                 "columns and so requires every tradable column to be strictly "
                 "positive"
             )
+
+    def _apply_anomaly_filter(self, panel: pd.DataFrame, tradable_cols: list[str]) -> pd.DataFrame:
+        """Drop rows with non-positive or NaN values in any tradable column.
+
+        Off by default; opt-in via ``drop_nonpositive_tradable_bars=True``.
+        Singleton historical anomalies that would otherwise violate the bridge
+        ``order.price > 0`` invariant — e.g. the 2020-04-20 WTI -$37.63
+        settlement, Thanksgiving NaN gaps in futures continuous contracts —
+        are dropped here so the bridge sees only investable bars. Each
+        mid-panel drop is logged with its classification ("missing data" /
+        "negative price" / "mixed") and the dropped dates are surfaced via
+        ``self.last_anomaly_filter`` for inclusion in the benchmark JSON
+        (``run_single`` mirrors them into ``result["anomaly_filter"]``). See
+        ``docs/known-data-anomalies.md``.
+
+        The filter silently trims any **leading** invalid block (pre-inception
+        warm-up for a tradable ticker) — that's the same warm-up the
+        multi-feed path's existing leading-trim removes — and only logs
+        **mid-panel** drops, so the audit trail stays signal-noise free.
+        """
+        if not self.drop_nonpositive_tradable_bars or not tradable_cols:
+            self.last_anomaly_filter = {"enabled": False}
+            return panel
+
+        tradable = panel[tradable_cols]
+        valid = (tradable.notna() & (tradable > 0)).all(axis=1)
+        if not valid.any():
+            self.last_anomaly_filter = {
+                "enabled": True,
+                "bars_dropped": 0,
+                "dropped_dates": [],
+            }
+            raise ValueError(
+                f"anomaly filter found no valid rows in tradable columns "
+                f"{tradable_cols}; every bar has a non-positive or NaN tradable value"
+            )
+
+        first_valid = valid.idxmax()
+        panel_post = panel.loc[first_valid:]
+        valid_post = valid.loc[first_valid:]
+        tradable_post = tradable.loc[first_valid:]
+
+        dropped_idx = panel_post.index[~valid_post]
+        dropped_dates_str: list[str] = []
+        log_lines: list[str] = []
+        for date_ts in dropped_idx:
+            row = tradable_post.loc[date_ts]
+            nan_cols = [c for c in tradable_cols if pd.isna(row[c])]
+            neg_cols = [c for c in tradable_cols if not pd.isna(row[c]) and row[c] <= 0]
+            if nan_cols and not neg_cols:
+                classification = f"NaN in {', '.join(nan_cols)} (missing data)"
+            elif neg_cols and not nan_cols:
+                worst_col = min(neg_cols, key=lambda c: float(row[c]))
+                classification = f"{float(row[worst_col]):.2f} in {worst_col} (negative price)"
+            else:
+                parts: list[str] = []
+                if nan_cols:
+                    parts.append(f"NaN in {', '.join(nan_cols)}")
+                if neg_cols:
+                    worst_col = min(neg_cols, key=lambda c: float(row[c]))
+                    parts.append(f"{float(row[worst_col]):.2f} in {worst_col}")
+                classification = " + ".join(parts) + " (mixed)"
+            date_str = pd.Timestamp(date_ts).strftime("%Y-%m-%d")
+            dropped_dates_str.append(date_str)
+            log_lines.append(f"  {date_str}: {classification}")
+
+        if log_lines:
+            _logger.warning(
+                "Dropped %d tradable-anomaly bar(s):\n%s",
+                len(log_lines),
+                "\n".join(log_lines),
+            )
+
+        self.last_anomaly_filter = {
+            "enabled": True,
+            "bars_dropped": len(dropped_dates_str),
+            "dropped_dates": dropped_dates_str,
+        }
+        return cast(pd.DataFrame, panel_post.loc[valid_post])

@@ -17,18 +17,32 @@ Honest scope (v0.2.0 default, ``--feed synthetic``): regime-state strategies
 GBM on synthetic fixtures, so their *signal* is degenerate there and their
 cluster correlations are NOT meaningfully captured.
 
-Session 2I (``--feed real``): the 5 FRED-gated regime strategies are run through
-the multi-feed ``BenchmarkRunner(strict_feed=True)`` against real yfinance+FRED
-data, and their 5x5 pairwise ρ is reported against the Session 2G
-``known_failures.md`` predictions. This requires ``FRED_API_KEY`` + ``fredapi``.
-The real regime curves are NOT pooled with the 47 synthetic curves — a real-feed
-ρ and a synthetic-fixture ρ are computed on different price bases and are not
-apples-to-apples.
+Session 2I (``--feed real`` with FRED-gated regime): the 5 regime strategies are
+run through the multi-feed ``BenchmarkRunner(strict_feed=True)`` against real
+yfinance+FRED data, and their 5x5 pairwise ρ is reported against the Session 2G
+``known_failures.md`` predictions.
+
+Session 2J (``--feed real`` now 11x11): adds the 6 commodity real-feed strategies
+(commodity_tsmom, crack_spread, crush_spread, grain_seasonality, metals_momentum,
+wti_brent_spread) routed via yfinance-futures, with the anomaly filter
+(``drop_nonpositive_tradable_bars=True``) enabled so the 2020-04-20 WTI -$37.63
+settlement and Thanksgiving NaN bars are excluded — matching the configuration
+used by ``regenerate_benchmarks.py commodity --feed real``. The cluster output
+covers:
+
+* 5x5 regime intra-family (predicted vs actual, Session 2G predictions);
+* 6x6 commodity intra-family (predicted vs actual where documented, ``n/a``
+  otherwise — 6 of 15 pairs have explicit predictions in known_failures.md);
+* 5x6 cross-family (descriptive — predictions are sparse).
+
+Requires ``FRED_API_KEY`` + ``fredapi`` (for the 5 regime strategies) and
+``yfinance`` (for the 6 commodity strategies). The real curves are NOT pooled
+with the 47 synthetic curves — different price bases are not apples-to-apples.
 
 Usage:
     uv run --extra dev python scripts/cluster_analysis.py                # synthetic 49x49
     uv run --with fredapi --with yfinance --extra dev \
-        python scripts/cluster_analysis.py --feed real                  # real 5x5 regime
+        python scripts/cluster_analysis.py --feed real                  # real 11x11
 """
 
 from __future__ import annotations
@@ -74,9 +88,10 @@ _REGIME_SLUGS = [
     "inflation_regime_allocation",
 ]
 
-# Session 2G predicted pairwise ρ ranges (from each strategy's known_failures.md
-# §"Cluster correlation with sibling strategies"). Keyed by unordered pair. The
-# recession↔yield_curve pair is the deliberate-redundancy pair (highest band).
+# Session 2G predicted pairwise ρ ranges (from each regime strategy's
+# known_failures.md §"Cluster correlation with sibling strategies"). Keyed by
+# unordered pair. The recession↔yield_curve pair is the deliberate-redundancy
+# pair (highest band).
 _PREDICTED_RHO: dict[frozenset[str], tuple[float, float]] = {
     frozenset({"recession_probability_rotation", "yield_curve_regime_allocation"}): (0.50, 0.70),
     frozenset({"recession_probability_rotation", "growth_inflation_regime_rotation"}): (0.40, 0.60),
@@ -88,6 +103,32 @@ _PREDICTED_RHO: dict[frozenset[str], tuple[float, float]] = {
     frozenset({"yield_curve_regime_allocation", "fed_policy_tilt"}): (0.40, 0.60),
     frozenset({"yield_curve_regime_allocation", "inflation_regime_allocation"}): (0.30, 0.50),
     frozenset({"fed_policy_tilt", "inflation_regime_allocation"}): (0.30, 0.50),
+}
+
+# Session 2J commodity real-feed slugs (6 front-month strategies; 3 yfinance
+# second-month-blocked are amendment-deferred; cot_speculator_position is
+# Session 2K-deferred — see docs/known-data-anomalies.md).
+_COMMODITY_REAL_SLUGS = [
+    "commodity_tsmom",
+    "crack_spread",
+    "crush_spread",
+    "grain_seasonality",
+    "metals_momentum",
+    "wti_brent_spread",
+]
+
+# Session 2E commodity predicted pairwise ρ — only 6 of the 15 in-scope pairs
+# carry explicit predictions in their §6 ``Cluster correlation`` sections; the
+# other 9 are scored ``n/a`` in the output. The
+# ``commodity_tsmom↔metals_momentum`` (0.75-0.90) pair is the documented
+# deliberate-redundancy / borderline-cluster pair (Session 2E acknowledged).
+_PREDICTED_COMMODITY_RHO: dict[frozenset[str], tuple[float, float]] = {
+    frozenset({"commodity_tsmom", "metals_momentum"}): (0.75, 0.90),
+    frozenset({"commodity_tsmom", "grain_seasonality"}): (0.20, 0.40),
+    frozenset({"crack_spread", "crush_spread"}): (0.00, 0.10),
+    frozenset({"crack_spread", "wti_brent_spread"}): (0.10, 0.30),
+    frozenset({"crush_spread", "wti_brent_spread"}): (0.00, 0.10),
+    frozenset({"crush_spread", "grain_seasonality"}): (0.10, 0.20),
 }
 
 # Documented deliberate-redundancy pairs to report explicitly (from known_failures.md).
@@ -136,12 +177,35 @@ def _require_fred_real() -> None:
         ) from exc
 
 
+def _require_commodity_real() -> None:
+    """Fail loud if commodity ``--feed real`` prerequisites are missing.
+
+    Only yfinance is checked — yfinance-futures uses the same library, and the
+    cftc-cot adapter is not exercised by the 6 in-scope commodity strategies
+    (cot_speculator_position is Session 2K-deferred). Anomaly filter handling
+    of the 2020-04-20 WTI negative bar is the runner's responsibility.
+    """
+    try:
+        import yfinance  # noqa: F401
+    except ImportError as exc:
+        raise SystemExit(
+            "ERROR: --feed real (commodity portion) requires the yfinance "
+            "package, which is not importable. Re-run with it, e.g.:\n"
+            "    uv run --with fredapi --with yfinance --extra dev "
+            "python scripts/cluster_analysis.py --feed real\n"
+            f"(import error: {exc})"
+        ) from exc
+
+
 def _regime_real_returns(slug: str) -> pd.Series | None:
     """Daily-return series for one regime strategy on real yfinance+FRED data.
 
     Routes through the multi-feed ``BenchmarkRunner(strict_feed=True)`` fetch
     (tradable columns from yfinance, informational FRED columns from FRED), so
     the regime signal is driven by real macro data rather than degenerate GBM.
+    Matches the configuration used by ``regenerate_benchmarks.py tier2
+    --feed real`` so the cluster correlations are comparable to the committed
+    v0.2.1 benchmark JSONs.
     """
     try:
         strategy = discovery.instantiate("macro", slug)
@@ -160,52 +224,147 @@ def _regime_real_returns(slug: str) -> pd.Series | None:
         return None
 
 
-def _real_regime_cluster() -> int:
-    """Compute and report the 5x5 real-feed regime ρ vs Session 2G predictions."""
-    _require_fred_real()
+def _commodity_real_returns(slug: str) -> pd.Series | None:
+    """Daily-return series for one commodity strategy on real yfinance-futures.
 
-    series: dict[str, pd.Series] = {}
-    for slug in _REGIME_SLUGS:
-        ret = _regime_real_returns(slug)
-        if ret is not None:
-            series[slug] = ret
-    if len(series) < 2:
-        print("ERROR: fewer than 2 real regime curves computed; cannot correlate.")
-        return 1
+    Routes through the per-role feed router (``=F`` → yfinance-futures) with the
+    anomaly filter ON (``drop_nonpositive_tradable_bars=True``) so the
+    2020-04-20 WTI -$37.63 settlement and Thanksgiving NaN gaps are excluded —
+    matches the configuration used by ``regenerate_benchmarks.py commodity
+    --feed real`` so the cluster correlations are comparable to the committed
+    v0.2.2 commodity benchmark JSONs.
+    """
+    try:
+        strategy = discovery.instantiate("commodity", slug)
+        universe = list(discovery.load_config("commodity", slug)["universe"])
+        runner = BenchmarkRunner(
+            data_start=_DATA_START,
+            in_sample_end=_IN_SAMPLE_END,
+            out_of_sample_end=_DATA_END,
+            strict_feed=True,
+            drop_nonpositive_tradable_bars=True,
+        )
+        prices = runner._fetch_prices(universe, strategy=strategy)
+        result = vectorbt_bridge.run(strategy=strategy, prices=prices)
+        return cast(pd.Series, result.returns.rename(slug))
+    except Exception as exc:
+        print(f"  WARN commodity/{slug} (real feed): {exc}")
+        return None
 
-    rets = pd.DataFrame(series).dropna(how="all")
-    corr = rets.corr()
-    print(
-        f"\nReal-feed (yfinance+fred) regime cluster — {len(corr)}x{len(corr)} ρ "
-        f"({len(rets)} aligned bars).\n"
-    )
-    print(corr.round(3).to_string())
 
-    print("\nPredicted (Session 2G) vs actual ρ:")
-    slugs = list(corr.columns)
+def _report_intra_family(
+    corr: pd.DataFrame,
+    slugs: list[str],
+    predictions: dict[frozenset[str], tuple[float, float]],
+    label: str,
+) -> tuple[int, int]:
+    """Print a sorted predicted-vs-actual table for one intra-family block.
+
+    Returns ``(in_range_count, documented_pair_count)`` — i.e. how many pairs
+    with documented predictions land inside their predicted band, out of the
+    pairs that have a prediction at all (``n/a`` pairs are excluded from both
+    numerator and denominator).
+    """
+    print(f"\n{label} — predicted vs actual ρ:")
     rows: list[tuple[float, str]] = []
     in_range = 0
-    total = 0
+    documented = 0
     for i in range(len(slugs)):
         for j in range(i + 1, len(slugs)):
             a, b = slugs[i], slugs[j]
-            rho = float(corr.iloc[i, j])
-            total += 1
-            pred = _PREDICTED_RHO.get(frozenset({a, b}))
+            rho = float(corr.loc[a, b])
+            pred = predictions.get(frozenset({a, b}))
             if pred is None:
                 rows.append((rho, f"  [?? ] {rho:+.3f}  pred  n/a       {a} <-> {b}"))
                 continue
             lo, hi = pred
+            documented += 1
             ok = lo <= rho <= hi
             in_range += int(ok)
             flag = "OK " if ok else "OUT"
             rows.append((rho, f"  [{flag}] {rho:+.3f}  pred {lo:.2f}-{hi:.2f}  {a} <-> {b}"))
     for _, row in sorted(rows, reverse=True):
         print(row)
+    if documented:
+        print(f"\n{in_range}/{documented} documented pairs within predicted range.")
+    return in_range, documented
+
+
+def _report_cross_family(
+    corr: pd.DataFrame, group_a: list[str], group_b: list[str], label: str
+) -> None:
+    """Print the cross-family ``len(a) × len(b)`` pairs, sorted descending by ρ.
+
+    Cross-family predictions are sparse to non-existent — this block is
+    descriptive only (no OK/OUT flags), surfacing the strongest cross-family
+    co-movements for narrative discussion in the closeout.
+    """
+    print(f"\n{label} — descriptive (no formal prediction baseline):")
+    rows: list[tuple[float, str]] = []
+    for a in group_a:
+        for b in group_b:
+            rho = float(corr.loc[a, b])
+            rows.append((rho, f"  {rho:+.3f}  {a} <-> {b}"))
+    for _, row in sorted(rows, reverse=True):
+        print(row)
+
+
+def _real_cluster() -> int:
+    """Compute and report the 11x11 real-feed cluster (5 regime + 6 commodity).
+
+    Single combined correlation matrix; output split into regime-intra,
+    commodity-intra, and regime×commodity cross-family blocks.
+    """
+    _require_fred_real()
+    _require_commodity_real()
+
+    series: dict[str, pd.Series] = {}
+    for slug in _REGIME_SLUGS:
+        ret = _regime_real_returns(slug)
+        if ret is not None:
+            series[slug] = ret
+    for slug in _COMMODITY_REAL_SLUGS:
+        ret = _commodity_real_returns(slug)
+        if ret is not None:
+            series[slug] = ret
+    if len(series) < 2:
+        print("ERROR: fewer than 2 real curves computed; cannot correlate.")
+        return 1
+
+    rets = pd.DataFrame(series).dropna(how="all")
+    corr = rets.corr()
+    print(
+        f"\nReal-feed (yfinance+fred + yfinance-futures) cluster — "
+        f"{len(corr)}x{len(corr)} ρ ({len(rets)} aligned bars).\n"
+    )
+    print(corr.round(3).to_string())
+
+    regime_in_corr = [s for s in _REGIME_SLUGS if s in corr.columns]
+    commodity_in_corr = [s for s in _COMMODITY_REAL_SLUGS if s in corr.columns]
+
+    regime_in_range, regime_documented = _report_intra_family(
+        corr, regime_in_corr, _PREDICTED_RHO, "Regime intra-family (Session 2G predictions)"
+    )
+    commodity_in_range, commodity_documented = _report_intra_family(
+        corr,
+        commodity_in_corr,
+        _PREDICTED_COMMODITY_RHO,
+        "Commodity intra-family (Session 2E predictions)",
+    )
+    if regime_in_corr and commodity_in_corr:
+        _report_cross_family(
+            corr, regime_in_corr, commodity_in_corr, "Cross-family (regime × commodity)"
+        )
 
     tri = corr.to_numpy()[np.triu_indices(len(corr), 1)]
     max_rho = float(np.nanmax(tri))
-    print(f"\n{in_range}/{total} pairs within the Session 2G predicted range.")
+    total_documented = regime_documented + commodity_documented
+    total_in_range = regime_in_range + commodity_in_range
+    print(
+        f"\nOverall: {total_in_range}/{total_documented} documented pairs in range "
+        f"(regime {regime_in_range}/{regime_documented}, "
+        f"commodity {commodity_in_range}/{commodity_documented})."
+    )
     print(
         f"Mean |ρ|: {np.nanmean(np.abs(tri)):.3f}   Max ρ: {max_rho:+.3f}   "
         f"dedup-review bar (ρ > 0.95): {'BREACHED' if max_rho > 0.95 else 'clear'}"
@@ -270,13 +429,15 @@ def main() -> int:
         "--feed",
         choices=["synthetic", "real"],
         default="synthetic",
-        help="'synthetic' (default): 49x49 fixture-basis matrix. 'real': 5x5 "
-        "real-feed (yfinance+FRED) regime cluster vs Session 2G predictions "
-        "(needs FRED_API_KEY + fredapi).",
+        help="'synthetic' (default): 49x49 fixture-basis matrix. 'real': 11x11 "
+        "real-feed cluster (5 regime via yfinance+FRED + 6 commodity via "
+        "yfinance-futures) with intra-family OK/OUT vs Session 2G/2E "
+        "predictions and a regime×commodity cross-family block. Needs "
+        "FRED_API_KEY + fredapi + yfinance.",
     )
     args = parser.parse_args()
     if args.feed == "real":
-        return _real_regime_cluster()
+        return _real_cluster()
     return _synthetic_cluster()
 
 

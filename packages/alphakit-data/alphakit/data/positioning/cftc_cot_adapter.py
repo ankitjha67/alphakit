@@ -1,10 +1,11 @@
 """CFTC Commitments of Traders (COT) weekly positioning adapter.
 
 Downloads the CFTC legacy COT weekly report as a year-sized ZIP from
-``https://www.cftc.gov/dea/newcot/``, extracts the embedded CSV, filters
-by market code and date range, and reshapes into a long-format frame
-suitable for strategies that trade off speculator / commercial
-positioning.
+``https://www.cftc.gov/files/dea/history/`` (the new archive location; CFTC
+retired the prior ``/dea/newcot/`` path in 2024+), extracts the embedded
+``annual.txt`` CSV, filters by market code and date range, and reshapes into
+a long-format frame suitable for strategies that trade off speculator /
+commercial positioning.
 
 * :func:`alphakit.data.cache.cached_feed` — 7-day parquet cache (COT
   publishes weekly every Friday for data as of the previous Tuesday;
@@ -33,7 +34,6 @@ import contextlib
 import io
 import zipfile
 from datetime import datetime
-from urllib.request import urlopen
 
 import pandas as pd
 from alphakit.core.data import OptionChain
@@ -45,17 +45,24 @@ from alphakit.data.rate_limit import acquire as ratelimit_acquire
 from alphakit.data.registry import FeedRegistry
 
 _CACHE_TTL_SECONDS = 604_800  # 7 days — COT is weekly
-_COT_URL_TEMPLATE = "https://www.cftc.gov/dea/newcot/deacot{year}.zip"
-_URLOPEN_TIMEOUT_SECONDS = 60.0
+# CFTC moved the legacy COT archive in 2024+ from /dea/newcot/ to
+# /files/dea/history/; the old ``dea/newcot`` path now returns 404. Verified
+# empirically on PR #22 S2J-2.6 (and one HEAD probe in S2J-2.5).
+_COT_URL_TEMPLATE = "https://www.cftc.gov/files/dea/history/deacot{year}.zip"
+_REQUEST_TIMEOUT_SECONDS = 60.0
 
-# Legacy COT column headers. These names are stable across reports
-# going back many years.
-_COL_DATE = "Report_Date_as_YYYY-MM-DD"
-_COL_MARKET = "CFTC_Contract_Market_Code"
-_COL_NC_LONG = "NonComm_Positions_Long_All"
-_COL_NC_SHORT = "NonComm_Positions_Short_All"
-_COL_COMM_LONG = "Comm_Positions_Long_All"
-_COL_COMM_SHORT = "Comm_Positions_Short_All"
+# COT column headers from the new ``/files/dea/history/`` archive (used since
+# the pre-S2J ``/dea/newcot/`` archive was retired). The new layout's
+# ``annual.txt`` carries 129 columns; we read only these six. Names use
+# spaces (not the legacy underscore convention the pre-2025 adapter shipped
+# with) and stay constant across 2006-2024 in the new archive — verified by
+# probe on PR #22 S2J-2.8.
+_COL_DATE = "As of Date in Form YYYY-MM-DD"
+_COL_MARKET = "CFTC Contract Market Code"
+_COL_NC_LONG = "Noncommercial Positions-Long (All)"
+_COL_NC_SHORT = "Noncommercial Positions-Short (All)"
+_COL_COMM_LONG = "Commercial Positions-Long (All)"
+_COL_COMM_SHORT = "Commercial Positions-Short (All)"
 
 
 class CFTCCOTAdapter:
@@ -91,16 +98,35 @@ class CFTCCOTAdapter:
                 "or mock the adapter in tests."
             )
 
+        # Lazy ``requests`` import: ``urllib.request`` (the pre-S2J-2.5
+        # implementation) fails with ``CERTIFICATE_VERIFY_FAILED`` on Windows
+        # because Python's built-in SSL context isn't auto-configured with a CA
+        # bundle. ``requests`` ships with ``certifi`` and handles SSL correctly
+        # on every platform. Caught on PR #22 keyed regen.
+        try:
+            import requests
+        except ImportError as exc:
+            raise ImportError(
+                "requests is required for cftc-cot. Install with: "
+                "pip install 'alphakit-data[cftc-cot]'"
+            ) from exc
+
         frames: list[pd.DataFrame] = []
         for year in range(start.year, end.year + 1):
             ratelimit_acquire(self.name)
             url = _COT_URL_TEMPLATE.format(year=year)
-            with urlopen(url, timeout=_URLOPEN_TIMEOUT_SECONDS) as response:
-                zip_bytes: bytes = response.read()
+            response = requests.get(url, timeout=_REQUEST_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            zip_bytes: bytes = response.content
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
                 inner_name = zf.namelist()[0]
                 with zf.open(inner_name) as handle:
-                    frames.append(pd.read_csv(handle, dtype={_COL_MARKET: str}))
+                    # ``low_memory=False`` reads the file in one pass so pandas
+                    # can infer dtypes from the whole column rather than chunk-
+                    # by-chunk; suppresses the ``DtypeWarning`` on the ~12
+                    # mixed-type columns the new archive carries (none of which
+                    # we read — we slice to the 6 ``_COL_*`` columns).
+                    frames.append(pd.read_csv(handle, dtype={_COL_MARKET: str}, low_memory=False))
 
         combined = pd.concat(frames, ignore_index=True)
         combined[_COL_DATE] = pd.to_datetime(combined[_COL_DATE], format="%Y-%m-%d")
