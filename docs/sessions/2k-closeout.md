@@ -132,15 +132,18 @@ failures predictions of 0.50–0.75 anticipated sibling-strategy
 correlation but undershot the magnitude of the convergence on this
 specific universe.
 
-**Disposition**: documented finding, not a v0.2.2 blocker. The dedup-
-review bar is doing its job — it correctly surfaces the small-N
-convergence for explicit acknowledgment rather than letting three
-near-identical strategies ship without comment. **Phase 3
-candidate** (forward-listed in §10): scale the universe (e.g. 10
-assets across equities / rates / commodities) where the three
-solvers genuinely differ. The covariance-primitive sharing pattern
-itself is fine; it's the small-N universe that collapses the
-distinctions.
+**Disposition**: documented finding, not a v0.2.2 blocker. **The
+dedup-bar trip is the cluster analysis working correctly** — without
+the 29×29 keyed cluster, the macro-trio convergence would have been
+invisible (each strategy individually had a sensible Sharpe and
+their pairwise relationship was never previously measured at real-
+feed scale). The bar surfaces the methodological observation for
+explicit acknowledgment rather than letting three near-identical
+strategies ship without comment. **Phase 3 candidate** (forward-
+listed in §10): scale the universe (e.g. 10 assets across equities
+/ rates / commodities) where the three solvers genuinely differ.
+The covariance-primitive sharing pattern itself is fine; it's the
+small-N universe that collapses the distinctions.
 
 ### Second-headline: steepener ↔ flattener at ρ = 0.000 (not −1.0)
 
@@ -205,7 +208,7 @@ range. Other notable misses:
 |---|---|---|---|
 | `curve_steepener_2s10s` ↔ `curve_flattener_2s10s` | **+0.000** | −0.10 to +0.10 (corrected) | OK — binary-tail mechanic (see Second-headline above) |
 | `curve_flattener_2s10s` ↔ `bond_carry_rolldown` | **+0.883** | −0.50 to −0.30 | wrong-sign AND wrong-magnitude — bond_carry's slope-exposure component is mostly long-duration, so it co-moves with flattener (also long-duration) regardless of curve regime |
-| `bond_tsmom_12_1` ↔ `real_yield_momentum` | _filled by keyed run_ | 0.60–0.80 | mostly TLT exposure overlap |
+| `bond_tsmom_12_1` ↔ `real_yield_momentum` | **+0.363** | 0.60–0.80 | OUT (low) — TLT exposure overlap less concentrated than predicted; the momentum windows decouple them more than the universe overlap suggested |
 
 The wrong-sign on `flattener ↔ bond_carry_rolldown` is a similar
 mechanism to the steepener/flattener inconsistency: documented
@@ -218,19 +221,43 @@ pairs).
 ### Macro intra-family — 0/7 in range (all 7 OUT high)
 
 Every documented macro prediction undershot. The 3 covariance-trio
-pairs are the dedup-bar breach above; the other 4 documented pairs
-(permanent_portfolio overlaps + gtaa↔vigilant) all land **above**
-their predicted upper bound. Mechanism is similar to the trio: the
-6-strategy macro universe is small enough that strategies sharing
-even one asset (SPY, TLT, GLD) get more co-movement than the
-predictions anticipated.
+pairs are the dedup-bar breach above; the **off-trio cluster
+centres on `permanent_portfolio` as a magnet**:
 
-### Cross-family findings — 3 substantive observations
+| Pair | Actual ρ | Predicted | Status |
+|---|---|---|---|
+| `max_diversification` ↔ `permanent_portfolio` | **+0.775** | 0.40–0.60 | OUT (high) |
+| `risk_parity_erc_3asset` ↔ `permanent_portfolio` | **+0.771** | 0.60–0.75 | OUT (just above) |
+| `min_variance_gtaa` ↔ `permanent_portfolio` | **+0.757** | 0.50–0.70 | OUT (high) |
 
-* **Regime ↔ macro at ρ > 0.7** for the covariance-primitive trio.
-  GTAA + regime are **less diversified than benchmarks suggested**
-  — both families lean on broad ETF exposure (SPY/TLT) and the
-  shared underlying assets dominate the cross-family correlation.
+`permanent_portfolio` is a fixed-weight allocation strategy on a
+similar universe (SPY / TLT / DBC + gold) — so it tracks the same
+broad multi-asset macro factor that the three covariance-primitive
+solvers all extract from SPY/TLT/DBC. It correlates **+0.75 with
+each of the trio AND ρ > 0.7 with the regime strategies (see
+Cross-family below) — making it the project's single most-correlated
+strategy**.
+
+Mechanism for the rest of the family: the 6-strategy macro universe
+is small enough that strategies sharing even one asset (SPY, TLT,
+GLD) get more co-movement than the predictions anticipated.
+
+### Cross-family findings — 4 substantive observations
+
+* **`permanent_portfolio` is the project's cross-strategy magnet**
+  — correlates **+0.75 with each of the macro covariance-primitive
+  trio** (intra-family) AND **ρ > 0.7 with the regime strategies**
+  (cross-family). The most-correlated strategy in the project,
+  capturing the broad multi-asset macro factor that the regime
+  rotators + the covariance-solver portfolios all extract from
+  similar SPY/TLT-anchored universes. Whether to keep all four
+  (trio + permanent_portfolio) is a v0.2.3 portfolio-composition
+  question — at v0.2.2 they all ship with this finding documented.
+* **Regime ↔ macro at ρ > 0.7** for the covariance-primitive trio
+  (consistent with the magnet observation above). GTAA + regime
+  are **less diversified than benchmarks suggested** — both families
+  lean on broad ETF exposure (SPY/TLT) and the shared underlying
+  assets dominate the cross-family correlation.
 * **`commodity_tsmom` cross-family signal carries over** from S2J
   — `+0.154` with `growth_inflation_regime_rotation` is the
   largest regime × commodity pair, consistent with the S2J finding.
@@ -240,13 +267,18 @@ predictions anticipated.
   **independent factor exposure** to the cluster — the most
   diversification-positive new strategy in v0.2.2.
 
-### Calibration pattern across families
+### Four-way calibration pattern across families (substantively new in S2K-4)
 
-Three distinct prediction-vs-reality patterns emerge:
+The 29×29 expansion is the first time all four real-feed families
+have been measured against their own intra-family predictions
+simultaneously, and the result is **four distinct
+prediction-vs-reality patterns** — each with a different mechanism.
+This is forward-promoted as a §8 process lesson (see §8(h) below):
 
 * **Regime predictions UNDERSTATE** real co-movement (Sessions
   2I / 2J / 2K reproduce). Mechanism: synthetic fixtures couldn't
-  reproduce the diffuse macro-wide common factor.
+  reproduce the diffuse macro-wide common factor; shared FRED
+  inputs drive real ρ above predicted bands.
 * **Commodity predictions OVERSTATE** universe-overlap co-movement
   (Session 2J reproduces; S2K-1 cot prediction LANDS IN RANGE).
   Mechanism: risk-parity weighting dilutes universe overlap more
@@ -254,11 +286,19 @@ Three distinct prediction-vs-reality patterns emerge:
 * **Macro predictions UNDERSTATE** small-N convergence — all 7
   documented pairs above their predicted upper bound. Mechanism:
   shared covariance estimator on a 3-asset universe converges the
-  solvers more than the predictions anticipated.
-* **Rates predictions are wildly miscalibrated** — 1/11 in range,
-  multiple sign errors. Mechanism: the predictions imagined directional
-  bets but the implementations are mostly long-duration-biased,
-  carrying TLT exposure as a shared factor across the family.
+  solvers more than the predictions anticipated; the small-universe
+  size collapses the distinction between objectives.
+* **Rates predictions are miscalibrated** — 2/11 in range (after the
+  S2K-4 steepener/flattener correction); multiple sign errors
+  remain. Mechanism: the predictions imagined directional bets but
+  the binary-signal regime mechanic + curve-asymmetric long-duration
+  tilts dominate the realised correlations.
+
+The four mechanisms are independent — different families miss in
+different directions for different reasons. **There is no single
+prediction-calibration knob**; each family needs its own real-data
+calibration pass. Forward-listed in §10 as a Phase 3 candidate
+("per-family prediction-recalibration sessions").
 
 ### Summary
 
@@ -269,7 +309,7 @@ Three distinct prediction-vs-reality patterns emerge:
 | Documented predictions | 35 (10 regime + 7 commodity + 11 rates + 7 macro) |
 | Documented pairs in range | **9 of 35** (regime 5/10, commodity 2/7, rates 2/11, macro 0/7) — rates lift from 1/11 to 2/11 after the S2K-4 steepener/flattener prediction correction |
 | ρ > 0.95 dedup-bar breaches | **3** (all macro covariance-primitive trio — scenario (b), see headline) |
-| Largest off-trio ρ | _filled by keyed run_ |
+| Largest off-trio ρ | +0.775 (`max_diversification` ↔ `permanent_portfolio` — the macro magnet) |
 | Cot orthogonality (max |ρ| vs anything else) | 0.157 |
 
 ## 6. Architectural changes
@@ -425,6 +465,41 @@ doc-consistency linter (e.g. enforce that names referenced in
 docstrings exist in the codebase, or that recent rename PRs leave
 no stale references).
 
+### (h) Prediction methodologies need per-family real-data calibration
+
+The S2K-4 29×29 cluster surfaced **four distinct
+prediction-vs-reality patterns**, one per family, each with an
+independent mechanism (see §5 "Four-way calibration pattern"):
+
+* Regime UNDERSTATE — shared FRED-input common factor.
+* Commodity OVERSTATE — universe-overlap intuition too aggressive.
+* Macro UNDERSTATE — small-N covariance-solver convergence.
+* Rates miscalibrated — binary-signal regime mechanics + curve-
+  asymmetric long-duration tilts.
+
+**There is no single prediction-calibration knob** that fixes the
+4 misses with one adjustment. Each family's `known_failures.md §6`
+predictions encode a different intuition about strategy similarity,
+and each intuition fails against real data in a different direction.
+This isn't a methodology bug — it's the expected outcome when sibling
+strategies inside a family share infrastructure (covariance
+estimators, universe, signal class) and the analyst hadn't yet seen
+the empirical correlation pattern.
+
+Forward recommendation: **per-family prediction-recalibration
+sessions** as Phase 3 candidates. The 29×29 cluster output is the
+empirical ground truth those sessions calibrate against. The same
+pattern as the S2J §8(c) sign-asymmetry observation — but
+generalised to a 4-way categorisation rather than a 2-way.
+
+The deeper lesson connects to S2J §8(c) and the S2K-2 audit
+framework (§8(b) above): **predictions made before empirical
+verification are draft hypotheses, not ground truth**. The cluster's
+job isn't to confirm predictions; it's to surface the calibration
+gap so the predictions can be updated. v0.2.2's 9/35 in-range
+ratio is not a failure of the cluster — it's the cluster doing the
+work the predictions couldn't do without real data.
+
 ## 9. Pacing
 
 Session 2K ran **11 commits** (S2K-0 through S2K-4 + this docs commit)
@@ -452,10 +527,21 @@ identified during Session 2K:
 
 * **setup-uv@v7 → @v8** with immutable-tag pinning review for every
   action in `.github/workflows/*` (S2K-3 lesson).
-* **Pre-push doc-consistency linter** (S2K-4 §8(f) lesson).
-* **Phase 3 re-instatement candidates** documented in the 2026-05-31
-  rates amendment (BIS swap rate, JP CPI alternative) and the
-  2026-05-31 commodity amendment (CME second-month adapter).
+* **Pre-push doc-consistency linter** (§8(g) lesson — CodeRabbit
+  doc-drift pattern across PRs #22 / #23).
+* **Per-family prediction-recalibration sessions** (§8(h) lesson) —
+  one pass per family (regime / commodity / rates / macro) updating
+  each strategy's `known_failures.md §6` predictions against the
+  S2K-4 29×29 cluster as empirical ground truth. The four mechanisms
+  identified in §5 require independent fixes.
+* **Macro covariance-primitive universe expansion** — scale the
+  SPY/TLT/DBC universe to ~10 assets (equities + rates + commodities)
+  to differentiate ERC / MV / max-div on real data (§5 headline +
+  Phase 3 candidate). Same `_covariance.rolling_covariance`
+  primitive, just a more diverse universe.
+* **Phase 3 substrate re-instatement candidates** documented in the
+  2026-05-31 rates amendment (BIS swap rate, JP CPI alternative)
+  and the 2026-05-31 commodity amendment (CME second-month adapter).
 * **Code-aware cache keys** (S2J §8(e) lesson, still open).
 * **Real-feed cluster expansion to 47×47** — once additional
   Phase 3 substrates land. The 29×29 cluster's mean |ρ| + per-family
