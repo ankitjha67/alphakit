@@ -21,7 +21,7 @@ that records provenance:
 
 * **Commodity (7, Session 2J)** — front-month futures (``=F``) via
   yfinance-futures, plus ``cot_speculator_position`` whose ``*_NET_SPEC``
-  CFTC positioning columns route to the cftc-cot adapter. Real-feed only
+  CFTC positioning columns route to the cftc-cot-wide adapter. Real-feed only
   (``--feed real`` required); 6 stamp ``data_source="yfinance-futures-real"``,
   ``cot_speculator_position`` stamps ``data_source="yfinance+cftc-real"``.
   Requires the ``yfinance`` package (CFTC is a public ZIP, no key). The 3
@@ -392,12 +392,12 @@ def regen_tier2_real(slug: str) -> tuple[bool, str]:
 
 
 def regen_commodity_real(slug: str) -> tuple[bool, str]:
-    """Real-feed (yfinance-futures + cftc-cot) regen for one commodity strategy.
+    """Real-feed (yfinance-futures + cftc-cot-wide) regen for one commodity strategy.
 
     Routes through ``BenchmarkRunner(strict_feed=True).run_single`` with no
     pre-loaded prices, so the runner's S2J per-role feed router dispatches
     tradable ``=F`` symbols to yfinance-futures and (for cot only)
-    ``*_NET_SPEC`` informational columns to cftc-cot. Fail-loud on any feed
+    ``*_NET_SPEC`` informational columns to cftc-cot-wide. Fail-loud on any feed
     failure; the existing benchmark is kept on a fetch error. ``data_source``
     is ``yfinance+cftc-real`` when the strategy is in ``_COMMODITY_MIXED``
     (currently only ``cot_speculator_position``), else ``yfinance-futures-real``.
@@ -443,7 +443,7 @@ def main() -> int:
         help="Tier-2 feed: 'synthetic' (default, regime-exercising panels) or "
         "'real' (yfinance + FRED via the multi-feed runner; needs FRED_API_KEY "
         "+ fredapi). 'commodity' mode requires --feed real (yfinance-futures + "
-        "cftc-cot via the S2J per-role router).",
+        "cftc-cot-wide via the S2J per-role router).",
     )
     args = parser.parse_args()
 

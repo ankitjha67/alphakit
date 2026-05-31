@@ -199,6 +199,48 @@ def test_fetch_reindexes_missing_symbols_to_nan_columns(
     assert df["NEVER_IN_DATA"].isna().all()
 
 
+def test_fetch_spans_multiple_years(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Mirror of the long-format adapter's multi-year test: the
+    ``for year in range(start.year, end.year + 1)`` loop + ``pd.concat``
+    path is the common backtest case but otherwise un-exercised by the
+    single-year mock tests. Guards the per-year HTTP fetch + concat +
+    cross-year date-parse against regression."""
+    monkeypatch.delenv("ALPHAKIT_OFFLINE", raising=False)
+    monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        "alphakit.data.positioning.cftc_cot_wide_adapter.ratelimit_acquire",
+        lambda _n: None,
+    )
+
+    # Year-specific payloads keyed off the URL the adapter requests, so the
+    # concat path receives genuinely-different per-year frames (not the
+    # same fixture twice).
+    payloads = {
+        2023: _build_cot_zip_with_oi(
+            [("2023-12-26", "067651", 300, 100, 400, 500, 1_000)]  # net +200 / 1000 = +0.20
+        ).getvalue(),
+        2024: _build_cot_zip_with_oi(
+            [("2024-01-02", "067651", 100, 300, 500, 400, 1_000)]  # net -200 / 1000 = -0.20
+        ).getvalue(),
+    }
+    fetched_years: list[int] = []
+
+    def fake_get(url: str, timeout: float | None = None, **_: Any) -> _FakeResponse:
+        year = next(y for y in payloads if str(y) in url)
+        fetched_years.append(year)
+        return _FakeResponse(payloads[year])
+
+    monkeypatch.setattr("requests.get", fake_get)
+    df = CFTCCOTWideAdapter().fetch(["067651"], datetime(2023, 12, 1), datetime(2024, 1, 31))
+
+    assert fetched_years == [2023, 2024], "adapter must request both archive years"
+    assert len(df) == 2
+    assert df.index[0] == pd.Timestamp("2023-12-26")
+    assert df.index[1] == pd.Timestamp("2024-01-02")
+    assert df["067651"].iloc[0] == pytest.approx(0.20)
+    assert df["067651"].iloc[1] == pytest.approx(-0.20)
+
+
 _NETWORK_GATE = pytest.mark.skipif(
     os.environ.get("ALPHAKIT_RUN_NETWORK_TESTS") != "1",
     reason="network/substrate-boundary test; set ALPHAKIT_RUN_NETWORK_TESTS=1 to run",
