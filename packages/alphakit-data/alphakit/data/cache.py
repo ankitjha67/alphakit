@@ -47,18 +47,33 @@ from typing import Any, ClassVar, TypeVar
 import pandas as pd
 from alphakit.data.errors import FeedError
 
-_DISABLED_SENTINELS: frozenset[str] = frozenset({"/dev/null", "NUL"})
+
+# Cross-platform null-device sentinels. Both are accepted regardless of host
+# OS so a fixture using "/dev/null" still disables caching on Windows CI and
+# vice versa. The check runs against the *raw* user input before ``Path()``
+# normalisation: on Windows, ``str(Path("/dev/null"))`` yields ``"\dev\null"``
+# (backslash separator), so a Path-based comparison would silently fail to
+# recognise the POSIX sentinel.
+def _is_disabled(raw: str) -> bool:
+    s = raw.strip()
+    if s == "/dev/null":
+        return True
+    # Windows device names: ``NUL``, ``NUL:``, and the ``\\?\NUL`` extended
+    # form. Case-insensitive per the Windows filesystem convention.
+    return s.upper() in {"NUL", "NUL:", r"\\?\NUL"}
 
 
-def _default_cache_dir() -> Path:
-    env = os.environ.get("ALPHAKIT_CACHE_DIR")
-    if env is not None:
-        return Path(env)
-    return Path.home() / ".alphakit" / "cache"
-
-
-def _is_disabled(cache_dir: Path) -> bool:
-    return str(cache_dir) in _DISABLED_SENTINELS
+def _resolve_cache_dir(cache_dir: str | Path | None) -> tuple[Path, bool]:
+    """Return ``(path, disabled)`` honouring the sentinel on both the
+    explicit-arg path and the ``ALPHAKIT_CACHE_DIR`` env-var path."""
+    if cache_dir is None:
+        env = os.environ.get("ALPHAKIT_CACHE_DIR")
+        if env is None:
+            return (Path.home() / ".alphakit" / "cache", False)
+        raw = env
+    else:
+        raw = str(cache_dir)
+    return (Path(raw), _is_disabled(raw))
 
 
 def _hash_key(
@@ -95,11 +110,7 @@ class FeedCache:
     _read_warned: ClassVar[set[str]] = set()
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
-        if cache_dir is None:
-            self.cache_dir = _default_cache_dir()
-        else:
-            self.cache_dir = Path(cache_dir)
-        self.disabled: bool = _is_disabled(self.cache_dir)
+        self.cache_dir, self.disabled = _resolve_cache_dir(cache_dir)
 
     @staticmethod
     def key(
