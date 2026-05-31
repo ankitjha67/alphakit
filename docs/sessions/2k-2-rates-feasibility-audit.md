@@ -1,11 +1,34 @@
 # S2K-2 — Rates real-feed feasibility audit
 
-> Status: **audit phase complete, awaiting empirical probe + scope decision**.
+> Status: **primary probe complete, secondary probe pending Ankit re-run**.
 > No code beyond `scripts/audit_fred_rates_series.py` was written. This
 > document records the methodology determination, candidate FRED series IDs,
 > known-architecture-of-the-strategies findings, and the verdict per
 > strategy under the conservative (yield-only) and ambitious (cross-substrate)
 > interpretations.
+
+## Primary probe (2026-05-31) — outcomes
+
+`scripts/audit_fred_rates_series.py` at `954de57` returned:
+
+* **swap_spread_mean_rev** — BLOCKED at first probe:
+  - `DSWP10` confirmed discontinued ~2016-10 (consistent with H.15 release notice).
+  - `ICERATES1100USD10Y` returned "series does not exist" — the ICE
+    replacement isn't at the kickoff-expected series ID.
+  - `DGS10` control series works as expected.
+* **global_inflation_momentum** — PARTIAL, needs corrected suffixes:
+  - `CPALTT01{DE,JP}M657N` returned values consistent with rate-of-change,
+    not LEVEL (negative values impossible for a Index=100 base CPI level).
+  - `CPALTT01JPM657N` hit FRED rate limit (one of several probes too
+    close together — fixed by 1.5s sleep in the secondary script).
+  - `IRLTLT01{US,DE,JP}M156N` 10Y yields all clean, continuous 2005-2026,
+    DE+JP went negative 2015-2022 (confirms duration-approximation
+    engineering is required, as predicted in the methodology section).
+
+The secondary probe re-runs with corrected suffixes (`M659N`),
+BIS-OECD alternative naming (`DEUCPIALLMINMEI` / `JPNCPIALLMINMEI`),
+inter-call sleep, and a free-text `fred.search()` hunt for any
+continuous post-2016 swap rate series we haven't tried.
 
 ## Methodology determination (from strategy code, not vendor PR)
 
@@ -183,17 +206,25 @@ holidays/release lag.
    shipping 3-country v0.2.2 with a documented caveat; expand to G7
    in a separate session.
 
-## Verdict (pending probe results)
+## Verdict (post-primary-probe, pending secondary)
 
-Both strategies **conditionally feasible** under Path 1 (FRED-only +
-duration approximation), subject to:
-* DSWP10 / ICERATES1100USD10Y splice viability (probe confirms overlap
-  + low spread)
-* CPI LEVEL series confirmation (probe shows range ~[90, 140])
-* Yield series continuous coverage (probe confirms no large gaps)
+* **swap_spread_mean_rev** — **likely blocked**. Primary probe shows
+  the ICE replacement isn't at the expected ID. Secondary probe runs
+  4 free-text searches against FRED's catalog; if none surface a
+  continuous post-2016 USD 10Y swap rate, the strategy is blocked
+  under the FRED-only path. Cross-substrate alternative (ICE direct
+  feed, Bloomberg-replication, or BIS swap-rate data) is outside
+  v0.2.2 scope per S2J §8(c) "honest deferral".
+* **global_inflation_momentum** — **conditionally feasible** pending
+  secondary probe of `M659N` suffix or BIS-OECD alternative naming.
+  Yields are confirmed clean. CPI level is the open question.
 
-Recommendation: **run the probe, then split into S2K-2a (swap_spread,
-shared adapter) and S2K-2b (global_inflation_momentum, reuses adapter)
-with 1-month CPI lag + 3-country dispersion caveat**.
+### Possible S2K-2 scopes
 
-No code build until probe results land in this thread.
+| Outcome | Coverage | Build cost |
+|---|---|---|
+| Both feasible (secondary probe surfaces both swap-rate replacement + CPI level) | 31/109 (28.4%) | ~5-7h shared adapter |
+| inflation only (swap blocked, CPI level confirmed) | 30/109 (27.5%) | ~2-3h |
+| Both blocked (CPI suffix attempts all fail) | 29/109 (26.6%) | 0h, proceed to S2K-3 |
+
+No code build until secondary probe results land in this thread.
