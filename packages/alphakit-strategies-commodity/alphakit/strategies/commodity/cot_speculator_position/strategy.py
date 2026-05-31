@@ -220,6 +220,18 @@ class COTSpeculatorPosition:
     def position_columns(self) -> list[str]:
         return list(self.front_to_position_map.values())
 
+    # Session 2G informational-column-pattern aliases. The runner's
+    # ``_informational_columns`` (and the S2J feed router) read these to
+    # split tradable futures (yfinance-futures) from informational CFTC
+    # positioning columns (cftc-cot) — see ``BenchmarkRunner._fetch_prices``.
+    @property
+    def tradable_symbols(self) -> tuple[str, ...]:
+        return tuple(self.front_to_position_map.keys())
+
+    @property
+    def required_symbols(self) -> tuple[str, ...]:
+        return (*self.front_to_position_map.keys(), *self.front_to_position_map.values())
+
     def generate_signals(self, prices: pd.DataFrame) -> pd.DataFrame:
         """Return a contrarian COT signal DataFrame.
 
@@ -251,8 +263,17 @@ class COTSpeculatorPosition:
                 f"prices is missing required columns: {sorted(missing)}; "
                 f"got columns={list(prices.columns)}"
             )
-        if (prices[list(required)] <= 0).any().any():
-            raise ValueError("prices must be strictly positive")
+        # Front-month futures (tradable) must be strictly positive — they are
+        # priced and traded. CFTC positioning columns are *informational* (carry
+        # weight 0 in the output, per the Session 2G pattern and the bridge's
+        # zero-weight-column drop) and are legitimately signed: NET_SPEC is the
+        # net non-commercial position scaled by open interest and can be
+        # negative when speculators are net short. Per the 2026-05-22 amendment,
+        # informational columns require only finite values, not positivity.
+        if (prices[self.front_symbols] <= 0).any().any():
+            raise ValueError("front-month price columns must be strictly positive")
+        if not np.isfinite(prices[self.position_columns].to_numpy()).all():
+            raise ValueError("positioning columns must be finite")
 
         # 1. Apply the Friday-for-Tuesday COT lag to the positioning
         # series before computing the signal.

@@ -541,3 +541,109 @@ class TestMultiFeedIntegration:
         assert result["slug"] == slug
         assert np.isfinite(result["metrics"]["sharpe"])
         assert np.isfinite(result["metrics"]["max_drawdown"])
+
+
+# ---------------------------------------------------------------------------
+# Session 2J — within-role feed routing (yfinance-futures + cftc-cot)
+# ---------------------------------------------------------------------------
+
+_YF_FUTURES_PATH = "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch"
+_CFTC_PATH = "alphakit.data.positioning.cftc_cot_adapter.CFTCCOTAdapter.fetch"
+
+
+class TestFeedRouting:
+    """The within-role pattern dispatcher behind ``BenchmarkRunner._fetch_prices``.
+
+    The Session 2G role split (tradable vs informational) is upstream of this
+    dispatch, so patterns only need to disambiguate within each role.
+    """
+
+    @pytest.mark.parametrize(
+        "symbol,expected",
+        [
+            ("SPY", "yfinance"),
+            ("TLT", "yfinance"),
+            ("CL=F", "yfinance-futures"),
+            ("NG=F", "yfinance-futures"),
+        ],
+    )
+    def test_resolves_tradable(self, symbol: str, expected: str) -> None:
+        assert BenchmarkRunner._resolve_feed(symbol, "tradable") == expected
+
+    @pytest.mark.parametrize(
+        "symbol,expected",
+        [
+            ("CPIAUCSL", "fred"),
+            ("DGS10", "fred"),
+            ("CL=F_NET_SPEC", "cftc-cot"),
+            ("GC=F_NET_SPEC", "cftc-cot"),
+        ],
+    )
+    def test_resolves_informational(self, symbol: str, expected: str) -> None:
+        assert BenchmarkRunner._resolve_feed(symbol, "informational") == expected
+
+    @pytest.mark.parametrize(
+        "slug",
+        [
+            "commodity_tsmom",
+            "crack_spread",
+            "crush_spread",
+            "grain_seasonality",
+            "metals_momentum",
+            "wti_brent_spread",
+        ],
+    )
+    def test_front_month_commodity_routes_to_yfinance_futures(self, slug: str) -> None:
+        """Every tradable column of the 6 front-month commodity strategies must
+        route to ``yfinance-futures`` — verifies the routing resolution without
+        actually executing the strategies (S2J-2 covers the keyed regen)."""
+        universe = discovery.load_config("commodity", slug)["universe"]
+        assert universe and all(
+            BenchmarkRunner._resolve_feed(sym, "tradable") == "yfinance-futures" for sym in universe
+        )
+
+
+class TestCotIntegrationMultiFeed:
+    """End-to-end ``cot_speculator_position`` via the new yfinance-futures +
+    cftc-cot routing, mirroring ``TestMultiFeedIntegration`` for the regime
+    strategies. The strategy declares the Session 2G informational pattern, so
+    the runner splits tradable ``=F`` (→ yfinance-futures) from informational
+    ``*_NET_SPEC`` (→ cftc-cot) and merges them via the same as-of fill."""
+
+    @pytest.mark.integration
+    def test_cot_runs_end_to_end_via_futures_and_cftc(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        idx = _bdays("2010-01-01", "2025-12-31")
+        rng = np.random.default_rng(0)
+        prices_by_sym = {
+            s: 50.0 * np.exp(np.cumsum(rng.normal(0.0, 0.012, len(idx))))
+            for s in ("CL=F", "NG=F", "GC=F", "ZC=F")
+        }
+
+        def _fake_yf_futures(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return pd.DataFrame({s: prices_by_sym[s] for s in symbols}, index=idx)
+
+        # CFTC publishes weekly (Tuesday-as-of, Friday-released). Net-spec
+        # series legitimately cross zero — exactly the kind of informational
+        # value the S2I bridge/runner refinement made valid.
+        cot_idx = pd.date_range("2010-01-05", "2025-12-31", freq="W-TUE")
+
+        def _fake_cftc(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            t = np.linspace(0.0, 8.0 * np.pi, len(cot_idx))
+            return pd.DataFrame(
+                {s: 0.7 * np.sin(t + 0.4 * i) for i, s in enumerate(symbols)},
+                index=cot_idx,
+            )
+
+        monkeypatch.setattr(_YF_FUTURES_PATH, _fake_yf_futures)
+        monkeypatch.setattr(_CFTC_PATH, _fake_cftc)
+
+        result = runner.run_single("cot_speculator_position", family="commodity")
+        assert result["slug"] == "cot_speculator_position"
+        assert np.isfinite(result["metrics"]["sharpe"])
+        assert np.isfinite(result["metrics"]["max_drawdown"])
