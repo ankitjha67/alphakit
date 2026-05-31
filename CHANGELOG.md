@@ -5,7 +5,114 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased — v0.2.2 pt 1 of 2; v0.2.2 tag waits for Session 2K]
+
+Real-feed validation for 6 commodity strategies via a generalised per-role
+**feed router**, with an opt-in **anomaly filter** that excludes singleton
+historical singularities (notably the 2020-04-20 WTI -$37.63 settlement)
+that the bridge's `order.price > 0` invariant cannot consume (Session 2J).
+Two additional layers of architectural mismatch in `cot_speculator_position`
+were surfaced during keyed verification and **deferred to Session 2K**
+alongside the rates symbol-mapping work, so the v0.2.2 tag waits for that
+session to close the v0.2.2 backlog.
+
+### Added
+
+- **Feed-router primitive** in `BenchmarkRunner._fetch_prices`: each symbol
+  is classified as tradable vs informational (the Session 2G role split),
+  then routed within-role by ticker pattern (`=F` → `yfinance-futures`,
+  `*_NET_SPEC` → `cftc-cot`, defaults to `yfinance` / `fred`). Replaces the
+  pre-S2J hardcoded yfinance + FRED dispatch.
+- **Anomaly filter** (`BenchmarkRunner(drop_nonpositive_tradable_bars=True)`,
+  default off): drops mid-panel rows with NaN or `<= 0` tradable values
+  before the bridge sees them, classifying each as "missing data" / "negative
+  price" / "mixed" in the log and recording the dropped dates in
+  `result["anomaly_filter"]` for audit.
+- **6 commodity strategies real-feed**
+  (`commodity_tsmom`, `crack_spread`, `crush_spread`, `grain_seasonality`,
+  `metals_momentum`, `wti_brent_spread`); `data_source="yfinance-futures-real"`.
+- **CFTC adapter columns updated** to the new
+  `https://www.cftc.gov/files/dea/history/` archive schema (long names with
+  spaces). Foundation for Session 2K's `cot_speculator_position` wiring;
+  network-gated test (`test_real_cftc_archive_schema`) guards against future
+  schema drift.
+- **Network-gated substrate-boundary tests** opt-in via
+  `ALPHAKIT_RUN_NETWORK_TESTS=1` (skipped by default — zero CI flakiness):
+  real `yfinance` multi-ticker fetch, real CFTC archive schema, real CFTC
+  ZIP download. Mandatory pre-push gate for adapter changes.
+- New `docs/known-data-anomalies.md` documenting per-ticker substrate
+  observations (e.g. the WTI 2020-04-20 event), the filter contract, and
+  the JSON audit-trail format; includes the "Deferred to Session 2K"
+  section for `cot_speculator_position`.
+- `cluster_analysis.py --feed real` broadened from 5×5 regime to **11×11
+  (5 regime + 6 commodity)** with regime-intra, commodity-intra, and
+  regime×commodity blocks; commodity intra-family includes 6 documented
+  Session 2E predictions, the other 9 in-scope pairs are reported as `n/a`.
+
+### Changed
+
+- **`YFinanceFuturesAdapter`** now flattens the multi-ticker MultiIndex to
+  the same wide `columns = symbols` contract `YFinanceAdapter` satisfies, and
+  reindexes to `symbols` for deterministic order + explicit-NaN-on-missing.
+- **`CFTCCOTAdapter`** uses `requests` for the ZIP download (was
+  `urllib.request`) — `requests` ships with `certifi` and handles SSL
+  correctly on every platform, including Windows; `cftc-cot = ["requests>=2.31"]`
+  added to `alphakit-data` extras. URL constant moved from the retired
+  `/dea/newcot/` archive to `/files/dea/history/`.
+- 2026-05-31 amendment supersedes the previous synthetic-only framing for the
+  3 commodity strategies blocked by yfinance's lack of continuous second-month
+  contracts (`commodity_curve_carry`, `ng_contango_short`,
+  `wti_backwardation_carry`); they remain `synthetic-fixture` pending a
+  non-free second-month source (Phase 3 candidate).
+
+### Fixed
+
+- **`FeedRegistry` population (P1).** Adapter modules register at import
+  time; the S2J router's `FeedRegistry.get(name)` would have `KeyError`ed in
+  a fresh process because nothing imported them. Adapter modules are now
+  eagerly imported by `alphakit.data.__init__`; two subprocess regression
+  tests guard against re-regression.
+- **`FeedRegistry.get()` hoisted outside** the `strict_feed=False` try in
+  `_fetch_feed`: a missing registration is a wiring bug and must surface as
+  a `KeyError` regardless of `strict_feed`, not be silently masked by the
+  fixture fallback.
+- **Single-feed shortcut guard** (`len(tradable_parts) == 1`): multi-feed
+  tradable panels now flow through the trim/validate path; the shortcut is
+  only taken for the genuinely-single-feed case.
+- **`cot_speculator_position` finiteness check** runs *before* the
+  positivity comparison (`NaN <= 0` is `False`, so the positivity check
+  alone would have silently accepted non-finite tradable prices). cot
+  stays `synthetic-fixture` this release; the finiteness fix is preserved
+  for Session 2K.
+- **April 20, 2020 WTI negative price filtered** (with full audit trail in
+  the benchmark JSON) — the bridge's positivity invariant rejects negative
+  closes; the filter excludes the singleton anomaly bar so the 20-year crude
+  backtests run end-to-end.
+- **Thanksgiving + holiday NaN gaps filtered** identically — same
+  value-pattern rule.
+- **CFTC adapter column rename** to the new archive layout
+  (`"As of Date in Form YYYY-MM-DD"`, `"CFTC Contract Market Code"`,
+  `"Noncommercial Positions-Long (All)"`, etc.) — the legacy
+  `Report_Date_as_YYYY-MM-DD` / `CFTC_Contract_Market_Code` /
+  `NonComm_Positions_Long_All` underscore names no longer exist in the
+  archive CFTC publishes today.
+- **`YFinanceFuturesAdapter` Volume=0 false-positive.** With the
+  pre-S2J-2.5 multi-level pass-through, `(prices <= 0).any().any()` in
+  `commodity_tsmom` / `metals_momentum` tripped on `Volume=0` rows
+  (legitimate zeros on low-liquidity bars) rather than on a real negative
+  price. Fixed at the adapter via the MultiIndex flatten.
+
+### Notes
+
+- See `docs/sessions/2j-closeout.md` for the multi-layer verification
+  scorecard (13 bug-catches across mocks + automated review + keyed
+  real-feed + empirical investigation) and the
+  feasibility-audit / cache-invalidation / honest-deferral process lessons.
+- Session 2K closes the v0.2.2 backlog before the tag: cot CFTC wiring
+  (symbol → market-code mapping + long-to-wide pivot), rates real-feed
+  (`swap_spread_mean_rev` swap-rate series, `global_inflation_momentum`
+  international CPI), `setup-uv` bump, broader real-feed cluster
+  (12+ commodity + 5 regime + 2 rates = 19×19).
 
 ## [0.2.1] - 2026-05-22
 
