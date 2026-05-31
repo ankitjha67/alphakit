@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Session 2H benchmark regeneration (Path C-lite).
+"""Session 2H/2I/2J benchmark regeneration.
 
-Regenerates ``benchmark_results.json`` for the macro + rates families on
-the canonical runner schema, stamping a ``data_source`` field that records
-provenance:
+Regenerates ``benchmark_results.json`` for the macro + rates + commodity
+families on the canonical runner schema, stamping a ``data_source`` field
+that records provenance:
 
 * **Tier-1 (17)** — ETF-only universes (11 rates + 6 macro). Fetched from
   real yfinance prices under a retry budget; ``data_source="yfinance-real"``.
@@ -19,19 +19,33 @@ provenance:
     from FRED, fail-loud on any feed failure; ``data_source="yfinance+fred-real"``.
     Requires ``FRED_API_KEY`` + the ``fredapi`` package.
 
+* **Commodity (7, Session 2J)** — front-month futures (``=F``) via
+  yfinance-futures, plus ``cot_speculator_position`` whose ``*_NET_SPEC``
+  CFTC positioning columns route to the cftc-cot adapter. Real-feed only
+  (``--feed real`` required); 6 stamp ``data_source="yfinance-futures-real"``,
+  ``cot_speculator_position`` stamps ``data_source="yfinance+cftc-real"``.
+  Requires the ``yfinance`` package (CFTC is a public ZIP, no key). The 3
+  second-month-blocked commodity strategies (``commodity_curve_carry``,
+  ``ng_contango_short``, ``wti_backwardation_carry``) are **not** offered
+  for real-feed regen — yfinance has no continuous second-month — and stay
+  ``synthetic-fixture``; see the 2026-05-31 amendment for the constraint.
+
 Real-feed modes require the relevant optional dependency:
 
     uv run --with yfinance --extra dev python scripts/regenerate_benchmarks.py all
     uv run --with fredapi --extra dev python \
         scripts/regenerate_benchmarks.py tier2 --feed real
+    uv run --with yfinance --extra dev python \
+        scripts/regenerate_benchmarks.py commodity --feed real
 
 The script **fails loud** if a required real feed is unavailable (yfinance
-missing for Tier-1; ``FRED_API_KEY`` unset or ``fredapi`` missing for Tier-2
-``--feed real``), rather than silently falling back to synthetic fixtures
-(the trap in ``BenchmarkRunner._fetch_prices``).
+missing for Tier-1 / commodity; ``FRED_API_KEY`` unset or ``fredapi`` missing
+for Tier-2 ``--feed real``), rather than silently falling back to synthetic
+fixtures (the trap in ``BenchmarkRunner._fetch_prices``).
 
 Modes: ``smoke`` (3 single-ETF rates), ``tier1`` (17 real), ``tier2``
-(5 macro), ``all`` (22). ``--feed`` governs only the Tier-2 path.
+(5 macro), ``commodity`` (7 commodity, ``--feed real`` required), ``all``
+(Tier-1 + Tier-2). ``--feed`` governs the Tier-2 + commodity paths.
 """
 
 from __future__ import annotations
@@ -87,6 +101,30 @@ TIER2: list[str] = [
     "inflation_regime_allocation",
 ]
 
+# Commodity tier (Session 2J): 6 front-month futures + 1 mixed-feed cot.
+# All routed via the S2J per-role feed router: ``=F`` → yfinance-futures and,
+# for cot only, ``*_NET_SPEC`` → cftc-cot. The 3 commodity strategies needing
+# continuous second-month futures (``commodity_curve_carry``,
+# ``ng_contango_short``, ``wti_backwardation_carry``) are NOT in this list —
+# yfinance returns 404 / "possibly delisted" for ``CL2=F``/``NG2=F``/``GC2=F``
+# (smoke-verified), so they remain synthetic-fixture pending a non-free
+# second-month source (Phase 3). See the 2026-05-31 amendment.
+COMMODITY: list[str] = [
+    "commodity_tsmom",
+    "crack_spread",
+    "crush_spread",
+    "grain_seasonality",
+    "metals_momentum",
+    "wti_brent_spread",
+    "cot_speculator_position",
+]
+
+# cot_speculator_position is the only commodity strategy with informational
+# columns (its CFTC ``*_NET_SPEC`` positioning data routes to cftc-cot in
+# addition to the yfinance-futures tradables); the others are pure
+# yfinance-futures and stamp ``yfinance-futures-real``.
+_COMMODITY_MIXED: set[str] = {"cot_speculator_position"}
+
 _DATA_START = "2005-01-01"
 _IN_SAMPLE_END = "2019-12-31"
 _OOS_END = "2025-12-31"
@@ -105,6 +143,27 @@ def _require_yfinance() -> None:
             "importable. Re-run with the extra, e.g.:\n"
             "    uv run --with yfinance --extra dev python "
             "scripts/regenerate_benchmarks.py <mode>\n"
+            f"(import error: {exc})"
+        ) from exc
+
+
+def _require_commodity_real() -> None:
+    """Fail loud if Tier-commodity ``--feed real`` prerequisites are missing.
+
+    Only yfinance is checked — the cftc-cot adapter ships with stdlib-only
+    deps (``urllib`` + ``zipfile``) and registers from
+    ``alphakit.data.__init__``, so no separate check is needed. No FRED key
+    is needed (commodity universe carries no FRED series), no EIA key is
+    needed (none of the 7 in-scope commodity strategies consume EIA).
+    """
+    try:
+        import yfinance  # noqa: F401
+    except ImportError as exc:
+        raise SystemExit(
+            "ERROR: commodity --feed real requires the yfinance package, which "
+            "is not importable. Re-run with it, e.g.:\n"
+            "    uv run --with yfinance --extra dev python "
+            "scripts/regenerate_benchmarks.py commodity --feed real\n"
             f"(import error: {exc})"
         ) from exc
 
@@ -324,34 +383,79 @@ def regen_tier2_real(slug: str) -> tuple[bool, str]:
     return True, f"yfinance+fred-real OK  Sharpe={sharpe:+.4f}  ({len(universe)} cols)"
 
 
+def regen_commodity_real(slug: str) -> tuple[bool, str]:
+    """Real-feed (yfinance-futures + cftc-cot) regen for one commodity strategy.
+
+    Routes through ``BenchmarkRunner(strict_feed=True).run_single`` with no
+    pre-loaded prices, so the runner's S2J per-role feed router dispatches
+    tradable ``=F`` symbols to yfinance-futures and (for cot only)
+    ``*_NET_SPEC`` informational columns to cftc-cot. Fail-loud on any feed
+    failure; the existing benchmark is kept on a fetch error. ``data_source``
+    is ``yfinance+cftc-real`` when the strategy is in ``_COMMODITY_MIXED``
+    (currently only ``cot_speculator_position``), else ``yfinance-futures-real``.
+    """
+    runner = BenchmarkRunner(
+        commission_bps=5.0,
+        data_start=_DATA_START,
+        in_sample_end=_IN_SAMPLE_END,
+        out_of_sample_end=_OOS_END,
+        strict_feed=True,
+    )
+    try:
+        result = runner.run_single(slug, family="commodity")
+    except Exception as exc:
+        return False, f"FETCH FAILED ({exc}); kept existing benchmark"
+    data_source = "yfinance+cftc-real" if slug in _COMMODITY_MIXED else "yfinance-futures-real"
+    _write(slug, "commodity", result, data_source)
+    sharpe = result["metrics"]["sharpe"]
+    universe = result["universe"]
+    return True, f"{data_source} OK  Sharpe={sharpe:+.4f}  ({len(universe)} cols)"
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Session 2H/2I benchmark regeneration")
-    parser.add_argument("mode", choices=["smoke", "tier1", "tier2", "all"])
+    parser = argparse.ArgumentParser(description="Session 2H/2I/2J benchmark regeneration")
+    parser.add_argument("mode", choices=["smoke", "tier1", "tier2", "commodity", "all"])
     parser.add_argument(
         "--feed",
         choices=["synthetic", "real"],
         default="synthetic",
         help="Tier-2 feed: 'synthetic' (default, regime-exercising panels) or "
-        "'real' (yfinance + FRED via the multi-feed runner; needs FRED_API_KEY + fredapi).",
+        "'real' (yfinance + FRED via the multi-feed runner; needs FRED_API_KEY "
+        "+ fredapi). 'commodity' mode requires --feed real (yfinance-futures + "
+        "cftc-cot via the S2J per-role router).",
     )
     args = parser.parse_args()
+
+    if args.mode == "commodity" and args.feed != "real":
+        raise SystemExit(
+            "commodity mode requires --feed real (the 7 in-scope commodity "
+            "strategies are regenerated from yfinance-futures + CFTC). The 3 "
+            "second-month-blocked commodity strategies (commodity_curve_carry, "
+            "ng_contango_short, wti_backwardation_carry) remain synthetic-fixture "
+            "— see the 2026-05-31 amendment for the yfinance "
+            "no-continuous-second-month constraint."
+        )
 
     if args.mode in ("smoke", "tier1", "all"):
         _require_yfinance()
     if args.feed == "real" and args.mode in ("tier2", "all"):
         _require_fred_real()
+    if args.mode == "commodity":
+        _require_commodity_real()
 
     real_ok = 0
     real_fail: list[str] = []
     synth_ok = 0
     fred_ok = 0
     fred_fail: list[str] = []
+    commodity_ok = 0
+    commodity_fail: list[str] = []
 
     if args.mode == "smoke":
         slugs = SMOKE
     elif args.mode == "tier1":
         slugs = list(TIER1)
-    elif args.mode == "tier2":
+    elif args.mode in ("tier2", "commodity"):
         slugs = []
     else:
         slugs = list(TIER1)
@@ -380,6 +484,16 @@ def main() -> int:
                 print(msg)
                 synth_ok += 1
 
+    if args.mode == "commodity":
+        for slug in COMMODITY:
+            print(f"  [commodity] {slug:38s}", end=" ")
+            ok, msg = regen_commodity_real(slug)
+            print(msg)
+            if ok:
+                commodity_ok += 1
+            else:
+                commodity_fail.append(slug)
+
     print("=" * 70)
     print(f"real-feed (yfinance-real): {real_ok} ok, {len(real_fail)} failed")
     if real_fail:
@@ -390,7 +504,14 @@ def main() -> int:
         print(f"tier-2 real (yfinance+fred): {fred_ok} ok, {len(fred_fail)} failed")
         if fred_fail:
             print(f"  failed (kept existing):  {fred_fail}")
-    return 1 if ((args.mode == "smoke" and real_fail) or fred_fail) else 0
+    if commodity_ok or commodity_fail:
+        print(
+            f"commodity real (yfinance-futures + cftc-cot): "
+            f"{commodity_ok} ok, {len(commodity_fail)} failed"
+        )
+        if commodity_fail:
+            print(f"  failed (kept existing):  {commodity_fail}")
+    return 1 if ((args.mode == "smoke" and real_fail) or fred_fail or commodity_fail) else 0
 
 
 if __name__ == "__main__":
