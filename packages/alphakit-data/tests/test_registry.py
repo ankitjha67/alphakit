@@ -115,6 +115,7 @@ _EXPECTED_FEEDS = (
     "fred",
     "yfinance-futures",
     "cftc-cot",
+    "cftc-cot-wide",
     "eia",
     "polygon",
     "synthetic-options",

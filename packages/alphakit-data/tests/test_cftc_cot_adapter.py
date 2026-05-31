@@ -277,7 +277,7 @@ def test_real_cftc_download_returns_long_format(
     monkeypatch.delenv("ALPHAKIT_OFFLINE", raising=False)
     monkeypatch.setenv("ALPHAKIT_CACHE_DIR", str(tmp_path))
     df = CFTCCOTAdapter().fetch(
-        symbols=["067651"],  # E-mini S&P 500
+        symbols=["067651"],  # NYMEX WTI Light Sweet Crude — PHYSICAL (verified S2K-1)
         start=datetime(2024, 11, 1),
         end=datetime(2024, 11, 30),
     )

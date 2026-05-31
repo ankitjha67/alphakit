@@ -273,7 +273,11 @@ class BenchmarkRunner:
           * ``"...=F"`` (Yahoo futures suffix) → ``"yfinance-futures"``
           * everything else (ETFs, equities) → ``"yfinance"``
         * **Informational**
-          * ``"..._NET_SPEC"`` (CFTC COT net-speculator positioning) → ``"cftc-cot"``
+          * ``"..._NET_SPEC"`` (CFTC COT net-speculator positioning) →
+            ``"cftc-cot-wide"`` (the Session 2K-1 wide-format adapter; the
+            runner translates NET_SPEC names to CFTC market codes via the
+            strategy's ``cftc_market_codes`` mapping before the fetch and
+            renames returned columns back after)
           * everything else (FRED series IDs) → ``"fred"``
 
         A future strategy that needs to break the convention — e.g. an
@@ -284,7 +288,7 @@ class BenchmarkRunner:
         """
         if role == "tradable":
             return "yfinance-futures" if symbol.endswith("=F") else "yfinance"
-        return "cftc-cot" if symbol.endswith("_NET_SPEC") else "fred"
+        return "cftc-cot-wide" if symbol.endswith("_NET_SPEC") else "fred"
 
     def _fetch_prices(self, universe: list[str], strategy: object | None = None) -> pd.DataFrame:
         """Fetch a price panel for ``universe``, routing each symbol per feed.
@@ -364,9 +368,39 @@ class BenchmarkRunner:
         informational_by_feed: dict[str, list[str]] = {}
         for s in informational_symbols:
             informational_by_feed.setdefault(self._resolve_feed(s, "informational"), []).append(s)
-        informational_parts = [
-            self._fetch_feed(syms, feed) for feed, syms in informational_by_feed.items()
-        ]
+
+        informational_parts: list[pd.DataFrame] = []
+        for feed, syms in informational_by_feed.items():
+            if feed == "cftc-cot-wide":
+                # The cftc-cot-wide adapter speaks CFTC market codes, not the
+                # strategy's ``*_NET_SPEC`` names. The strategy declares the
+                # mapping (``cftc_market_codes``); the runner translates here
+                # so the adapter contract stays uniform (symbols-in /
+                # wide-DataFrame-out, no strategy-aware logic adapter-side).
+                # Session 2K-1, per the S2J-2.8 architectural-depth lesson.
+                codes_map = getattr(strategy, "cftc_market_codes", None)
+                if not codes_map:
+                    raise ValueError(
+                        "cftc-cot-wide routing requires a 'cftc_market_codes' "
+                        "mapping on the strategy. Add a {NET_SPEC_name: "
+                        "market_code} dict to the strategy class. "
+                        f"(Symbols requested: {syms})"
+                    )
+                missing = [s for s in syms if s not in codes_map]
+                if missing:
+                    raise ValueError(
+                        f"cftc_market_codes is missing entries for {missing} "
+                        f"on strategy {type(strategy).__name__}"
+                    )
+                market_codes = [codes_map[s] for s in syms]
+                df = self._fetch_feed(market_codes, feed)
+                # Rename columns from market_code back to NET_SPEC name so the
+                # strategy's generate_signals receives the panel with the
+                # column names it expects (per its position_columns property).
+                df = df.rename(columns={codes_map[s]: s for s in syms})
+                informational_parts.append(df)
+            else:
+                informational_parts.append(self._fetch_feed(syms, feed))
         informational_df = (
             pd.concat(informational_parts, axis=1).sort_index()
             if len(informational_parts) > 1

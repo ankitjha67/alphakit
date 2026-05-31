@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -544,11 +545,11 @@ class TestMultiFeedIntegration:
 
 
 # ---------------------------------------------------------------------------
-# Session 2J — within-role feed routing (yfinance-futures + cftc-cot)
+# Session 2J — within-role feed routing (yfinance-futures + cftc-cot-wide)
 # ---------------------------------------------------------------------------
 
 _YF_FUTURES_PATH = "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch"
-_CFTC_PATH = "alphakit.data.positioning.cftc_cot_adapter.CFTCCOTAdapter.fetch"
+_CFTC_WIDE_PATH = "alphakit.data.positioning.cftc_cot_wide_adapter.CFTCCOTWideAdapter.fetch"
 
 
 class TestFeedRouting:
@@ -575,8 +576,8 @@ class TestFeedRouting:
         [
             ("CPIAUCSL", "fred"),
             ("DGS10", "fred"),
-            ("CL=F_NET_SPEC", "cftc-cot"),
-            ("GC=F_NET_SPEC", "cftc-cot"),
+            ("CL=F_NET_SPEC", "cftc-cot-wide"),
+            ("GC=F_NET_SPEC", "cftc-cot-wide"),
         ],
     )
     def test_resolves_informational(self, symbol: str, expected: str) -> None:
@@ -605,13 +606,19 @@ class TestFeedRouting:
 
 class TestCotIntegrationMultiFeed:
     """End-to-end ``cot_speculator_position`` via the new yfinance-futures +
-    cftc-cot routing, mirroring ``TestMultiFeedIntegration`` for the regime
-    strategies. The strategy declares the Session 2G informational pattern, so
-    the runner splits tradable ``=F`` (→ yfinance-futures) from informational
-    ``*_NET_SPEC`` (→ cftc-cot) and merges them via the same as-of fill."""
+    cftc-cot-wide routing. The strategy declares both the Session 2G
+    informational pattern (``tradable_symbols`` / ``required_symbols``) and
+    the Session 2K-1 ``cftc_market_codes`` mapping; the runner splits
+    tradable ``=F`` (→ yfinance-futures) from informational ``*_NET_SPEC``
+    (→ cftc-cot-wide), translates NET_SPEC → market codes before fetch, and
+    renames returned columns back after fetch. The mocked cftc-cot-wide
+    adapter receives MARKET CODES and returns a wide DataFrame keyed by
+    those codes — matching the real adapter contract this time (the S2J-1
+    mock returned wide keyed by NET_SPEC names, which was the architectural
+    mismatch S2J-2.8 surfaced; S2K-1 makes the mock-vs-real shapes match)."""
 
     @pytest.mark.integration
-    def test_cot_runs_end_to_end_via_futures_and_cftc(
+    def test_cot_runs_end_to_end_via_futures_and_cftc_wide(
         self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         idx = _bdays("2010-01-01", "2025-12-31")
@@ -631,22 +638,51 @@ class TestCotIntegrationMultiFeed:
         # value the S2I bridge/runner refinement made valid.
         cot_idx = pd.date_range("2010-01-05", "2025-12-31", freq="W-TUE")
 
-        def _fake_cftc(
+        def _fake_cftc_wide(
             self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
         ) -> pd.DataFrame:
+            # The cftc-cot-wide adapter receives CFTC market codes (not
+            # NET_SPEC names) — the runner translated them. Mock returns
+            # wide-by-market-code; the runner renames back to NET_SPEC.
             t = np.linspace(0.0, 8.0 * np.pi, len(cot_idx))
             return pd.DataFrame(
-                {s: 0.7 * np.sin(t + 0.4 * i) for i, s in enumerate(symbols)},
+                {code: 0.7 * np.sin(t + 0.4 * i) for i, code in enumerate(symbols)},
                 index=cot_idx,
             )
 
         monkeypatch.setattr(_YF_FUTURES_PATH, _fake_yf_futures)
-        monkeypatch.setattr(_CFTC_PATH, _fake_cftc)
+        monkeypatch.setattr(_CFTC_WIDE_PATH, _fake_cftc_wide)
 
         result = runner.run_single("cot_speculator_position", family="commodity")
         assert result["slug"] == "cot_speculator_position"
         assert np.isfinite(result["metrics"]["sharpe"])
         assert np.isfinite(result["metrics"]["max_drawdown"])
+
+    def test_missing_cftc_market_codes_raises_actionable_error(
+        self, runner: BenchmarkRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Strategy declaring ``required_symbols`` with ``*_NET_SPEC`` columns
+        but missing the ``cftc_market_codes`` mapping fails loud with a clear
+        message naming the strategy class and missing symbols."""
+
+        class _BareCotStub:
+            """Has Session 2G properties but no cftc_market_codes — the
+            runner must surface this as an actionable error rather than
+            silently fall through."""
+
+            tradable_symbols = ("CL=F",)
+            required_symbols = ("CL=F", "CL=F_NET_SPEC")
+
+        idx = _bdays("2020-01-01", "2020-12-31")
+
+        def _fake_yf_futures(
+            self: object, symbols: list[str], start: object, end: object, frequency: str = "1d"
+        ) -> pd.DataFrame:
+            return pd.DataFrame({s: np.full(len(idx), 50.0) for s in symbols}, index=idx)
+
+        monkeypatch.setattr(_YF_FUTURES_PATH, _fake_yf_futures)
+        with pytest.raises(ValueError, match="cftc_market_codes"):
+            runner._fetch_prices(["CL=F", "CL=F_NET_SPEC"], strategy=_BareCotStub())
 
 
 # ---------------------------------------------------------------------------
@@ -768,10 +804,11 @@ class TestAnomalyFilter:
 
         cot_idx = pd.date_range("2010-01-05", "2025-12-31", freq="W-TUE")
 
-        def _cftc(self: object, *a: object, **k: object) -> pd.DataFrame:
+        def _cftc_wide(self: object, symbols: list[str], *a: object, **k: object) -> pd.DataFrame:
+            # cftc-cot-wide receives market codes; runner renames to NET_SPEC.
             t = np.linspace(0.0, 8.0 * np.pi, len(cot_idx))
             return pd.DataFrame(
-                {f"{s}_NET_SPEC": 0.7 * np.sin(t) for s in ("CL=F", "NG=F", "GC=F", "ZC=F")},
+                {code: 0.7 * np.sin(t) for code in symbols},
                 index=cot_idx,
             )
 
@@ -779,9 +816,7 @@ class TestAnomalyFilter:
             "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch",
             _yf_futures,
         )
-        monkeypatch.setattr(
-            "alphakit.data.positioning.cftc_cot_adapter.CFTCCOTAdapter.fetch", _cftc
-        )
+        monkeypatch.setattr(_CFTC_WIDE_PATH, _cftc_wide)
 
         runner = BenchmarkRunner(
             data_start="2010-01-01",
@@ -827,3 +862,55 @@ class TestAnomalyFilter:
         assert len(out) == len(idx) - 10 - 1
         assert not out["CL=F"].isna().any()
         assert (out["CL=F"] > 0).all()
+
+
+# ---------------------------------------------------------------------------
+# Session 2K-1 — substrate-boundary network test for cot full wiring
+# ---------------------------------------------------------------------------
+
+
+_NETWORK_GATE = pytest.mark.skipif(
+    os.environ.get("ALPHAKIT_RUN_NETWORK_TESTS") != "1",
+    reason="network/substrate-boundary test; set ALPHAKIT_RUN_NETWORK_TESTS=1 to run",
+)
+
+
+@_NETWORK_GATE
+def test_real_cot_speculator_position_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Real-substrate guard for the full Session 2K-1 cot wiring.
+
+    Drives ``cot_speculator_position`` through the keyed real-feed path:
+    yfinance-futures for the 4 ``=F`` tradable columns + cftc-cot-wide for
+    the 4 ``*_NET_SPEC`` informational columns, with the runner's S2K-1
+    ``cftc_market_codes`` translation (NET_SPEC → market code → fetch →
+    rename back). Asserts the result JSON has plausible Sharpe (finite,
+    ``|x| < 5``), max drawdown finite, and ``data_source`` populated by the
+    benchmark runner.
+
+    Catches any future regression in the 3 architectural layers S2K-1
+    addressed:
+
+    * Layer 1 (CFTC schema) — surfaces as a column-lookup ``KeyError`` if
+      the archive renames again.
+    * Layer 2 (symbol → market-code mapping) — wrong code yields empty
+      data → bridge fails on empty inputs.
+    * Layer 3 (long-vs-wide shape) — wrong format breaks the merge.
+
+    Skipped by default in CI; run via ``ALPHAKIT_RUN_NETWORK_TESTS=1``.
+    """
+    monkeypatch.delenv("ALPHAKIT_OFFLINE", raising=False)
+    runner = BenchmarkRunner(
+        data_start="2010-01-01",
+        in_sample_end="2019-12-31",
+        out_of_sample_end="2025-12-31",
+        strict_feed=True,
+        drop_nonpositive_tradable_bars=True,
+    )
+    result = runner.run_single("cot_speculator_position", family="commodity")
+
+    assert result["slug"] == "cot_speculator_position"
+    sharpe = result["metrics"]["sharpe"]
+    max_dd = result["metrics"]["max_drawdown"]
+    assert np.isfinite(sharpe), f"sharpe must be finite, got {sharpe!r}"
+    assert abs(sharpe) < 5.0, f"sharpe must be plausible (|x| < 5), got {sharpe!r}"
+    assert np.isfinite(max_dd), f"max_drawdown must be finite, got {max_dd!r}"
