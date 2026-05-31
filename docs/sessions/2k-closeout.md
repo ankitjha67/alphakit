@@ -64,8 +64,22 @@
   tags so that's the next pinning-model decision (Phase 3 backlog).
 * **29×29 real-feed cluster** in `cluster_analysis.py --feed real` —
   expanded from S2J's 11×11 by adding S2K-1 cot + the 17 Session 2H
-  yfinance-real ETF strategies (11 rates + 6 macro). Four intra-family
-  blocks + 3 cross-family descriptive blocks.
+  yfinance-real ETF strategies (11 rates + 6 macro). **First time the
+  17 ETF strategies are exercised through any cluster pipeline** —
+  before S2K-4 they had individual Session 2H benchmarks but no
+  pairwise correlation analysis. The 29×29 is now **the broadest
+  cross-family real-feed cluster the project has produced** and
+  materially upgrades the project's diversification documentation:
+  claims that previously rested on individual benchmark Sharpes
+  plus the 11×11 cluster now have an explicit 406-pair pairwise
+  correlation baseline across all real-feed strategies. Methodology
+  pre-check verified empirically: 3 representative ETF strategies
+  (`bond_tsmom_12_1`, `curve_steepener_2s10s`, `permanent_portfolio`)
+  run cleanly through `_yfinance_real_returns` in offline mode →
+  5478 business days each, same 2005-01-03 → 2025-12-31 window as
+  regime/commodity, zero NaN, return distributions in expected
+  ranges. Four intra-family blocks + 3 cross-family descriptive
+  blocks reported.
 * **2026-05-31 rates amendment** + S2K-1 / S2K-2 / S2K-3.5 process
   lessons + this closeout.
 
@@ -202,7 +216,30 @@ v0.2.2 scope. **Phase 3 candidate:** review every action pin in
 `.github/workflows/*` for immutable-reference compliance before
 moving to setup-uv@v8.
 
-### (d) S2K-3.5 substrate behavior bug masquerading as test failure
+### (d) Local pre-push gate must match CI invocation exactly
+
+Session 2K-4's first cluster-extension commit (`983bcf6`) reached CI
+with a test breakage in `tests/test_cluster_analysis.py` that local
+gates had missed. Root cause: the local gate script used
+`uv run pytest packages/` which silently skipped the root-level
+`tests/` directory; CI uses `uv run pytest` (no path arg) which
+discovers every test collection root in `pyproject.toml`.
+
+Path-scoping (`pytest packages/`) is fine for fast iteration during
+development on a specific package, but the **final pre-push gate must
+match CI's invocation exactly**. The fix here was a one-line update
+to the failing test (`753d388`), but the lesson is the discipline:
+the gate that decides "this is ready to push" must run the same
+command CI runs, not a subset.
+
+**Adopting `uv run pytest` (no path arg) as the standard pre-push
+gate going forward.** Path-scoped invocations are acceptable during
+development for fast iteration; the final gate before any push must
+match CI exactly. Connects to the multi-layer verification scorecard
+from S2J §8(a): a gate that catches a subset of what CI catches isn't
+a gate, it's an early-warning system.
+
+### (e) S2K-3.5 substrate behavior bug masquerading as test failure
 
 Two pre-existing test failures on Windows were initially framed as
 "pre-existing Windows portability issues" worth a quick platform-aware
@@ -218,7 +255,7 @@ in production. Connects to S2J §8(a) multi-layer verification:
 **empirical verification on the real environment surfaces what
 synthetic testing misses**.
 
-### (e) Honest deferral pattern at scale
+### (f) Honest deferral pattern at scale
 
 Session 2K's deferral arithmetic: **1 resolved** (cot from S2J's
 deferral list) + **2 deferred** (rates, this session) + **3 carried**
@@ -231,7 +268,7 @@ forward signal — **substrate constraints surface empirically, not
 in advance, and the only sustainable response is to ship what
 works and document the rest**.
 
-### (f) CodeRabbit consistently catches doc-drift after rename
+### (g) CodeRabbit consistently catches doc-drift after rename
 
 Across PRs #22 and #23, CodeRabbit's findings clustered on
 **docstring / help-text drift after architectural rename** — refs
