@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Phase 2 cluster analysis — pairwise equity-curve correlation (49 strategies).
+"""Phase 2 cluster analysis — pairwise equity-curve correlation.
 
-Computes the 49 x 49 Pearson correlation matrix of strategy equity-curve
-returns across the four Phase 2 families (rates, commodity, options, macro)
-on a **common synthetic-fixture basis** (deterministic, seed=42), so that
-strategies sharing tradable symbols see identical underlying price paths and
-correlations are apples-to-apples.
+Computes pairwise Pearson correlation across strategy equity-curve returns,
+either on a synthetic-fixture basis (49 x 49, default) or against real feeds
+(Session 2K: 29 x 29, expanded from Session 2J's 11 x 11).
 
 Surfaces:
 * the highest-correlated pairs (rho >= 0.70),
@@ -22,27 +20,51 @@ run through the multi-feed ``BenchmarkRunner(strict_feed=True)`` against real
 yfinance+FRED data, and their 5x5 pairwise ρ is reported against the Session 2G
 ``known_failures.md`` predictions.
 
-Session 2J (``--feed real`` now 11x11): adds the 6 commodity real-feed strategies
+Session 2J (``--feed real`` 11x11): adds 6 commodity real-feed strategies
 (commodity_tsmom, crack_spread, crush_spread, grain_seasonality, metals_momentum,
-wti_brent_spread) routed via yfinance-futures, with the anomaly filter
-(``drop_nonpositive_tradable_bars=True``) enabled so the 2020-04-20 WTI -$37.63
-settlement and Thanksgiving NaN bars are excluded — matching the configuration
-used by ``regenerate_benchmarks.py commodity --feed real``. The cluster output
-covers:
+wti_brent_spread) routed via yfinance-futures with the anomaly filter
+(``drop_nonpositive_tradable_bars=True``) enabled.
+
+Session 2K (``--feed real`` 29x29): folds in
+* the S2K-1 cot_speculator_position via the new cftc-cot-wide adapter
+  (7 commodity now);
+* the 11 rates yfinance-real ETF strategies stamped ``yfinance-real`` in
+  Session 2H (bond_tsmom_12_1, curve_steepener_2s10s, curve_flattener_2s10s,
+  curve_butterfly_2s5s10s, yield_curve_pca_trade, bond_carry_rolldown,
+  g10_bond_carry, duration_targeted_momentum, real_yield_momentum,
+  breakeven_inflation_rotation, credit_spread_momentum);
+* the 6 macro yfinance-real ETF strategies (risk_parity_erc_3asset,
+  min_variance_gtaa, max_diversification, permanent_portfolio,
+  gtaa_cross_asset_momentum, vigilant_asset_allocation_5).
+
+The yfinance-real strategies have ETF-only universes (no FRED informational
+columns, no CFTC, no second-month futures) so they route through standard
+``BenchmarkRunner.run_single`` cleanly. Methodologically valid: all 29 curves
+share an overlapping 2005-2025 daily index, the underlying universe differs
+across strategies as expected for cross-strategy correlation work, and the
+mathematics of returns × returns correlation is unaffected.
+
+Output covers four intra-family blocks + selected cross-family blocks:
 
 * 5x5 regime intra-family (predicted vs actual, Session 2G predictions);
-* 6x6 commodity intra-family (predicted vs actual where documented, ``n/a``
-  otherwise — 6 of 15 pairs have explicit predictions in known_failures.md);
-* 5x6 cross-family (descriptive — predictions are sparse).
+* 7x7 commodity intra-family (Session 2E predictions + the single in-scope
+  S2K-1 cot prediction);
+* 11x11 rates intra-family (Session 2H predictions extracted from
+  known_failures.md across the 11 rates strategies);
+* 6x6 macro intra-family (Session 2H predictions — covariance-primitive trio
+  + permanent_portfolio overlap + gtaa/vigilant overlap);
+* cross-family blocks: regime x commodity (carry-over from S2J), plus
+  rates x commodity and rates x macro descriptive lists.
 
 Requires ``FRED_API_KEY`` + ``fredapi`` (for the 5 regime strategies) and
-``yfinance`` (for the 6 commodity strategies). The real curves are NOT pooled
-with the 47 synthetic curves — different price bases are not apples-to-apples.
+``yfinance`` (for the 7 commodity + 11 rates + 6 macro strategies). The real
+curves are NOT pooled with the 47 synthetic curves — different price bases
+are not apples-to-apples.
 
 Usage:
     uv run --extra dev python scripts/cluster_analysis.py                # synthetic 49x49
     uv run --with fredapi --with yfinance --extra dev \
-        python scripts/cluster_analysis.py --feed real                  # real 11x11
+        python scripts/cluster_analysis.py --feed real                  # real 29x29
 """
 
 from __future__ import annotations
@@ -105,9 +127,9 @@ _PREDICTED_RHO: dict[frozenset[str], tuple[float, float]] = {
     frozenset({"fed_policy_tilt", "inflation_regime_allocation"}): (0.30, 0.50),
 }
 
-# Session 2J commodity real-feed slugs (6 front-month strategies; 3 yfinance
-# second-month-blocked are amendment-deferred; cot_speculator_position is
-# Session 2K-deferred — see docs/known-data-anomalies.md).
+# Session 2J commodity real-feed slugs + S2K-1 cot delivery (7 total; 3
+# yfinance second-month-blocked are amendment-deferred per the 2026-05-31
+# commodity amendment).
 _COMMODITY_REAL_SLUGS = [
     "commodity_tsmom",
     "crack_spread",
@@ -115,6 +137,36 @@ _COMMODITY_REAL_SLUGS = [
     "grain_seasonality",
     "metals_momentum",
     "wti_brent_spread",
+    "cot_speculator_position",
+]
+
+# Session 2H rates yfinance-real ETF strategies (11; all stamped
+# ``data_source="yfinance-real"`` in their benchmark JSONs). Universe is
+# ETF-only — no FRED informational columns, no CFTC, no second-month futures
+# — so they route through standard BenchmarkRunner.run_single cleanly.
+_RATES_REAL_SLUGS = [
+    "bond_tsmom_12_1",
+    "curve_steepener_2s10s",
+    "curve_flattener_2s10s",
+    "curve_butterfly_2s5s10s",
+    "yield_curve_pca_trade",
+    "bond_carry_rolldown",
+    "g10_bond_carry",
+    "duration_targeted_momentum",
+    "real_yield_momentum",
+    "breakeven_inflation_rotation",
+    "credit_spread_momentum",
+]
+
+# Session 2H macro yfinance-real ETF strategies (6; ETF-only universes, same
+# routing as the rates ETF block).
+_MACRO_REAL_SLUGS = [
+    "risk_parity_erc_3asset",
+    "min_variance_gtaa",
+    "max_diversification",
+    "permanent_portfolio",
+    "gtaa_cross_asset_momentum",
+    "vigilant_asset_allocation_5",
 ]
 
 # Session 2E commodity predicted pairwise ρ — only 6 of the 15 in-scope pairs
@@ -122,6 +174,12 @@ _COMMODITY_REAL_SLUGS = [
 # other 9 are scored ``n/a`` in the output. The
 # ``commodity_tsmom↔metals_momentum`` (0.75-0.90) pair is the documented
 # deliberate-redundancy / borderline-cluster pair (Session 2E acknowledged).
+# Session 2K-1 adds the single in-scope cot prediction
+# (``cot_speculator_position↔commodity_tsmom`` ≈ −0.2-0.0, mildly negative by
+# construction: extreme positioning is a contrarian fade against crowded
+# trends). Other cot pairs in cot's known_failures.md §6 reference the three
+# Session 2J-deferred siblings (curve_carry / backwardation_carry /
+# ng_contango_short) which aren't in the cluster.
 _PREDICTED_COMMODITY_RHO: dict[frozenset[str], tuple[float, float]] = {
     frozenset({"commodity_tsmom", "metals_momentum"}): (0.75, 0.90),
     frozenset({"commodity_tsmom", "grain_seasonality"}): (0.20, 0.40),
@@ -129,6 +187,45 @@ _PREDICTED_COMMODITY_RHO: dict[frozenset[str], tuple[float, float]] = {
     frozenset({"crack_spread", "wti_brent_spread"}): (0.10, 0.30),
     frozenset({"crush_spread", "wti_brent_spread"}): (0.00, 0.10),
     frozenset({"crush_spread", "grain_seasonality"}): (0.10, 0.20),
+    frozenset({"cot_speculator_position", "commodity_tsmom"}): (-0.20, 0.00),
+}
+
+# Session 2H rates predicted pairwise ρ — curated subset extracted from each
+# strategy's ``known_failures.md`` §"Cluster correlation". The
+# steepener↔flattener pair is mirror-image regime-trigger (not signal): both
+# produce binary signal ∈ {0, 1} firing on opposite z-score tails that never
+# co-occur, so daily-return contributions are uncorrelated by construction
+# (expected ρ ≈ 0, narrow band around zero). Earlier docs called the pair
+# "ρ ≈ −1.0 by construction" — the prediction was inconsistent with the
+# binary-tail mechanic and was corrected in S2K-4 (the 29×29 keyed cluster
+# empirically confirmed ρ = +0.000). pca_trade↔butterfly is the next-tightest
+# documented pair (both isolate the 5Y residual / curvature factor).
+_PREDICTED_RATES_RHO: dict[frozenset[str], tuple[float, float]] = {
+    frozenset({"curve_steepener_2s10s", "curve_flattener_2s10s"}): (-0.10, 0.10),
+    frozenset({"yield_curve_pca_trade", "curve_butterfly_2s5s10s"}): (0.60, 0.80),
+    frozenset({"curve_steepener_2s10s", "curve_butterfly_2s5s10s"}): (0.40, 0.60),
+    frozenset({"curve_flattener_2s10s", "curve_butterfly_2s5s10s"}): (-0.60, -0.40),
+    frozenset({"curve_steepener_2s10s", "bond_carry_rolldown"}): (0.30, 0.50),
+    frozenset({"curve_flattener_2s10s", "bond_carry_rolldown"}): (-0.50, -0.30),
+    frozenset({"bond_tsmom_12_1", "real_yield_momentum"}): (0.60, 0.80),
+    frozenset({"bond_tsmom_12_1", "duration_targeted_momentum"}): (0.50, 0.80),
+    frozenset({"bond_carry_rolldown", "g10_bond_carry"}): (0.30, 0.50),
+    frozenset({"credit_spread_momentum", "bond_tsmom_12_1"}): (0.20, 0.40),
+    frozenset({"breakeven_inflation_rotation", "real_yield_momentum"}): (0.40, 0.60),
+}
+
+# Session 2H macro predicted pairwise ρ — covariance-primitive trio
+# (risk_parity_erc_3asset / min_variance_gtaa / max_diversification) shares the
+# same covariance estimator; gtaa↔vigilant overlap on cross-asset momentum is
+# the strongest non-trio prediction.
+_PREDICTED_MACRO_RHO: dict[frozenset[str], tuple[float, float]] = {
+    frozenset({"risk_parity_erc_3asset", "min_variance_gtaa"}): (0.55, 0.75),
+    frozenset({"risk_parity_erc_3asset", "max_diversification"}): (0.50, 0.70),
+    frozenset({"min_variance_gtaa", "max_diversification"}): (0.55, 0.75),
+    frozenset({"risk_parity_erc_3asset", "permanent_portfolio"}): (0.60, 0.75),
+    frozenset({"min_variance_gtaa", "permanent_portfolio"}): (0.50, 0.70),
+    frozenset({"max_diversification", "permanent_portfolio"}): (0.40, 0.60),
+    frozenset({"gtaa_cross_asset_momentum", "vigilant_asset_allocation_5"}): (0.65, 0.85),
 }
 
 # Documented deliberate-redundancy pairs to report explicitly (from known_failures.md).
@@ -227,7 +324,8 @@ def _regime_real_returns(slug: str) -> pd.Series | None:
 def _commodity_real_returns(slug: str) -> pd.Series | None:
     """Daily-return series for one commodity strategy on real yfinance-futures.
 
-    Routes through the per-role feed router (``=F`` → yfinance-futures) with the
+    Routes through the per-role feed router (``=F`` → yfinance-futures,
+    ``*_NET_SPEC`` → cftc-cot-wide for the S2K-1 cot variant) with the
     anomaly filter ON (``drop_nonpositive_tradable_bars=True``) so the
     2020-04-20 WTI -$37.63 settlement and Thanksgiving NaN gaps are excluded —
     matches the configuration used by ``regenerate_benchmarks.py commodity
@@ -249,6 +347,33 @@ def _commodity_real_returns(slug: str) -> pd.Series | None:
         return cast(pd.Series, result.returns.rename(slug))
     except Exception as exc:
         print(f"  WARN commodity/{slug} (real feed): {exc}")
+        return None
+
+
+def _yfinance_real_returns(family: str, slug: str) -> pd.Series | None:
+    """Daily-return series for one ETF-only strategy via standard run_single.
+
+    Routes through ``BenchmarkRunner.run_single`` (no informational columns,
+    no anomaly filter) so the rates/macro yfinance-real ETF strategies
+    produce equity curves comparable to their Session 2H benchmark JSONs.
+    The same ``data_start``/``in_sample_end``/``out_of_sample_end`` window
+    is used so all 29 strategies share an overlapping daily index for the
+    pairwise correlation.
+    """
+    try:
+        strategy = discovery.instantiate(family, slug)
+        universe = list(discovery.load_config(family, slug)["universe"])
+        runner = BenchmarkRunner(
+            data_start=_DATA_START,
+            in_sample_end=_IN_SAMPLE_END,
+            out_of_sample_end=_DATA_END,
+            strict_feed=True,
+        )
+        prices = runner._fetch_prices(universe, strategy=strategy)
+        result = vectorbt_bridge.run(strategy=strategy, prices=prices)
+        return cast(pd.Series, result.returns.rename(slug))
+    except Exception as exc:
+        print(f"  WARN {family}/{slug} (yfinance-real): {exc}")
         return None
 
 
@@ -310,10 +435,11 @@ def _report_cross_family(
 
 
 def _real_cluster() -> int:
-    """Compute and report the 11x11 real-feed cluster (5 regime + 6 commodity).
+    """Compute and report the 29x29 real-feed cluster (5 regime + 7 commodity
+    + 11 rates + 6 macro).
 
-    Single combined correlation matrix; output split into regime-intra,
-    commodity-intra, and regime×commodity cross-family blocks.
+    Single combined correlation matrix; output split into four intra-family
+    blocks and selected cross-family blocks.
     """
     _require_fred_real()
     _require_commodity_real()
@@ -327,6 +453,14 @@ def _real_cluster() -> int:
         ret = _commodity_real_returns(slug)
         if ret is not None:
             series[slug] = ret
+    for slug in _RATES_REAL_SLUGS:
+        ret = _yfinance_real_returns("rates", slug)
+        if ret is not None:
+            series[slug] = ret
+    for slug in _MACRO_REAL_SLUGS:
+        ret = _yfinance_real_returns("macro", slug)
+        if ret is not None:
+            series[slug] = ret
     if len(series) < 2:
         print("ERROR: fewer than 2 real curves computed; cannot correlate.")
         return 1
@@ -334,13 +468,16 @@ def _real_cluster() -> int:
     rets = pd.DataFrame(series).dropna(how="all")
     corr = rets.corr()
     print(
-        f"\nReal-feed (yfinance+fred + yfinance-futures) cluster — "
-        f"{len(corr)}x{len(corr)} ρ ({len(rets)} aligned bars).\n"
+        f"\nReal-feed cluster (yfinance+fred + yfinance-futures + cftc-cot-wide "
+        f"+ yfinance-real ETFs) — {len(corr)}x{len(corr)} ρ "
+        f"({len(rets)} aligned bars).\n"
     )
     print(corr.round(3).to_string())
 
     regime_in_corr = [s for s in _REGIME_SLUGS if s in corr.columns]
     commodity_in_corr = [s for s in _COMMODITY_REAL_SLUGS if s in corr.columns]
+    rates_in_corr = [s for s in _RATES_REAL_SLUGS if s in corr.columns]
+    macro_in_corr = [s for s in _MACRO_REAL_SLUGS if s in corr.columns]
 
     regime_in_range, regime_documented = _report_intra_family(
         corr, regime_in_corr, _PREDICTED_RHO, "Regime intra-family (Session 2G predictions)"
@@ -349,21 +486,44 @@ def _real_cluster() -> int:
         corr,
         commodity_in_corr,
         _PREDICTED_COMMODITY_RHO,
-        "Commodity intra-family (Session 2E predictions)",
+        "Commodity intra-family (Session 2E + S2K-1 cot predictions)",
     )
+    rates_in_range, rates_documented = _report_intra_family(
+        corr,
+        rates_in_corr,
+        _PREDICTED_RATES_RHO,
+        "Rates intra-family (Session 2H predictions)",
+    )
+    macro_in_range, macro_documented = _report_intra_family(
+        corr,
+        macro_in_corr,
+        _PREDICTED_MACRO_RHO,
+        "Macro intra-family (Session 2H predictions)",
+    )
+
     if regime_in_corr and commodity_in_corr:
         _report_cross_family(
             corr, regime_in_corr, commodity_in_corr, "Cross-family (regime × commodity)"
         )
+    if rates_in_corr and commodity_in_corr:
+        _report_cross_family(
+            corr, rates_in_corr, commodity_in_corr, "Cross-family (rates × commodity)"
+        )
+    if rates_in_corr and macro_in_corr:
+        _report_cross_family(corr, rates_in_corr, macro_in_corr, "Cross-family (rates × macro)")
 
     tri = corr.to_numpy()[np.triu_indices(len(corr), 1)]
     max_rho = float(np.nanmax(tri))
-    total_documented = regime_documented + commodity_documented
-    total_in_range = regime_in_range + commodity_in_range
+    total_documented = (
+        regime_documented + commodity_documented + rates_documented + macro_documented
+    )
+    total_in_range = regime_in_range + commodity_in_range + rates_in_range + macro_in_range
     print(
         f"\nOverall: {total_in_range}/{total_documented} documented pairs in range "
         f"(regime {regime_in_range}/{regime_documented}, "
-        f"commodity {commodity_in_range}/{commodity_documented})."
+        f"commodity {commodity_in_range}/{commodity_documented}, "
+        f"rates {rates_in_range}/{rates_documented}, "
+        f"macro {macro_in_range}/{macro_documented})."
     )
     print(
         f"Mean |ρ|: {np.nanmean(np.abs(tri)):.3f}   Max ρ: {max_rho:+.3f}   "
@@ -429,11 +589,12 @@ def main() -> int:
         "--feed",
         choices=["synthetic", "real"],
         default="synthetic",
-        help="'synthetic' (default): 49x49 fixture-basis matrix. 'real': 11x11 "
-        "real-feed cluster (5 regime via yfinance+FRED + 6 commodity via "
-        "yfinance-futures) with intra-family OK/OUT vs Session 2G/2E "
-        "predictions and a regime×commodity cross-family block. Needs "
-        "FRED_API_KEY + fredapi + yfinance.",
+        help="'synthetic' (default): 49x49 fixture-basis matrix. 'real': 29x29 "
+        "real-feed cluster (5 regime via yfinance+FRED + 7 commodity via "
+        "yfinance-futures+cftc-cot-wide + 11 rates ETF + 6 macro ETF, all via "
+        "yfinance) with intra-family OK/OUT vs Session 2E/2G/2H/2K predictions "
+        "and selected cross-family descriptive blocks. Needs FRED_API_KEY + "
+        "fredapi + yfinance.",
     )
     args = parser.parse_args()
     if args.feed == "real":

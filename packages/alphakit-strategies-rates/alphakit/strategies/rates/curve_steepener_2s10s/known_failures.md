@@ -95,8 +95,20 @@ to keep the duration closer to 8.
 This strategy will exhibit ρ > 0.7 with several other rates
 strategies during slope-extreme regimes:
 
-* `curve_flattener_2s10s` — exact mirror image; expected ρ ≈ −1.0
-  by construction. Never run both at the same time.
+* `curve_flattener_2s10s` — mirror-image **regime trigger**, NOT
+  mirror-image signal. Both produce binary `signal ∈ {0, 1}` (not
+  ±1): steepener fires only when `z > +entry_threshold`; flattener
+  fires only when `z < −entry_threshold`. They trade **mutually
+  exclusive z-score tail regimes** — z can't be both > +1 and < −1,
+  so they never co-fire. When |z| < entry_threshold (the common
+  regime, ~70% of bars), both signals are zero. Daily-return
+  contributions therefore never co-occur, giving **expected ρ ≈ 0
+  by construction** — NOT ρ ≈ −1.0 as earlier docs (pre-Session 2K-4)
+  suggested. The S2K-4 29×29 keyed cluster empirically confirmed
+  ρ = +0.000. Running both is still a documented user choice
+  (covers both tail regimes); the previous "never at the same time"
+  statement was correct, but the "ρ ≈ −1.0" prediction was
+  inconsistent with the binary-tail mechanic and is corrected here.
 * `curve_butterfly_2s5s10s` — different signal (PCA-driven on the
   2-5-10Y triplet) but overlapping when the 2s10s slope dominates
   the third PC; expected ρ ≈ 0.4–0.6
@@ -104,12 +116,11 @@ strategies during slope-extreme regimes:
   steepener and the rolldown trade have positive expected
   contributions from the slope; expected ρ ≈ 0.3–0.5
 
-These overlaps are expected. Phase 2 master plan §10 documents
-the cluster-risk acceptance bar; correlations above 0.95 trigger
-deduplication review (the steepener/flattener pair will trigger
-this for its expected ρ ≈ −1.0). Acceptance: keep both as the
-mirror-image semantics is a documented user choice, not a
-duplicate strategy.
+These overlaps are expected. The flattener pair was historically
+flagged as a Phase 2 master plan §10 cluster-risk deduplication
+candidate under the obsolete ρ ≈ −1.0 prediction; the S2K-4 cluster
+finding (ρ = +0.000) supersedes that — they are independent
+tail-regime trades, not duplicates.
 
 ## 6. Single-pair concentration risk
 

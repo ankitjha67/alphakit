@@ -57,16 +57,14 @@ def test_ttl_expiry_deletes_and_returns_none(tmp_path: Path, sample_df: pd.DataF
     assert not path.exists()
 
 
-def test_sentinel_devnull_disables_cache(sample_df: pd.DataFrame) -> None:
-    cache = FeedCache("/dev/null")
-    assert cache.disabled is True
-    # Put/get are no-ops; no OSError even though /dev/null is not a dir.
-    cache.put("k", sample_df)
-    assert cache.get("k", ttl_seconds=3600) is None
-
-
-def test_sentinel_nul_disables_cache(sample_df: pd.DataFrame) -> None:
-    cache = FeedCache("NUL")
+@pytest.mark.parametrize("sentinel", ["/dev/null", "NUL", "nul", "NUL:"])
+def test_sentinel_disables_cache_cross_platform(sample_df: pd.DataFrame, sentinel: str) -> None:
+    """Both POSIX ``/dev/null`` and Windows ``NUL`` (any case + ``NUL:``
+    variant) disable caching regardless of host OS — a fixture using
+    ``/dev/null`` still disables on a Windows CI run, and ``NUL`` still
+    disables on a Linux developer's box. Put/get are no-ops; no OSError
+    even though the path isn't a directory."""
+    cache = FeedCache(sentinel)
     assert cache.disabled is True
     cache.put("k", sample_df)
     assert cache.get("k", ttl_seconds=3600) is None
@@ -174,7 +172,12 @@ def test_cached_feed_decorator_caches_and_reuses(tmp_path: Path, sample_df: pd.D
     pd.testing.assert_frame_equal(out1, out2)
 
 
-def test_cached_feed_respects_disabled_sentinel(tmp_path: Path, sample_df: pd.DataFrame) -> None:
+@pytest.mark.parametrize("sentinel", ["/dev/null", "NUL"])
+def test_cached_feed_respects_disabled_sentinel(
+    tmp_path: Path, sample_df: pd.DataFrame, sentinel: str
+) -> None:
+    """``cached_feed`` honours both null-device sentinels regardless of
+    host OS — every call re-runs the underlying fetch."""
     calls: list[int] = []
 
     class Adapter:
@@ -182,7 +185,7 @@ def test_cached_feed_respects_disabled_sentinel(tmp_path: Path, sample_df: pd.Da
 
         @cached_feed(
             ttl_seconds=3600,
-            cache_factory=lambda: FeedCache("/dev/null"),
+            cache_factory=lambda: FeedCache(sentinel),
         )
         def fetch(
             self,

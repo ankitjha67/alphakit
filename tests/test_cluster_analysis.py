@@ -2,11 +2,12 @@
 
 The default ``--feed synthetic`` 49x49 path is unchanged and slow (it runs every
 Phase-2 strategy through the bridge), so it is not exercised here. These tests
-cover the real-feed 11x11 cluster (5 regime + 6 commodity, Session 2J expansion
-of Session 2I's 5x5): the prerequisite fail-loud paths, the predicted-vs-actual
-ρ reporting for both intra-family blocks, and the descriptive cross-family
-block. ``_regime_real_returns`` and ``_commodity_real_returns`` are mocked so
-no network/key is needed.
+cover the real-feed **29x29** cluster (5 regime + 7 commodity + 11 rates + 6
+macro, Session 2K-4 expansion of Session 2J's 11x11): the prerequisite
+fail-loud paths, the predicted-vs-actual ρ reporting for all four intra-family
+blocks, and the cross-family descriptive blocks. The three returns helpers
+(``_regime_real_returns``, ``_commodity_real_returns``,
+``_yfinance_real_returns``) are mocked so no network/key is needed.
 
 The script lives under ``scripts/`` (not an importable package), so it is loaded
 by path via :mod:`importlib`.
@@ -71,15 +72,20 @@ def test_require_commodity_real_without_yfinance_raises(
 def test_real_cluster_reports_intra_and_cross_family_blocks(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The 11x11 combined cluster prints regime + commodity intra-family
-    predicted-vs-actual tables, the regime×commodity cross-family descriptive
-    block, and an overall summary line. All slugs (regime + commodity) appear
-    in the output and the dedup-bar line is emitted.
+    """The 29x29 combined cluster prints all four intra-family
+    predicted-vs-actual tables (regime / commodity / rates / macro), the
+    cross-family descriptive blocks, and an overall summary line. Every slug
+    appears in the output and the dedup-bar line is emitted.
     """
     idx = pd.date_range("2010-01-01", periods=500, freq="B")
     rng = np.random.default_rng(0)
     factor = rng.normal(0.0, 0.01, len(idx))
-    all_slugs = list(cluster._REGIME_SLUGS) + list(cluster._COMMODITY_REAL_SLUGS)
+    all_slugs = (
+        list(cluster._REGIME_SLUGS)
+        + list(cluster._COMMODITY_REAL_SLUGS)
+        + list(cluster._RATES_REAL_SLUGS)
+        + list(cluster._MACRO_REAL_SLUGS)
+    )
     series: dict[str, pd.Series] = {
         slug: pd.Series(0.6 * factor + 0.4 * rng.normal(0.0, 0.01, len(idx)), index=idx)
         for slug in all_slugs
@@ -89,15 +95,20 @@ def test_real_cluster_reports_intra_and_cross_family_blocks(
     monkeypatch.setattr(cluster, "_require_commodity_real", lambda: None)
     monkeypatch.setattr(cluster, "_regime_real_returns", lambda slug: series[slug].rename(slug))
     monkeypatch.setattr(cluster, "_commodity_real_returns", lambda slug: series[slug].rename(slug))
+    monkeypatch.setattr(
+        cluster, "_yfinance_real_returns", lambda _family, slug: series[slug].rename(slug)
+    )
 
     rc = cluster._real_cluster()
     out = capsys.readouterr().out
 
     assert rc == 0
-    # Both intra-family headers
+    # All four intra-family headers
     assert "Regime intra-family" in out
     assert "Commodity intra-family" in out
-    # Cross-family descriptive block
+    assert "Rates intra-family" in out
+    assert "Macro intra-family" in out
+    # At least one cross-family descriptive block
     assert "Cross-family" in out
     # Every slug surfaces (sanity check the matrix render + tables)
     for slug in all_slugs:
@@ -119,21 +130,48 @@ def test_predicted_rho_covers_all_ten_regime_pairs() -> None:
 
 
 def test_predicted_commodity_rho_covers_documented_pairs() -> None:
-    """The 6 documented commodity pairs from known_failures.md §6 are in the dict.
-
-    The other 9 in-scope pairs out of 15 total intentionally lack predictions —
-    the cluster output shows them as ``n/a`` rather than scoring them.
+    """The 6 Session 2E commodity pairs + the 1 Session 2K-1 cot pair
+    (``cot_speculator_position↔commodity_tsmom``, mildly NEGATIVE by
+    construction) are in the dict. The other 14 in-scope pairs out of 21
+    total intentionally lack predictions — the cluster output shows them
+    as ``n/a`` rather than scoring them.
     """
     expected_documented = {
+        # Session 2E commodity intra-family.
         frozenset({"commodity_tsmom", "metals_momentum"}),
         frozenset({"commodity_tsmom", "grain_seasonality"}),
         frozenset({"crack_spread", "crush_spread"}),
         frozenset({"crack_spread", "wti_brent_spread"}),
         frozenset({"crush_spread", "wti_brent_spread"}),
         frozenset({"crush_spread", "grain_seasonality"}),
+        # Session 2K-1 cot addition (single in-scope pair from cot
+        # known_failures.md §6).
+        frozenset({"cot_speculator_position", "commodity_tsmom"}),
     }
     assert expected_documented == set(cluster._PREDICTED_COMMODITY_RHO)
     # Every prediction key must be a pair of in-scope commodity slugs.
     commodity_set = set(cluster._COMMODITY_REAL_SLUGS)
     for pair in cluster._PREDICTED_COMMODITY_RHO:
         assert pair.issubset(commodity_set)
+
+
+def test_predicted_rates_rho_keys_are_in_scope_pairs() -> None:
+    """Every ``_PREDICTED_RATES_RHO`` key is a pair of two distinct
+    in-scope rates slugs. Curated subset of the 55 total rates pairs
+    (Session 2H predictions extracted from rates ``known_failures.md``);
+    the cluster output shows undocumented pairs as ``n/a``."""
+    assert len(cluster._PREDICTED_RATES_RHO) > 0
+    rates_set = set(cluster._RATES_REAL_SLUGS)
+    for pair in cluster._PREDICTED_RATES_RHO:
+        assert len(pair) == 2, f"prediction key {pair} must be a 2-set"
+        assert pair.issubset(rates_set), f"{pair} contains an out-of-scope rates slug"
+
+
+def test_predicted_macro_rho_keys_are_in_scope_pairs() -> None:
+    """Every ``_PREDICTED_MACRO_RHO`` key is a pair of two distinct
+    in-scope macro slugs. Curated subset of the 15 total macro pairs."""
+    assert len(cluster._PREDICTED_MACRO_RHO) > 0
+    macro_set = set(cluster._MACRO_REAL_SLUGS)
+    for pair in cluster._PREDICTED_MACRO_RHO:
+        assert len(pair) == 2, f"prediction key {pair} must be a 2-set"
+        assert pair.issubset(macro_set), f"{pair} contains an out-of-scope macro slug"

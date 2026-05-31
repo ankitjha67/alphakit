@@ -30,6 +30,7 @@ import alphakit.data.futures.yfinance_futures_adapter
 import alphakit.data.options.polygon_adapter
 import alphakit.data.options.synthetic
 import alphakit.data.positioning.cftc_cot_adapter
+import alphakit.data.positioning.cftc_cot_wide_adapter
 import alphakit.data.rates.fred_adapter
 from alphakit.data.cache import FeedCache, cached_feed
 from alphakit.data.errors import (

@@ -5,16 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased — v0.2.2 pt 1 of 2; v0.2.2 tag waits for Session 2K]
+## [0.2.2] - 2026-05-31
 
-Real-feed validation for 6 commodity strategies via a generalised per-role
-**feed router**, with an opt-in **anomaly filter** that excludes singleton
-historical singularities (notably the 2020-04-20 WTI -$37.63 settlement)
-that the bridge's `order.price > 0` invariant cannot consume (Session 2J).
-Two additional layers of architectural mismatch in `cot_speculator_position`
-were surfaced during keyed verification and **deferred to Session 2K**
-alongside the rates symbol-mapping work, so the v0.2.2 tag waits for that
-session to close the v0.2.2 backlog.
+Real-feed validation for 6 commodity strategies + `cot_speculator_position`
+via a generalised per-role **feed router**, with an opt-in **anomaly filter**
+that excludes singleton historical singularities (notably the 2020-04-20 WTI
+-$37.63 settlement) that the bridge's `order.price > 0` invariant cannot
+consume (Session 2J). A 3-layer architectural fix lands `cot_speculator_position`
+on real CFTC data via a new `cftc-cot-wide` adapter (Session 2K-1), closing
+the S2J-2.8 deferral. Two rates strategies (`swap_spread_mean_rev`,
+`global_inflation_momentum`) are deferred to Phase 3 after an empirical FRED
+audit found substrate gaps. **29×29 real-feed cluster** documents the
+broadest pairwise correlation analysis the project has produced — first time
+the 17 Session 2H yfinance-real ETF strategies are exercised in any cluster
+pipeline. Real-feed coverage: **22 → 29/109 (20.2% → 26.6%)**.
 
 ### Added
 
@@ -48,6 +52,50 @@ session to close the v0.2.2 backlog.
   (5 regime + 6 commodity)** with regime-intra, commodity-intra, and
   regime×commodity blocks; commodity intra-family includes 6 documented
   Session 2E predictions, the other 9 in-scope pairs are reported as `n/a`.
+- **`cot_speculator_position` real-feed** via the new `cftc-cot-wide`
+  adapter (Session 2K-1, `data_source="yfinance+cftc-real"`). 3-layer fix:
+  strategy declares a `cftc_market_codes` mapping
+  (`{NET_SPEC_name: market_code}`), the new adapter returns OI-normalised
+  wide-format positioning (`(NC_long − NC_short) / OI` ∈ [-1, +1]), and the
+  runner translates NET_SPEC ↔ market_code at the adapter boundary so the
+  adapter contract stays strategy-agnostic. Commodity family now ships
+  **7 of 10** real-feed.
+- **`CFTCCOTWideAdapter`** registered as `cftc-cot-wide` alongside the
+  unchanged long-format `CFTCCOTAdapter`. Wide-format output (one column
+  per requested market code, indexed by COT report date); OI=0 rows
+  produce NaN (not inf) so the runner's `_validate_feed_values` finite
+  check surfaces the anomaly. Network-gated
+  `test_real_cftc_cot_wide_adapter_value_range` confirms all finite values
+  in [-1, +1] against the live 2024 archive.
+- **29×29 real-feed cluster** in `cluster_analysis.py --feed real`
+  (Session 2K-4) — expanded from 11×11 by adding S2K-1 cot + the 17 Session
+  2H yfinance-real ETF strategies (11 rates + 6 macro). **First time the
+  17 ETF strategies are exercised through any cluster pipeline**; broadest
+  cross-family real-feed cluster the project has produced. Four
+  intra-family blocks + 3 cross-family descriptive blocks; 35 curated
+  predictions across families. New helpers: `_yfinance_real_returns(family,
+  slug)` for ETF strategies via standard `BenchmarkRunner.run_single`.
+- **2026-05-31 rates amendment**
+  ([`docs/phase-2-amendments.md`](docs/phase-2-amendments.md)): documents
+  the 2 rates strategy deferrals — `swap_spread_mean_rev` (DSWP10
+  discontinued 2016-10; no continuous FRED replacement found after 4
+  `fred.search()` queries) and `global_inflation_momentum` (Japan CPI
+  `JPNCPIALLMINMEI` LEVEL series stops at 2021-06, 4-year gap against the
+  2025-12 OOS window). Phase 3 re-instatement paths documented per
+  strategy.
+- **S2K-2 feasibility-audit framework**
+  (`scripts/audit_fred_rates_series.py`): read-only FRED probe script with
+  multi-candidate per-series probe, `looks_like_level` classifier
+  (`min >= 0 AND max > 50`), and `fred.search()` negative-evidence trail.
+  Generalises to future FRED-substrate feasibility questions
+  (international yields, alternative inflation series).
+- **Cross-platform cache sentinel** (`FeedCache`, Session 2K-3.5): both
+  POSIX `/dev/null` and Windows `NUL` (case-insensitive: `NUL` / `nul` /
+  `NUL:` / `\\?\NUL`) now disable caching regardless of host OS. The
+  sentinel check runs against the raw user input before `Path()`
+  normalisation, so a Linux-style fixture using `/dev/null` no longer
+  silently enables caching on Windows CI (where `str(Path("/dev/null"))`
+  mangles to `\dev\null`).
 
 ### Changed
 
@@ -64,6 +112,24 @@ session to close the v0.2.2 backlog.
   contracts (`commodity_curve_carry`, `ng_contango_short`,
   `wti_backwardation_carry`); they remain `synthetic-fixture` pending a
   non-free second-month source (Phase 3 candidate).
+- **Runner `_resolve_feed`** dispatches `*_NET_SPEC` symbols to
+  `cftc-cot-wide` (was `cftc-cot`). `_fetch_prices` consumes the strategy's
+  `cftc_market_codes` mapping to translate NET_SPEC ↔ market_code before
+  the adapter call and rename columns back after; missing
+  `cftc_market_codes` raises an actionable `ValueError` naming the
+  strategy class + missing symbols.
+- **`setup-uv@v4 → @v7`** across all 4 workflows (`test.yml`, `lint.yml`,
+  `docs.yml`, `benchmark.yml`). Floating-tag bump; no input changes
+  required (v5/v6/v7 breaking changes don't affect our `version` /
+  `enable-cache` / `cache-dependency-glob` settings). v8's
+  immutable-major-tag deprecation deferred to v0.2.3.
+- **`curve_steepener_2s10s` + `curve_flattener_2s10s` known_failures.md**:
+  cluster-correlation prediction corrected from "ρ ≈ −1.0 by construction"
+  to "ρ ≈ 0 by construction" — both produce binary `signal ∈ {0, 1}`
+  on mutually-exclusive z-score tail regimes (never co-fire), so
+  daily-return contributions are uncorrelated. The S2K-4 29×29 cluster
+  empirically confirmed ρ = +0.000. The pair no longer triggers the
+  Phase 2 master plan §10 dedup-review under the corrected prediction.
 
 ### Fixed
 
@@ -101,18 +167,89 @@ session to close the v0.2.2 backlog.
   `commodity_tsmom` / `metals_momentum` tripped on `Volume=0` rows
   (legitimate zeros on low-liquidity bars) rather than on a real negative
   price. Fixed at the adapter via the MultiIndex flatten.
+- **`FeedCache` Windows sentinel** (Session 2K-3.5). `Path()`
+  normalisation on Windows mangled `/dev/null` to `\dev\null`, so the
+  sentinel set didn't match the normalised string and the cache was
+  silently ENABLED on Windows when developers expected it disabled.
+  Investigation surfaced this masquerading as 2 pre-existing test
+  failures; the fix is a substrate behaviour fix, not a test-only fix.
+- **`scripts/audit_fred_rates_series.py probe_one`** `IndexError` on
+  all-NaN FRED responses: the `series.empty` guard ran before
+  `dropna()`, so a fully-populated but all-NaN response crashed on
+  `series.index[0]`. Fixed by moving the emptiness check after the
+  normalisation (PR #23 CodeRabbit finding).
+- **CodeRabbit findings on PR #22** (rolled into Session 2K-0): CFTC
+  test offline-leak (`monkeypatch.delenv("ALPHAKIT_OFFLINE")` added)
+  + stale "7 in-scope commodity" / "yfinance-futures + CFTC" messages
+  restored in `scripts/regenerate_benchmarks.py` post-S2J-2.8.
+- **CodeRabbit findings on PR #23**: 3 stale `cftc-cot` references
+  in `scripts/regenerate_benchmarks.py` (module docstring + regen
+  docstring + argparse help) updated to `cftc-cot-wide`; multi-year
+  coverage test added to `CFTCCOTWideAdapter` mirroring the long-format
+  adapter's `test_fetch_spans_multiple_years`.
+
+### Deferred to Phase 3
+
+- **3 commodity strategies** — `commodity_curve_carry`,
+  `ng_contango_short`, `wti_backwardation_carry` per the 2026-05-31
+  commodity amendment (yfinance lacks continuous second-month futures).
+- **2 rates strategies** — `swap_spread_mean_rev`,
+  `global_inflation_momentum` per the 2026-05-31 rates amendment (FRED
+  10Y USD swap-rate gap post-DSWP10 discontinuation; Japan CPI level
+  series stops at 2021-06).
+- **Macro covariance-primitive universe expansion** — scale the
+  SPY/TLT/DBC 3-asset universe to ~10 assets to differentiate ERC / MV
+  / max-div solvers on real data (Session 2K-4 finding: all three
+  converge to ρ > 0.98 on the small-N universe).
+
+### Methodological findings (Session 2K-4 cluster)
+
+- **29×29 real-feed cluster** documents 8 of 35 documented pairs
+  in predicted range across the 4 families (regime 5/10, commodity
+  2/7, rates 2/11 after the steepener/flattener prediction correction,
+  macro 0/7). 406 unique pairs total.
+- **Dedup-review bar BREACHED at 3 macro covariance-primitive pairs**:
+  `risk_parity_erc_3asset ↔ max_diversification` at +0.993,
+  `min_variance_gtaa ↔ max_diversification` at +0.989,
+  `risk_parity_erc_3asset ↔ min_variance_gtaa` at +0.980.
+  Investigation: scenario (b) methodological convergence — all three
+  share `_covariance.rolling_covariance` (the S2G covariance-primitive
+  shared helper amendment, by design) on the SPY/TLT/DBC 3-asset
+  universe; only the solver objective differs. Known small-N
+  portfolio-construction phenomenon, NOT a coding bug. The breach
+  surfaces the methodological observation for explicit acknowledgment
+  rather than letting three near-identical strategies ship without
+  comment.
+- **`permanent_portfolio` is the cross-strategy magnet** —
+  correlates +0.75 with each of the covariance-primitive trio AND
+  ρ > 0.7 with the regime strategies. Captures the broad multi-asset
+  macro factor across families.
+- **`cot_speculator_position` is genuinely orthogonal** —
+  largest cot-correlation is −0.157 (with `commodity_tsmom`,
+  matching the cot↔commodity_tsmom −0.20 to 0.00 prediction). The
+  most diversification-positive new strategy in v0.2.2.
+- **Four-way calibration pattern**: regime UNDERSTATE, commodity
+  OVERSTATE, macro UNDERSTATE small-N convergence, rates
+  miscalibrated by binary-signal regime mechanics. The four
+  mechanisms are independent — each family needs its own
+  recalibration pass (Phase 3 candidate, see closeout §8(h)).
 
 ### Notes
 
-- See `docs/sessions/2j-closeout.md` for the multi-layer verification
-  scorecard (13 bug-catches across mocks + automated review + keyed
-  real-feed + empirical investigation) and the
-  feasibility-audit / cache-invalidation / honest-deferral process lessons.
-- Session 2K closes the v0.2.2 backlog before the tag: cot CFTC wiring
-  (symbol → market-code mapping + long-to-wide pivot), rates real-feed
-  (`swap_spread_mean_rev` swap-rate series, `global_inflation_momentum`
-  international CPI), `setup-uv` bump, broader real-feed cluster
-  (12+ commodity + 5 regime + 2 rates = 19×19).
+- See [`docs/sessions/2j-closeout.md`](docs/sessions/2j-closeout.md) for
+  the v0.2.2 pt 1 multi-layer verification scorecard (13 bug-catches
+  across mocks + automated review + keyed real-feed + empirical
+  investigation) and the feasibility-audit / cache-invalidation /
+  honest-deferral process lessons.
+- See [`docs/sessions/2k-closeout.md`](docs/sessions/2k-closeout.md) for
+  the v0.2.2 pt 2 process lessons (S2K-1 empirical market-code
+  verification, S2K-2 audit framework primitives, S2K-3 conservative
+  pinning, S2K-3.5 substrate-bug investigation discipline, S2K-4
+  per-family prediction-calibration patterns) and the full 29×29
+  cluster findings.
+- See [`docs/phase-2-amendments.md`](docs/phase-2-amendments.md) for the
+  2026-05-31 commodity amendment (3 second-month-blocked strategies)
+  and 2026-05-31 rates amendment (2 FRED-substrate-blocked strategies).
 
 ## [0.2.1] - 2026-05-22
 

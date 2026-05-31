@@ -45,6 +45,7 @@ from alphakit.data.futures.yfinance_futures_adapter import YFinanceFuturesAdapte
 from alphakit.data.options.polygon_adapter import PolygonAdapter
 from alphakit.data.options.synthetic import SyntheticOptionsFeed
 from alphakit.data.positioning.cftc_cot_adapter import CFTCCOTAdapter
+from alphakit.data.positioning.cftc_cot_wide_adapter import CFTCCOTWideAdapter
 from alphakit.data.rates.fred_adapter import FREDAdapter
 from alphakit.data.registry import FeedRegistry
 
@@ -263,6 +264,47 @@ def _install_cftc_cot_mock(
     monkeypatch.setattr("requests.get", fake_get)
 
 
+def _install_cftc_cot_wide_mock(
+    monkeypatch: pytest.MonkeyPatch,
+    call_log: list[str],
+    payload_variant: int,
+) -> None:
+    """Mock ``requests.get`` returning a wide-format COT ZIP (with Open Interest).
+
+    The Session 2K-1 wide adapter additionally reads the
+    ``"Open Interest (All)"`` column to OI-normalise net speculator
+    positioning; the long-format mock omits OI.
+    """
+    import io
+    import zipfile
+
+    class _FakeResponse:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(_url: str, timeout: float | None = None, **_: Any) -> _FakeResponse:
+        call_log.append("http")
+        csv = (
+            '"As of Date in Form YYYY-MM-DD","CFTC Contract Market Code",'
+            '"Open Interest (All)",'
+            '"Noncommercial Positions-Long (All)","Noncommercial Positions-Short (All)",'
+            '"Commercial Positions-Long (All)","Commercial Positions-Short (All)"\n'
+            f"2024-01-02,067651,1000,{100 + payload_variant},{200 + payload_variant},"
+            f"{300 + payload_variant},{400 + payload_variant}\n"
+            f"2024-01-09,067651,1000,{110 + payload_variant},{210 + payload_variant},"
+            f"{310 + payload_variant},{410 + payload_variant}\n"
+        )
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("annual.txt", csv)
+        return _FakeResponse(buf.getvalue())
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+
 def _install_synthetic_underlying(monkeypatch: pytest.MonkeyPatch) -> None:
     """Swap the registered synthetic-options feed's underlying for a fixed price series.
 
@@ -344,6 +386,14 @@ HARNESSES: dict[str, Harness] = {
         implements_fetch=True,
         implements_chain=False,
     ),
+    "cftc-cot-wide": Harness(
+        module_path="alphakit.data.positioning.cftc_cot_wide_adapter",
+        offline_behavior="raise",
+        fetch_args=(["067651"], datetime(2024, 1, 2), datetime(2024, 1, 10)),
+        install_http_mock=_install_cftc_cot_wide_mock,
+        implements_fetch=True,
+        implements_chain=False,
+    ),
     "polygon": Harness(
         # Polygon is a Phase 2 placeholder (ADR-004): both fetch and
         # fetch_chain raise. install_http_mock is unused because no
@@ -405,6 +455,8 @@ def _ensure_adapters_registered() -> Iterator[None]:
         FeedRegistry.register(EIAAdapter())
     with contextlib.suppress(ValueError):
         FeedRegistry.register(CFTCCOTAdapter())
+    with contextlib.suppress(ValueError):
+        FeedRegistry.register(CFTCCOTWideAdapter())
     with contextlib.suppress(ValueError):
         FeedRegistry.register(PolygonAdapter())
     with contextlib.suppress(ValueError):

@@ -135,6 +135,27 @@ _DEFAULT_FRONT_TO_POSITION_MAP: dict[str, str] = {
     "ZC=F": "ZC=F_NET_SPEC",
 }
 
+# CFTC market codes for the default 4-commodity panel, verified empirically
+# against the 2024 ``deacot2024.zip`` ``annual.txt`` (S2K-1, 2026-MM-DD).
+#
+# The kickoff defaults (067411 for WTI, 023655 for NG) were both wrong-exchange
+# variants — 067411 is ICE Europe WTI (not NYMEX), and 023655 is the NYMEX
+# E-mini Natural Gas (not the standard Henry Hub contract). The corrected
+# codes below match the contracts yfinance tracks via ``CL=F`` / ``NG=F``
+# (NYMEX physical Light Sweet Crude and NYMEX Henry Hub Natural Gas). See
+# ``docs/sessions/2k-closeout.md`` §8 for the empirical-verification lesson.
+#
+# Consumed by ``BenchmarkRunner._fetch_prices``: when an informational
+# ``*_NET_SPEC`` symbol routes to the ``"cftc-cot-wide"`` adapter, the runner
+# translates the NET_SPEC name to its market code via this map before fetch,
+# and renames the returned columns back to NET_SPEC names after fetch.
+_DEFAULT_CFTC_MARKET_CODES: dict[str, str] = {
+    "CL=F_NET_SPEC": "067651",  # NYMEX WTI Light Sweet Crude — PHYSICAL
+    "NG=F_NET_SPEC": "03565B",  # NYMEX Henry Hub Natural Gas (standard)
+    "GC=F_NET_SPEC": "088691",  # COMEX Gold
+    "ZC=F_NET_SPEC": "002602",  # CBOT Corn
+}
+
 
 class COTSpeculatorPosition:
     """Contrarian COT speculator-positioning trade.
@@ -177,6 +198,7 @@ class COTSpeculatorPosition:
         self,
         *,
         front_to_position_map: Mapping[str, str] | None = None,
+        cftc_market_codes: Mapping[str, str] | None = None,
         percentile_lookback_weeks: int = 156,
         extreme_long_threshold: float = 90.0,
         extreme_short_threshold: float = 10.0,
@@ -197,6 +219,8 @@ class COTSpeculatorPosition:
                     f"front_to_position_map entry maps {front!r} to itself; "
                     f"front and position columns must differ"
                 )
+        if cftc_market_codes is None:
+            cftc_market_codes = _DEFAULT_CFTC_MARKET_CODES
         if percentile_lookback_weeks < 4:
             raise ValueError(
                 f"percentile_lookback_weeks must be >= 4, got {percentile_lookback_weeks}"
@@ -213,6 +237,13 @@ class COTSpeculatorPosition:
             raise ValueError(f"cot_lag_days must be non-negative, got {cot_lag_days}")
 
         self.front_to_position_map = dict(front_to_position_map)
+        # ``cftc_market_codes`` is consumed by the multi-feed runner's
+        # ``_fetch_prices`` when dispatching ``*_NET_SPEC`` informational
+        # symbols to the ``"cftc-cot-wide"`` adapter; the runner translates
+        # NET_SPEC names → market codes before fetch and renames returned
+        # columns back after fetch. See ``alphakit.bench.runner._fetch_prices``
+        # and ``alphakit.data.positioning.cftc_cot_wide_adapter`` (S2K-1).
+        self.cftc_market_codes = dict(cftc_market_codes)
         self.percentile_lookback_weeks = percentile_lookback_weeks
         self.extreme_long_threshold = extreme_long_threshold
         self.extreme_short_threshold = extreme_short_threshold
