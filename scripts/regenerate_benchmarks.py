@@ -101,14 +101,25 @@ TIER2: list[str] = [
     "inflation_regime_allocation",
 ]
 
-# Commodity tier (Session 2J): 6 front-month futures + 1 mixed-feed cot.
-# All routed via the S2J per-role feed router: ``=F`` → yfinance-futures and,
-# for cot only, ``*_NET_SPEC`` → cftc-cot. The 3 commodity strategies needing
-# continuous second-month futures (``commodity_curve_carry``,
-# ``ng_contango_short``, ``wti_backwardation_carry``) are NOT in this list —
-# yfinance returns 404 / "possibly delisted" for ``CL2=F``/``NG2=F``/``GC2=F``
-# (smoke-verified), so they remain synthetic-fixture pending a non-free
-# second-month source (Phase 3). See the 2026-05-31 amendment.
+# Commodity tier (Session 2J): 6 front-month futures.
+# All routed via the S2J per-role feed router (``=F`` → yfinance-futures). The
+# 3 commodity strategies needing continuous second-month futures
+# (``commodity_curve_carry``, ``ng_contango_short``, ``wti_backwardation_carry``)
+# are NOT in this list — yfinance returns 404 / "possibly delisted" for
+# ``CL2=F`` / ``NG2=F`` / ``GC2=F`` (smoke-verified), so they remain
+# synthetic-fixture pending a non-free second-month source (Phase 3). See the
+# 2026-05-31 amendment.
+#
+# ``cot_speculator_position`` was originally in this list but is deferred to
+# Session 2K (S2J-2.8 investigation): the CFTC adapter (a) used legacy column
+# names against the new ``/files/dea/history/`` archive (fixed here), (b) has
+# no symbol → market-code mapping for the ``*_NET_SPEC`` strings the runner
+# routes to it, and (c) returns long-format incompatible with the wide-panel
+# adapter contract. Layers (b) and (c) are the same class of work as the
+# Session 2K rates symbol-mapping (swap_spread_mean_rev,
+# global_inflation_momentum) — bundling them. cot's benchmark stays
+# synthetic-fixture for v0.2.2. See ``docs/known-data-anomalies.md`` →
+# "Deferred to Session 2K".
 COMMODITY: list[str] = [
     "commodity_tsmom",
     "crack_spread",
@@ -116,14 +127,14 @@ COMMODITY: list[str] = [
     "grain_seasonality",
     "metals_momentum",
     "wti_brent_spread",
-    "cot_speculator_position",
 ]
 
-# cot_speculator_position is the only commodity strategy with informational
-# columns (its CFTC ``*_NET_SPEC`` positioning data routes to cftc-cot in
-# addition to the yfinance-futures tradables); the others are pure
-# yfinance-futures and stamp ``yfinance-futures-real``.
-_COMMODITY_MIXED: set[str] = {"cot_speculator_position"}
+# ``_COMMODITY_MIXED`` records strategies whose real-feed data_source is
+# ``yfinance+cftc-real`` rather than the pure ``yfinance-futures-real``.
+# Currently empty in v0.2.2 (cot deferred to Session 2K); the structure is
+# preserved so Session 2K can re-add ``cot_speculator_position`` without
+# touching call sites.
+_COMMODITY_MIXED: set[str] = set()
 
 _DATA_START = "2005-01-01"
 _IN_SAMPLE_END = "2019-12-31"

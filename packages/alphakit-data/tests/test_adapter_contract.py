@@ -247,9 +247,9 @@ def _install_cftc_cot_mock(
     def fake_get(_url: str, timeout: float | None = None, **_: Any) -> _FakeResponse:
         call_log.append("http")
         csv = (
-            "Report_Date_as_YYYY-MM-DD,CFTC_Contract_Market_Code,"
-            "NonComm_Positions_Long_All,NonComm_Positions_Short_All,"
-            "Comm_Positions_Long_All,Comm_Positions_Short_All\n"
+            '"As of Date in Form YYYY-MM-DD","CFTC Contract Market Code",'
+            '"Noncommercial Positions-Long (All)","Noncommercial Positions-Short (All)",'
+            '"Commercial Positions-Long (All)","Commercial Positions-Short (All)"\n'
             f"2024-01-02,067651,{100 + payload_variant},{200 + payload_variant},"
             f"{300 + payload_variant},{400 + payload_variant}\n"
             f"2024-01-09,067651,{110 + payload_variant},{210 + payload_variant},"
@@ -257,7 +257,7 @@ def _install_cftc_cot_mock(
         )
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as z:
-            z.writestr("deacot2024.txt", csv)
+            z.writestr("annual.txt", csv)
         return _FakeResponse(buf.getvalue())
 
     monkeypatch.setattr("requests.get", fake_get)

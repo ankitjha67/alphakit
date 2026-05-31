@@ -91,6 +91,53 @@ is absent, the filter was off. If present, `dropped_dates` is the exact list
 of bars excluded from the backtest. Cross-reference against this document to
 identify the underlying cause.
 
+## Deferred to Session 2K
+
+### `cot_speculator_position` — CFTC adapter architectural gap
+
+`cot_speculator_position` was originally scoped for the v0.2.2 commodity
+real-feed pass (Session 2J), but empirical investigation in S2J-2.8 surfaced
+**three independent architectural mismatches** between cot's expected input
+shape and the CFTC adapter's actual contract:
+
+1. **Schema drift (fixed in S2J-2.8).** The CFTC archive moved from
+   `/dea/newcot/` to `/files/dea/history/`; the new layout's `annual.txt`
+   uses long column names with spaces (`"As of Date in Form YYYY-MM-DD"`,
+   `"CFTC Contract Market Code"`, `"Noncommercial Positions-Long (All)"`,
+   etc.) rather than the legacy `Report_Date_as_YYYY-MM-DD` /
+   `CFTC_Contract_Market_Code` / `NonComm_Positions_*` underscore names.
+   The adapter's column constants are now corrected; a network-gated test
+   (`test_real_cftc_archive_schema`) guards against future drift.
+2. **No symbol → market-code mapping.** Session 2J's per-role router
+   passes the `*_NET_SPEC` names (e.g. `"CL=F_NET_SPEC"`) to the adapter,
+   but CFTC market codes are numeric strings (WTI = `067411`, NYMEX nat gas
+   = `023655`, COMEX gold = `088691`, CBOT corn = `002602`, plus multiple
+   sub-products per commodity that need disambiguation). Neither
+   `cot_speculator_position`'s config nor the adapter knows the mapping.
+3. **Long-vs-wide shape mismatch.** The CFTC adapter returns long-format
+   (`columns: date, market_code, long_positions, …`; one row per
+   `(date, market)` pair), while every other adapter and the runner's
+   multi-feed merge expect wide format (`columns = requested symbols`,
+   rows = dates).
+
+Layers 2 and 3 are the same class of work as the **Session 2K rates
+symbol-mapping** (`swap_spread_mean_rev`'s ICE-swap-rate construction,
+`global_inflation_momentum`'s per-country CPI / bond mapping), so the
+three deferrals get bundled. cot's `benchmark_results.json` stays
+`synthetic-fixture` for v0.2.2; the Session 2G informational-column
+declarations on the strategy (added in S2J-1) remain in place because
+they're still the right architectural pattern — the missing piece is the
+adapter-side translation, not the strategy-side declaration.
+
+The S2J-1 mocked integration test for cot
+(`TestCotIntegrationMultiFeed`) returned wide-format CFTC data from its
+mock — i.e. it tested an *intended* contract the real adapter never
+implemented. That test is preserved (it still validates the runner's
+routing dispatch independent of the adapter's output shape) but flagged
+in the closeout as a process lesson: when an adapter's output shape
+differs from what callers consume, the mock must mirror the real shape
+or the test isn't actually validating the integration.
+
 ## Cross-references
 
 * [`phase-2-amendments.md`](phase-2-amendments.md) — the 2026-05-22 entry

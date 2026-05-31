@@ -158,10 +158,14 @@ def test_regen_tier2_real_integration_mocked_feeds(monkeypatch: pytest.MonkeyPat
 
 
 # ---------------------------------------------------------------------------
-# Session 2J — commodity --feed real (yfinance-futures + cftc-cot)
+# Session 2J — commodity --feed real (yfinance-futures only).
+# cot_speculator_position was deferred from this regen path in S2J-2.8 and
+# moves to Session 2K (architectural symbol→market-code mapping work). Its
+# routing tests live in ``test_runner.py::TestCotIntegrationMultiFeed`` —
+# those continue to exercise the multi-feed dispatch independent of the
+# regen script.
 # ---------------------------------------------------------------------------
 
-_COT_SLUG = "cot_speculator_position"
 _FRONT_MONTH_SLUGS = (
     "commodity_tsmom",
     "crack_spread",
@@ -227,103 +231,6 @@ def test_regen_commodity_real_stamps_yfinance_futures(
     assert ok, msg
     assert written and written[-1]["data_source"] == "yfinance-futures-real"
     assert any(k.get("strict_feed") is True for k in ctor_kwargs)
-
-
-def test_regen_commodity_real_stamps_yfinance_cftc_for_cot(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """``cot_speculator_position`` (mixed-feed) stamps ``yfinance+cftc-real``."""
-    written: list[dict[str, Any]] = []
-
-    class StubRunner:
-        def __init__(self, **kwargs: Any) -> None:
-            pass
-
-        def run_single(
-            self, slug: str, prices: Any = None, *, family: str | None = None
-        ) -> dict[str, Any]:
-            return {
-                "slug": slug,
-                "status": "populated",
-                "metrics": {"sharpe": 0.21},
-                "universe": ["CL=F", "NG=F", "GC=F", "ZC=F"],
-            }
-
-        def write_benchmark(
-            self, slug: str, result: dict[str, Any], *, family: str | None = None
-        ) -> None:
-            written.append(result)
-
-    monkeypatch.setattr(regen, "BenchmarkRunner", StubRunner)
-    ok, msg = regen.regen_commodity_real(_COT_SLUG)
-
-    assert ok, msg
-    assert written and written[-1]["data_source"] == "yfinance+cftc-real"
-
-
-def test_regen_commodity_real_integration_cot_via_mocked_feeds(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """End-to-end cot real regen with yfinance-futures + cftc-cot mocked.
-
-    Exercises the actual ``BenchmarkRunner(strict_feed=True)`` S2J per-role
-    router (``=F`` → yfinance-futures, ``*_NET_SPEC`` → cftc-cot), the cot
-    strategy's new Session-2G tradable/required declaration, and the
-    ``regen_commodity_real`` stamping logic — no network, no disk write.
-    """
-    import numpy as _np
-    import pandas as _pd
-
-    idx = _pd.date_range("2010-01-01", "2025-12-31", freq="B")
-    rng = _np.random.default_rng(0)
-    futures = {
-        s: 50.0 * _np.exp(_np.cumsum(rng.normal(0.0, 0.012, len(idx))))
-        for s in ("CL=F", "NG=F", "GC=F", "ZC=F")
-    }
-
-    def fake_yf_futures(
-        self: Any, symbols: list[str], start: Any, end: Any, frequency: str = "1d"
-    ) -> _pd.DataFrame:
-        missing = [s for s in symbols if s not in futures]
-        assert not missing, f"mock missing symbols: {missing}"
-        return _pd.DataFrame({s: futures[s] for s in symbols}, index=idx)
-
-    cot_idx = _pd.date_range("2010-01-05", "2025-12-31", freq="W-TUE")
-
-    def fake_cftc(
-        self: Any, symbols: list[str], start: Any, end: Any, frequency: str = "1d"
-    ) -> _pd.DataFrame:
-        t = _np.linspace(0.0, 8.0 * _np.pi, len(cot_idx))
-        return _pd.DataFrame(
-            {s: 0.7 * _np.sin(t + 0.4 * i) for i, s in enumerate(symbols)},
-            index=cot_idx,
-        )
-
-    monkeypatch.setattr(
-        "alphakit.data.futures.yfinance_futures_adapter.YFinanceFuturesAdapter.fetch",
-        fake_yf_futures,
-    )
-    monkeypatch.setattr(
-        "alphakit.data.positioning.cftc_cot_adapter.CFTCCOTAdapter.fetch", fake_cftc
-    )
-
-    written: list[dict[str, Any]] = []
-
-    def fake_write(
-        self: Any, slug: str, result: dict[str, Any], *, family: str | None = None
-    ) -> None:
-        written.append(result)
-
-    monkeypatch.setattr(regen.BenchmarkRunner, "write_benchmark", fake_write)
-
-    ok, msg = regen.regen_commodity_real(_COT_SLUG)
-
-    assert ok, msg
-    assert written, "expected a benchmark result to be written"
-    result = written[-1]
-    assert result["data_source"] == "yfinance+cftc-real"
-    assert result["status"] == "populated"
-    assert "sharpe" in result["metrics"]
 
 
 def test_main_commodity_requires_feed_real(monkeypatch: pytest.MonkeyPatch) -> None:
