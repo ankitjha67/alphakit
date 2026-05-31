@@ -305,10 +305,28 @@ class BenchmarkRunner:
             else tradable_parts[0]
         )
 
-        if not informational_symbols:
-            # Single-feed path (no informational): byte-identical to the
-            # pre-S2J shortcut for ETF-only / yfinance-real benchmarks.
+        if not informational_symbols and len(tradable_parts) == 1:
+            # Single-feed path (no informational, one tradable feed):
+            # byte-identical to the pre-S2J shortcut for ETF-only /
+            # yfinance-real benchmarks. Multi-feed tradable panels (e.g. a
+            # hypothetical ETF + futures universe) fall through to the
+            # trim/validate path below, because ``pd.concat`` unions the
+            # calendars and can leave leading/mid gaps that the bridge must
+            # not see — guard requested by review on PR #22.
             return cast(pd.DataFrame, tradable_df)
+
+        if not informational_symbols:
+            # Multi-feed tradable, no informational: still go through the
+            # leading-trim + ``_validate_feed_values`` path. There is no
+            # informational alignment to do; ``tradable_df`` is already the
+            # concatenated panel.
+            merged = tradable_df.loc[:, full_universe]
+            complete = merged.notna().all(axis=1)
+            if not complete.any():
+                raise ValueError(f"no rows where all of {full_universe} are simultaneously present")
+            merged = merged.loc[complete.idxmax() :]
+            self._validate_feed_values(merged, informational_symbols)
+            return cast(pd.DataFrame, merged)
 
         # Informational: group by resolved feed; one adapter call per feed.
         informational_by_feed: dict[str, list[str]] = {}
@@ -354,9 +372,15 @@ class BenchmarkRunner:
         real-feed failure (missing package, unconfigured key, offline, network,
         empty result); ``strict_feed=False`` falls back to deterministic
         fixtures (CI/test-safe).
+
+        ``FeedRegistry.get`` is resolved **outside** the strict_feed try: a
+        missing adapter registration is a wiring bug (the router pointed at a
+        feed nobody registered), not a real-feed failure, and must surface as
+        a ``KeyError`` regardless of ``strict_feed`` rather than be silently
+        masked by the fixture fallback. Review request on PR #22.
         """
+        adapter = FeedRegistry.get(feed_name)
         try:
-            adapter = FeedRegistry.get(feed_name)
             df = adapter.fetch(
                 symbols=symbols,
                 start=datetime.fromisoformat(self.data_start),
