@@ -75,12 +75,20 @@ closer to 8.
 
 Expected ρ with siblings:
 
-* `curve_steepener_2s10s` — exact mirror image; expected ρ ≈ −1.0
-  by construction. Never run both at the same time. Phase 2 master
-  plan §10 cluster-risk acceptance bar: this pair triggers the
-  ρ > 0.95 (in absolute value) deduplication review, but the
-  acceptance is documented — they are mirror images not duplicates,
-  and shipping both makes the user's intent explicit.
+* `curve_steepener_2s10s` — mirror-image **regime trigger**, NOT
+  mirror-image signal. Both produce binary `signal ∈ {0, 1}` (not
+  ±1): flattener fires only when `z < −entry_threshold`; steepener
+  fires only when `z > +entry_threshold`. They trade **mutually
+  exclusive z-score tail regimes** — z can't be both > +1 and < −1,
+  so they never co-fire. When |z| < entry_threshold (the common
+  regime, ~70% of bars), both signals are zero. Daily-return
+  contributions therefore never co-occur, giving **expected ρ ≈ 0
+  by construction** — NOT ρ ≈ −1.0 as earlier docs (pre-Session 2K-4)
+  suggested. The S2K-4 29×29 keyed cluster empirically confirmed
+  ρ = +0.000. Shipping both is still a documented user choice
+  (covers both tail regimes); the pair does NOT trigger the Phase 2
+  master plan §10 cluster-risk deduplication review under the
+  corrected prediction.
 * `curve_butterfly_2s5s10s` — different signal (PCA-driven on the
   2-5-10Y triplet) but overlapping when the 2s10s slope dominates
   the third PC; expected ρ with the flattener ≈ 0.4–0.6.

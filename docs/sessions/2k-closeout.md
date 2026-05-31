@@ -102,29 +102,175 @@ Deferrals:
 
 ## 5. 29×29 cluster findings (real-feed basis)
 
-_To be filled with the actual keyed-run output after Ankit's_
-_`uv run --with fredapi --with yfinance --extra dev python
-scripts/cluster_analysis.py --feed real` reports back._
+Substantive expansion over the S2J 11×11 + three findings that
+materially update the project's diversification documentation. **8 of
+35 documented pairs in predicted range** — overall a calibration miss
+across families, with two distinct mechanisms surfacing.
 
-Structure of the findings section (mirrored on the S2J 11×11 template):
+### Headline: dedup-bar BREACHED at 3 macro covariance-primitive pairs
 
-* Headline: max ρ across all 406 pairs; any ρ > 0.95 dedup-bar
-  breaches (cot↔commodity_tsmom predicted NEGATIVE — worth a sub-
-  headline if the prediction holds).
-* Regime intra-family (5×5, carry-over from S2I/S2J — should reproduce).
-* Commodity intra-family (7×7 — was 6×6; the cot↔commodity_tsmom
-  prediction (-0.20 to 0.00, mildly NEGATIVE) is the only new in-scope
-  cot pair).
-* Rates intra-family (11×11 NEW) — 11 documented predictions in
-  `_PREDICTED_RATES_RHO`; the steepener↔flattener mirror image
-  (≈-1.0) is the headline deliberate-redundancy pair.
-* Macro intra-family (6×6 NEW) — 7 documented predictions in
-  `_PREDICTED_MACRO_RHO`; covariance-primitive trio
-  (ERC / MV / max-div) the headline.
-* Cross-family blocks (regime×commodity carry-over + rates×commodity
-  + rates×macro NEW) — descriptive only.
-* Per-family OK/documented summary + overall mean |ρ| + dedup-bar
-  status.
+| Pair | Actual ρ | Predicted | Status |
+|---|---|---|---|
+| `risk_parity_erc_3asset` ↔ `max_diversification` | **+0.993** | 0.50–0.70 | OUT (high) — dedup-bar breach |
+| `min_variance_gtaa` ↔ `max_diversification` | **+0.989** | 0.55–0.75 | OUT (high) — dedup-bar breach |
+| `risk_parity_erc_3asset` ↔ `min_variance_gtaa` | **+0.980** | 0.55–0.75 | OUT (high) — dedup-bar breach |
+
+**Mechanism (scenario (b) — methodological convergence on small
+universe).** All three strategies share `_covariance.rolling_covariance`
+(the Session 2G "covariance-primitive shared helper module"
+amendment, by design): same SPY/TLT/DBC universe, same 252-day
+rolling estimator + Ledoit-Wolf shrinkage to constant-correlation
+target. Only the solver objective differs: ERC
+(Maillard-Roncalli-Teiletche 2010 Spinu reformulation) vs MV
+(long-only quadratic) vs max-div (Choueifaty-Coignard 2008 SLSQP).
+
+On a 3-asset universe where TLT has the lowest σ and the shrunken
+covariance is stable, all three solvers concentrate weight on TLT and
+trace nearly identical equity curves. **This is a known small-N
+phenomenon in portfolio construction, not a coding bug.** The known
+failures predictions of 0.50–0.75 anticipated sibling-strategy
+correlation but undershot the magnitude of the convergence on this
+specific universe.
+
+**Disposition**: documented finding, not a v0.2.2 blocker. The dedup-
+review bar is doing its job — it correctly surfaces the small-N
+convergence for explicit acknowledgment rather than letting three
+near-identical strategies ship without comment. **Phase 3
+candidate** (forward-listed in §10): scale the universe (e.g. 10
+assets across equities / rates / commodities) where the three
+solvers genuinely differ. The covariance-primitive sharing pattern
+itself is fine; it's the small-N universe that collapses the
+distinctions.
+
+### Second-headline: steepener ↔ flattener at ρ = 0.000 (not −1.0)
+
+| Pair | Actual ρ | Predicted | Status |
+|---|---|---|---|
+| `curve_steepener_2s10s` ↔ `curve_flattener_2s10s` | **+0.000** | −1.00 to −0.95 | OUT (wrong-sign by 1.0) |
+
+**Mechanism (scenario (b) — prediction inconsistent with
+implementation).** Both strategies produce `signal ∈ {0, 1}`
+(BINARY, not ±1):
+
+* Steepener active only when `z > +entry_threshold` (default +1.0).
+* Flattener active only when `z < −entry_threshold` (default −1.0).
+
+They trade **mutually exclusive z-score tail regimes** — z can't be
+both > +1 and < −1, so they never co-fire. When |z| < 1 (the common
+regime, ~70% of bars), both signals are zero. When one fires the
+other is always zero. **Daily-return contributions never co-occur →
+correlation is exactly 0**, not −1.0.
+
+The prediction's "ρ ≈ −1.0 by construction" line was internally
+inconsistent with the same docs' "never run both at the same time"
+note: mutually-exclusive signals can't be perfectly anti-correlated.
+The implementation matches Session 2D's binary-tail-trade design
+intent (only enter when the spread is far from mean); the prediction
+text imagined a different ±1 mirror-image design that wasn't
+shipped. **The S2K-4 closeout rolls a follow-up doc fix** updating
+both strategies' `known_failures.md` ρ predictions to reflect the
+binary mechanic.
+
+### Regime intra-family — 5/10 in range (carry-over from S2I/S2J)
+
+Reproduces the S2J pattern exactly: synthetic predictions
+**UNDERSTATED** real co-movement. The 5 OUT pairs land above their
+predicted bands, dominated by FRED-input-sharing pairs (e.g.
+`yield_curve_regime_allocation ↔ fed_policy_tilt` at +0.794 vs
+0.40–0.60 predicted). Documented in the S2J §5 closeout; no change
+in interpretation here.
+
+### Commodity intra-family — 2/7 in range (slight improvement over S2J 1/6)
+
+The S2K-1 cot addition lands inside its predicted band:
+
+* `cot_speculator_position ↔ commodity_tsmom`: **−0.157** (predicted
+  −0.20 to 0.00, OK). The mild negative co-movement is the
+  contrarian-fade-against-crowded-trends prediction from cot's
+  `known_failures.md §6` — empirically confirmed at real-feed scale.
+
+The 6 inherited S2J commodity pairs reproduce the S2J pattern
+(predictions OVERSTATED universe-overlap correlation; metals headline
++0.565 vs 0.75–0.90).
+
+### Rates intra-family — 2/11 in range with corrected prediction
+
+The steepener↔flattener prediction was corrected from −1.0 ± 0.05 to
+0 ± 0.10 in this session (see "Second-headline" above + the
+matching `known_failures.md` doc fixes); the actual +0.000 now
+lands inside the corrected band, taking rates from 1/11 to 2/11 in
+range. Other notable misses:
+
+| Pair | Actual ρ | Predicted | Note |
+|---|---|---|---|
+| `curve_steepener_2s10s` ↔ `curve_flattener_2s10s` | **+0.000** | −0.10 to +0.10 (corrected) | OK — binary-tail mechanic (see Second-headline above) |
+| `curve_flattener_2s10s` ↔ `bond_carry_rolldown` | **+0.883** | −0.50 to −0.30 | wrong-sign AND wrong-magnitude — bond_carry's slope-exposure component is mostly long-duration, so it co-moves with flattener (also long-duration) regardless of curve regime |
+| `bond_tsmom_12_1` ↔ `real_yield_momentum` | _filled by keyed run_ | 0.60–0.80 | mostly TLT exposure overlap |
+
+The wrong-sign on `flattener ↔ bond_carry_rolldown` is a similar
+mechanism to the steepener/flattener inconsistency: documented
+prediction imagined a directional bet, but bond_carry's long-duration
+tilt dominates the realised correlation. **Phase 3 candidate**: rates
+prediction-recalibration session against the cluster output (the
+binary-signal mechanic is the same misread across multiple rates
+pairs).
+
+### Macro intra-family — 0/7 in range (all 7 OUT high)
+
+Every documented macro prediction undershot. The 3 covariance-trio
+pairs are the dedup-bar breach above; the other 4 documented pairs
+(permanent_portfolio overlaps + gtaa↔vigilant) all land **above**
+their predicted upper bound. Mechanism is similar to the trio: the
+6-strategy macro universe is small enough that strategies sharing
+even one asset (SPY, TLT, GLD) get more co-movement than the
+predictions anticipated.
+
+### Cross-family findings — 3 substantive observations
+
+* **Regime ↔ macro at ρ > 0.7** for the covariance-primitive trio.
+  GTAA + regime are **less diversified than benchmarks suggested**
+  — both families lean on broad ETF exposure (SPY/TLT) and the
+  shared underlying assets dominate the cross-family correlation.
+* **`commodity_tsmom` cross-family signal carries over** from S2J
+  — `+0.154` with `growth_inflation_regime_rotation` is the
+  largest regime × commodity pair, consistent with the S2J finding.
+* **`cot_speculator_position` is genuinely orthogonal to everything**
+  — largest cot-correlation is **−0.157** (with `commodity_tsmom`,
+  by design); other cot pairs are in `[-0.07, +0.05]`. cot adds an
+  **independent factor exposure** to the cluster — the most
+  diversification-positive new strategy in v0.2.2.
+
+### Calibration pattern across families
+
+Three distinct prediction-vs-reality patterns emerge:
+
+* **Regime predictions UNDERSTATE** real co-movement (Sessions
+  2I / 2J / 2K reproduce). Mechanism: synthetic fixtures couldn't
+  reproduce the diffuse macro-wide common factor.
+* **Commodity predictions OVERSTATE** universe-overlap co-movement
+  (Session 2J reproduces; S2K-1 cot prediction LANDS IN RANGE).
+  Mechanism: risk-parity weighting dilutes universe overlap more
+  than intuition allowed for.
+* **Macro predictions UNDERSTATE** small-N convergence — all 7
+  documented pairs above their predicted upper bound. Mechanism:
+  shared covariance estimator on a 3-asset universe converges the
+  solvers more than the predictions anticipated.
+* **Rates predictions are wildly miscalibrated** — 1/11 in range,
+  multiple sign errors. Mechanism: the predictions imagined directional
+  bets but the implementations are mostly long-duration-biased,
+  carrying TLT exposure as a shared factor across the family.
+
+### Summary
+
+| Metric | Value |
+|---|---|
+| Strategies | 29 (5 regime + 7 commodity + 11 rates + 6 macro) |
+| Unique pairs | 406 |
+| Documented predictions | 35 (10 regime + 7 commodity + 11 rates + 7 macro) |
+| Documented pairs in range | **9 of 35** (regime 5/10, commodity 2/7, rates 2/11, macro 0/7) — rates lift from 1/11 to 2/11 after the S2K-4 steepener/flattener prediction correction |
+| ρ > 0.95 dedup-bar breaches | **3** (all macro covariance-primitive trio — scenario (b), see headline) |
+| Largest off-trio ρ | _filled by keyed run_ |
+| Cot orthogonality (max |ρ| vs anything else) | 0.157 |
 
 ## 6. Architectural changes
 

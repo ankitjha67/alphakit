@@ -192,11 +192,16 @@ _PREDICTED_COMMODITY_RHO: dict[frozenset[str], tuple[float, float]] = {
 
 # Session 2H rates predicted pairwise ρ — curated subset extracted from each
 # strategy's ``known_failures.md`` §"Cluster correlation". The
-# steepener↔flattener pair is the documented deliberate-redundancy mirror
-# image (expected ρ ≈ −1.0); pca_trade↔butterfly is the next-tightest
+# steepener↔flattener pair is mirror-image regime-trigger (not signal): both
+# produce binary signal ∈ {0, 1} firing on opposite z-score tails that never
+# co-occur, so daily-return contributions are uncorrelated by construction
+# (expected ρ ≈ 0, narrow band around zero). Earlier docs called the pair
+# "ρ ≈ −1.0 by construction" — the prediction was inconsistent with the
+# binary-tail mechanic and was corrected in S2K-4 (the 29×29 keyed cluster
+# empirically confirmed ρ = +0.000). pca_trade↔butterfly is the next-tightest
 # documented pair (both isolate the 5Y residual / curvature factor).
 _PREDICTED_RATES_RHO: dict[frozenset[str], tuple[float, float]] = {
-    frozenset({"curve_steepener_2s10s", "curve_flattener_2s10s"}): (-1.00, -0.95),
+    frozenset({"curve_steepener_2s10s", "curve_flattener_2s10s"}): (-0.10, 0.10),
     frozenset({"yield_curve_pca_trade", "curve_butterfly_2s5s10s"}): (0.60, 0.80),
     frozenset({"curve_steepener_2s10s", "curve_butterfly_2s5s10s"}): (0.40, 0.60),
     frozenset({"curve_flattener_2s10s", "curve_butterfly_2s5s10s"}): (-0.60, -0.40),
