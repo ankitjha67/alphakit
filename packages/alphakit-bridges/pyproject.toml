@@ -11,12 +11,29 @@ dependencies = [
     "numpy>=1.26",
     "pandas>=2.2",
     "vectorbt>=0.26",
+    # plotly<7 is a transitive-dependency ceiling, not a feature need. vectorbt
+    # registers a plotly accessor that references the `scattermapbox` trace
+    # type, which plotly 6.x deprecated and plotly 7.0 removed outright. Under
+    # plotly 7.x `import vectorbt` raises "Bad property path: scattermapbox".
+    # Measured on Python 3.10, 2026-10-21: plotly 6.9.0 imports clean with
+    # vectorbt 1.0.0 and with 0.28.5; plotly 7.1.0 breaks with both. The
+    # unpinned install resolved to plotly 7.1.0 and broke the verify-install
+    # 3.10 jobs (Session 2L). The ceiling caps only plotly, leaving vectorbt
+    # free to float. Lift it once vectorbt ships a plotly-7-compatible release.
+    "plotly<7",
     "backtrader>=1.9",
 ]
 
 [project.optional-dependencies]
 lean = []  # LEAN is a Phase 2+ integration — no pip-installable package
-nautilus = ["nautilus_trader>=1.193"]
+# nautilus-trader dropped Python 3.10 upstream: every available version
+# requires >=3.11 and the newest require >=3.12 (resolver output, 2026-10-21).
+# The project still supports 3.10 for everything else (it is in the Test
+# matrix), so the marker scopes this optional, currently-unused Phase 2+
+# extra to 3.11+ rather than raising the whole workspace requires-python.
+# Without it, any manifest change makes uv re-lock and fail to resolve on
+# the 3.10 split. Lift the marker only if nautilus restores 3.10 support.
+nautilus = ["nautilus_trader>=1.193; python_version >= '3.11'"]
 
 [build-system]
 requires = ["hatchling>=1.25"]
