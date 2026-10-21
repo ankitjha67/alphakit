@@ -28,20 +28,20 @@ What is measured
 ----------------
 Per candidate ticker:
 
-* ``first_obs`` / ``last_obs`` — the ACTUAL first and last bars yfinance
+* ``first_obs`` / ``last_obs``: the ACTUAL first and last bars yfinance
   serves, discovered by requesting a deliberately over-wide window
   (1990-2026) rather than assuming an inception date. The Session 2K-1
   lesson applies: an external assertion about a data source is
   feasibility-uncertain until probed. (The kickoff's "DBC ~2006-02" is a
   hypothesis this script tests, not an input it trusts.)
-* ``covers_audit_window`` — whether the ticker spans 2005-01-01 to
+* ``covers_audit_window``: whether the ticker spans 2005-01-01 to
   2025-12-31 outright.
-* ``missing_bdays`` / ``max_consecutive_gap`` — business days absent from
+* ``missing_bdays`` / ``max_consecutive_gap``: business days absent from
   the ticker's own live range. A couple of hundred missing days over 20
   years is NORMAL (market holidays, ~9-10/yr); the signal worth acting on
   is ``max_consecutive_gap``, where anything beyond a long weekend points
   at a real publication gap.
-* ``n_nonpositive`` — bars at or below zero, which the bridge's
+* ``n_nonpositive``: bars at or below zero, which the bridge's
   ``order.price > 0`` invariant rejects and the S2J-2.6 anomaly filter
   would have to drop.
 
@@ -54,18 +54,18 @@ will actually get.
 
 Three universes are reported so the decision is a direct comparison:
 
-* ``current-trio`` — SPY/TLT/DBC, what the 3-asset originals run on today.
+* ``current-trio``: SPY/TLT/DBC, what the 3-asset originals run on today.
   Establishes the comparability baseline; the originals are themselves
   DBC-bound, so "the new variants start later than 2005" is only a
   regression if they start later than THIS.
-* ``candidate-10`` — the full 10-asset universe including DBC.
-* ``candidate-9-ex-DBC`` — drops DBC, trading the commodity leg for
+* ``candidate-10``: the full 10-asset universe including DBC.
+* ``candidate-9-ex-DBC``: drops DBC, trading the commodity leg for
   history.
 
 Probes go through ``YFinanceAdapter`` (not raw yfinance) so what is measured
 is what ``BenchmarkRunner`` will see, including the S2J-2.5 MultiIndex
 flatten. Caching is disabled via the null-device sentinel so an audit can
-never read a stale panel — a deliberate exercise of the S2K-3.5
+never read a stale panel. This is a deliberate exercise of the S2K-3.5
 cross-platform sentinel fix, which is what makes that line work on Windows.
 """
 
@@ -84,7 +84,7 @@ import pandas as pd
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
-# Audit window — matches the benchmark runner's configured span.
+# Audit window, matching the benchmark runner's configured span.
 AUDIT_START = datetime(2005, 1, 1)
 AUDIT_END = datetime(2025, 12, 31)
 
@@ -112,7 +112,7 @@ class TickerProbe:
 
 
 CANDIDATES: list[TickerProbe] = [
-    TickerProbe("SPY", "equity-us", "SPDR S&P 500 — US large-cap (incumbent)"),
+    TickerProbe("SPY", "equity-us", "SPDR S&P 500, US large-cap (incumbent)"),
     TickerProbe("TLT", "rates-long", "iShares 20+ Year Treasury (incumbent)"),
     TickerProbe("DBC", "commodity", "Invesco DB Commodity Index (incumbent)"),
     TickerProbe("IEF", "rates-mid", "iShares 7-10 Year Treasury"),
@@ -120,7 +120,7 @@ CANDIDATES: list[TickerProbe] = [
     TickerProbe("LQD", "credit-ig", "iShares iBoxx $ Investment Grade Corporate"),
     TickerProbe("GLD", "commodity-gold", "SPDR Gold Shares"),
     TickerProbe("VNQ", "real-assets", "Vanguard Real Estate"),
-    TickerProbe("EFA", "equity-dm", "iShares MSCI EAFE — developed ex-US"),
+    TickerProbe("EFA", "equity-dm", "iShares MSCI EAFE, developed ex-US"),
     TickerProbe("EEM", "equity-em", "iShares MSCI Emerging Markets"),
 ]
 
@@ -160,7 +160,7 @@ def probe_one(probe: TickerProbe) -> dict[str, object]:
     covers = first_obs <= pd.Timestamp(AUDIT_START) and last_obs >= pd.Timestamp(AUDIT_END)
 
     # Gap analysis over the ticker's own live range intersected with the
-    # audit window — measuring absence before inception would just restate
+    # audit window. Measuring absence before inception would just restate
     # the inception date.
     win_start = max(first_obs, pd.Timestamp(AUDIT_START))
     win_end = min(last_obs, pd.Timestamp(AUDIT_END))
@@ -243,7 +243,7 @@ def report_universe(label: str, symbols: list[str]) -> dict[str, object]:
 
 def main() -> int:
     # An offline run would silently return synthetic fixtures shaped like
-    # real data — the audit would "succeed" and report inception dates that
+    # real data. The audit would "succeed" and report inception dates that
     # are pure fiction. Fail loud instead.
     from alphakit.data.offline import is_offline
 
@@ -273,7 +273,7 @@ def main() -> int:
     # S2K-3.5 cross-platform sentinel fix.
     os.environ["ALPHAKIT_CACHE_DIR"] = "NUL" if os.name == "nt" else "/dev/null"
 
-    print(f"ETF universe audit — probe window {PROBE_START.date()} to {PROBE_END.date()}")
+    print(f"ETF universe audit, probe window {PROBE_START.date()} to {PROBE_END.date()}")
     print(f"Audit window (benchmark span): {AUDIT_START.date()} to {AUDIT_END.date()}\n")
 
     print("=== Per-ticker coverage ===")
@@ -330,9 +330,9 @@ def main() -> int:
         time.sleep(SLEEP_BETWEEN_CALLS_SEC)
 
     print("Decision inputs:")
-    print("  (a) 10-asset incl. DBC  — keeps the commodity sleeve; effective start")
+    print("  (a) 10-asset incl. DBC: keeps the commodity sleeve; effective start")
     print("      is whatever 'candidate-10' reports above.")
-    print("  (b) 9-asset ex-DBC      — longer history; drops the commodity sleeve.")
+    print("  (b) 9-asset ex-DBC: longer history; drops the commodity sleeve.")
     print("  Compare BOTH against 'current-trio': the incumbents are themselves")
     print("  DBC-bound, so a later start is only a regression relative to that.")
     return 0

@@ -23,8 +23,9 @@ class TestDiscoverSlugs:
         # 13 Phase 2 Session 2D rates +
         # 10 Phase 2 Session 2E commodity +
         # 15 Phase 2 Session 2F options +
-        # 11 Phase 2 Session 2G macro = 109.
-        assert len(slugs) == 109
+        # 11 Phase 2 Session 2G macro +
+        # 3 Phase 2 Session 2L macro 10-asset covariance variants = 112.
+        assert len(slugs) == 112
 
     def test_rates_family(self) -> None:
         slugs = discover_slugs("rates")
@@ -64,7 +65,11 @@ class TestDiscoverSlugs:
     def test_macro_family(self) -> None:
         assert "macro" in FAMILIES
         slugs = discover_slugs("macro")
-        assert len(slugs) == 11
+        # 11 from Session 2G + 3 Session 2L 10-asset covariance variants.
+        # The 2L variants are additions; the 3-asset originals are preserved
+        # as the documented small-N convergence case from the Session 2K-4
+        # dedup-bar breach.
+        assert len(slugs) == 14
         expected = {
             "permanent_portfolio",
             "gtaa_cross_asset_momentum",
@@ -72,6 +77,9 @@ class TestDiscoverSlugs:
             "risk_parity_erc_3asset",
             "min_variance_gtaa",
             "max_diversification",
+            "risk_parity_erc_10asset",
+            "min_variance_gtaa_10asset",
+            "max_diversification_10asset",
             "recession_probability_rotation",
             "growth_inflation_regime_rotation",
             "yield_curve_regime_allocation",
