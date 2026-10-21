@@ -96,9 +96,10 @@ Universe
 Identical to the other two 10-asset variants, from the shared
 ``_gtaa10_universe`` module: SPY, TLT, DBC, IEF, SHY, LQD, GLD, VNQ, EFA,
 EEM. Sharing one universe is deliberate, because the comparison under test
-is solver objective at fixed universe. Effective panel start is
-2006-02-06, bound by DBC inception, matching the 3-asset incumbents
-exactly.
+is solver objective at fixed universe. DBC binds the complete-rows
+intersection at 2006-02-06, but the runner does not trim ETF-only panels, so
+the benchmark panel is 5282 bars from 2005-01-03, matching the 3-asset
+incumbents exactly. See ``known_failures.md`` section 4.
 
 Published rules (Choueifaty-Coignard 2008, N-asset implementation)
 ------------------------------------------------------------------

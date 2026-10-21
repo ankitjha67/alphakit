@@ -10,14 +10,17 @@ minimum total portfolio variance.
 
 ## 1. Lower absolute return than the 3-asset incumbent, by construction
 
-Measured through `vectorbt_bridge.run` at 2bp commission, 5007 bars,
-2006-02-06 to 2025-12-30:
+Measured through the `regenerate_benchmarks.py tier1 --feed real` runner
+configuration (`BenchmarkRunner(commission_bps=5.0, data_start="2005-01-01")`)
+on real yfinance prices, 5282 bars from 2005-01-03. These are the figures the
+committed `benchmark_results.json` carries.
+
 
 | metric | this variant | `min_variance_gtaa` |
 |---|---|---|
-| Sharpe | +0.9212 | +0.5975 |
-| max drawdown | -0.0746 | -0.2155 |
-| final equity from 100,000 | 152,088 | 263,790 |
+| Sharpe | +0.8958 | +0.5806 |
+| max drawdown | -0.0742 | -0.2158 |
+| final equity from 100,000 | 151,992 | 263,207 |
 
 Higher Sharpe, shallower drawdown, lower terminal wealth. The mechanism is
 direct: the wider universe contains SHY, a 1-3 year Treasury ETF with the
@@ -63,23 +66,50 @@ Measured over the window, six of ten assets carried a mean weight at or
 below 0.011, and one asset was effectively never held. Any downstream code
 treating a zero weight as an error will misfire on this strategy.
 
-## 4. Effective panel start is 2006-02-06, not the nominal 2005-01-01
+## 4. The benchmark panel is NOT complete-rows trimmed
 
-DBC incepts 2006-02-06 and binds the complete-rows intersection, so the
-usable panel is 5008 rows starting 2006-02-06 against a nominal
-`data_start` of 2005-01-01. Inception dates measured 2026-10-21 via
-`scripts/audit_etf_universe.py`.
+Two different dates matter here and conflating them produces wrong numbers.
+An earlier draft of this document did exactly that and is corrected below.
 
-The 3-asset incumbents are bound by the same ticker to the same date, so the
-cardinality comparison is controlled. But any comparison against a strategy
-whose panel starts earlier is not window-matched, and the 2008 crisis sits
-only 20 months into the usable history, so the pre-crisis calibration sample
-is short.
+DBC incepts 2006-02-06 and binds the complete-rows intersection, so a panel
+built with `dropna(how="any")` holds 5008 rows from 2006-02-06. Inception
+dates measured 2026-10-21 via `scripts/audit_etf_universe.py`.
 
-Dropping DBC would buy roughly 13 months of extra history, to a GLD-bound
-2005-01-03 start. That was measured and rejected: it loses the commodity
-sleeve and, more importantly, breaks the window identity with the incumbents
-that makes the comparison controlled.
+The runner does not build the panel that way. For an ETF-only strategy with
+no informational columns and one tradable feed, `_fetch_prices` takes a
+single-feed shortcut that returns the panel straight after the anomaly
+filter, deliberately byte-identical to the pre-S2J path, with no
+complete-rows trim. With the anomaly filter off, which is the tier1
+configuration, the committed benchmark panel is therefore **5282 bars from
+2005-01-03, of which 275 carry NaN** in the late-inception tickers.
+
+The strategy handles those rows correctly rather than by luck.
+`(prices <= 0).any().any()` does not reject NaN, because `NaN <= 0` is
+False, and `rolling_covariance` is fed `daily_log_returns.dropna()`, which
+removes any row with a missing leg before estimation. So no covariance is
+ever estimated from incomplete data. The visible consequence is a longer
+flat-equity warm-up: weights stay zero from 2005-01-03 through roughly
+2007-02, the pre-DBC period plus the 252-day window, rather than from
+2006-02-06.
+
+Practical consequences:
+
+* Every performance figure in this document and in `README.md` is measured
+  on the 5282-bar runner panel at 5bp commission, not on the 5008-row
+  complete-rows panel. Measured on the trimmed panel at 2bp the Sharpe for
+  this variant reads roughly 0.03 higher. Quoting a number without its
+  panel and commission is meaningless at that precision.
+* This behaviour is inherited and applies to all 20 tier1 ETF strategies,
+  including the three 3-asset incumbents, which show the identical 5282
+  bars and 275 NaN rows. The cardinality comparison therefore stays
+  controlled: both sides carry the same panel treatment.
+* The 2008 crisis sits roughly 12 months after the first solvable rebalance,
+  so the pre-crisis calibration sample is short either way.
+
+Dropping DBC would buy roughly 13 months of extra complete history, to a
+GLD-bound 2005-01-03 intersection. That was measured and rejected: it loses
+the commodity sleeve and breaks the window identity with the incumbents that
+makes the cardinality comparison controlled.
 
 ## 5. Covariance-estimation failure modes
 
@@ -106,12 +136,26 @@ Inherited from the shared `_covariance` helper and from the
 
 ### Method
 
-All figures measured 2026-10-21 against real yfinance prices through
-`vectorbt_bridge.run` at 2bp commission, the same configuration
-`scripts/cluster_analysis.py --feed real` uses. Panel for the 10-asset and
-3-asset comparisons: 5007 complete rows, 2006-02-06 to 2025-12-30.
-Comparator panel including `permanent_portfolio`: 4712 aligned bars,
-2007-04-11 to 2025-12-30.
+All figures measured 2026-10-21 against real yfinance prices. Two panel
+constructions were used and they are not interchangeable, so both are stated.
+
+The pre-build probe used a `dropna(how="any")` panel of 5007 complete rows,
+2006-02-06 to 2025-12-30, through `vectorbt_bridge.run` at 2bp commission.
+
+The cluster path, which is what `scripts/cluster_analysis.py --feed real`
+actually runs, goes through `BenchmarkRunner._fetch_prices` and so inherits
+the single-feed no-trim behaviour described in section 4: 5282 bars from
+2005-01-03, 275 of them NaN-bearing, at bridge-default commission.
+
+Running both gives a maximum intra-trio rho of +0.9480 on the probe panel and
++0.9482 on the cluster panel. The two differ by 0.0002, so the conclusion is
+robust to the panel and commission choice even though the Sharpe figures in
+section 1 are not. An earlier draft of this document claimed the probe panel
+was the cluster's own configuration; that was wrong and is corrected here.
+
+Comparator measurements including `permanent_portfolio` used 4712 aligned
+bars, 2007-04-11 to 2025-12-30, limited by `gtaa_cross_asset_momentum`'s own
+universe inception.
 
 These are measurements, not predictions. The Session 2L plan called for
 predictions written before the keyed run, and the Session 2K-4 four-way

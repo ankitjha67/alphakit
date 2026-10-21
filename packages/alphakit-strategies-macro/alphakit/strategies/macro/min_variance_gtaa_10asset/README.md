@@ -69,14 +69,16 @@ Inception dates measured 2026-10-21 via `scripts/audit_etf_universe.py`.
 
 ## Measured performance
 
-Through `vectorbt_bridge.run` at 2bp commission, 5007 bars, 2006-02-06 to
-2025-12-30:
+Measured through the `regenerate_benchmarks.py tier1 --feed real` runner
+configuration (`BenchmarkRunner(commission_bps=5.0, data_start="2005-01-01")`)
+on real yfinance prices, 5282 bars from 2005-01-03. These are the figures the
+committed `benchmark_results.json` carries.
 
 | metric | this variant | 3-asset incumbent |
 |---|---|---|
-| Sharpe | +0.9212 | +0.5975 |
-| max drawdown | -0.0746 | -0.2155 |
-| final equity from 100,000 | 152,088 | 263,790 |
+| Sharpe | +0.8958 | +0.5806 |
+| max drawdown | -0.0742 | -0.2158 |
+| final equity from 100,000 | 151,992 | 263,207 |
 
 Higher Sharpe and shallower drawdown than the incumbent, at lower absolute
 return. That trade is structural, not incidental: see

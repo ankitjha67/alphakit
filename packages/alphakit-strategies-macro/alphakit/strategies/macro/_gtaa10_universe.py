@@ -43,11 +43,22 @@ market holiday calendar). The S2J-2.6 anomaly filter is therefore not
 required for this universe.
 
 DBC at 2006-02-06 is the binding constraint on the complete-rows
-intersection, giving an effective panel start of 2006-02-06 across 5008
-complete rows. The 3-asset incumbents (SPY/TLT/DBC) are bound by the same
-ticker to the same date and the same row count, so the 10-asset variants
-run on an identical window. That identity is what makes the cardinality
-comparison controlled rather than confounded.
+intersection, so a ``dropna(how="any")`` panel holds 5008 rows from
+2006-02-06.
+
+The benchmark runner does not trim that way. For an ETF-only strategy with
+no informational columns, ``_fetch_prices`` takes a single-feed shortcut
+that skips the complete-rows trim, so the committed benchmark panel is 5282
+bars from 2005-01-03 with 275 NaN-bearing rows. That is safe here because
+``rolling_covariance`` is fed ``daily_log_returns.dropna()``, so no
+covariance is estimated from incomplete data; the visible effect is a longer
+flat-equity warm-up.
+
+The 3-asset incumbents (SPY/TLT/DBC) are bound by the same ticker and get
+the identical panel treatment, so the 10-asset variants run on an identical
+window under either construction. That identity is what makes the
+cardinality comparison controlled rather than confounded. Each variant's
+``known_failures.md`` section 4 carries the detail.
 """
 
 from __future__ import annotations

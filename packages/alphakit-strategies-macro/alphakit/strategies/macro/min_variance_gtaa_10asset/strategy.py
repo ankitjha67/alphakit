@@ -70,8 +70,10 @@ Universe
 Identical to ``risk_parity_erc_10asset``: SPY, TLT, DBC, IEF, SHY, LQD,
 GLD, VNQ, EFA, EEM. Sharing one universe across the three variants is
 deliberate, because the comparison under test is solver objective at
-fixed universe. See that module's docstring for the substrate measurement
-and the DBC-bound effective panel start of 2006-02-06.
+fixed universe. See that module's docstring for the substrate measurement.
+DBC binds the complete-rows intersection at 2006-02-06, but the runner does
+not trim ETF-only panels, so the benchmark panel is 5282 bars from
+2005-01-03. See ``known_failures.md`` section 4.
 
 Published rules (Haugen-Baker 1991, N-asset implementation)
 -----------------------------------------------------------

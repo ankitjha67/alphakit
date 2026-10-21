@@ -22,8 +22,14 @@ documented and reproducible; these variants are additions, not
 replacements.
 
 Pre-build measurement (2026-10-21, this universe, real yfinance prices
-2006-02-06 to 2025-12-30, 5007 complete-row bars, monthly rebalance,
-252-day Ledoit-Wolf covariance, weight-lagged daily returns):
+2006-02-06 to 2025-12-30 on a ``dropna(how="any")`` panel of 5007 bars,
+monthly rebalance, 252-day Ledoit-Wolf covariance, weight-lagged daily
+returns). The uncapped N=10 row below was measured three ways and lands in
+a 0.0002 range each time: +0.9482 weight-lagged on the trimmed panel,
++0.9480 through the bridge at 2bp on the trimmed panel, and +0.9482 through
+the cluster's own untrimmed 5282-bar path. The ranking is therefore robust
+to panel and commission choice, unlike the Sharpe figures. See
+``known_failures.md`` sections 4 and 6:
 
     configuration                 max pairwise rho across the three solvers
     N=3 incumbent SPY/TLT/DBC                       +0.9931   breached
@@ -122,12 +128,15 @@ across 2005-2025, which is 9.75 per year and consistent with the US market
 holiday calendar. The S2J-2.6 anomaly filter is therefore not required for
 this universe, matching the existing ETF real-feed configuration.
 
-DBC incepts 2006-02-06 and is the binding constraint on the complete-rows
-intersection, giving an effective panel start of 2006-02-06 over 5008
-complete rows. The 3-asset incumbent is bound by the same ticker to the
-same date and row count, so this variant runs on an identical window. That
-identity is what makes the cardinality comparison a controlled test rather
-than a confounded one.
+DBC incepts 2006-02-06 and binds the complete-rows intersection, so a
+``dropna(how="any")`` panel holds 5008 rows from 2006-02-06. The runner does
+not trim that way for ETF-only strategies: ``_fetch_prices`` takes a
+single-feed shortcut with no complete-rows trim, so the committed benchmark
+panel is 5282 bars from 2005-01-03 with 275 NaN-bearing rows. That is safe
+because ``rolling_covariance`` receives ``daily_log_returns.dropna()``, so no
+covariance is estimated from incomplete data. The 3-asset incumbent gets
+identical treatment, so the cardinality comparison is a controlled test
+either way. See ``known_failures.md`` section 4.
 
 Published rules (MRT 2010 / AFP 2012, N-asset implementation)
 -------------------------------------------------------------

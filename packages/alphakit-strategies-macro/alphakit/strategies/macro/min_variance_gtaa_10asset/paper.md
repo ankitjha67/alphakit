@@ -93,8 +93,15 @@ of 2 business days, and 195 missing business days out of 5478 across 2005 to
 2025. That is 9.75 per year and consistent with the US market holiday
 calendar, so the S2J-2.6 anomaly filter is not required for this universe.
 
-DBC incepts 2006-02-06 and binds the complete-rows intersection. Effective
-panel: 5008 rows from 2006-02-06.
+DBC incepts 2006-02-06 and binds the complete-rows intersection, so a
+`dropna(how="any")` panel holds 5008 rows from 2006-02-06. The runner does
+not trim that way: for an ETF-only strategy it takes a single-feed shortcut
+with no complete-rows trim, so the committed benchmark panel is 5282 bars
+from 2005-01-03 with 275 NaN-bearing rows. No covariance is estimated from
+incomplete data, because `rolling_covariance` is fed
+`daily_log_returns.dropna()`. The 3-asset incumbents get the identical
+treatment, so the cardinality comparison stays controlled. See
+`known_failures.md` section 4.
 
 Known fidelity gaps: ETFs carry expense ratios and tracking error absent
 from index-level analysis; the 2bp commission assumption is flat and models
@@ -103,14 +110,17 @@ crisis (2008) only 20 months after the usable start.
 
 ## Measured performance
 
-Through `vectorbt_bridge.run` at 2bp commission, 5007 bars, 2006-02-06 to
-2025-12-30:
+Measured through the `regenerate_benchmarks.py tier1 --feed real` runner
+configuration (`BenchmarkRunner(commission_bps=5.0, data_start="2005-01-01")`)
+on real yfinance prices, 5282 bars from 2005-01-03. These are the figures the
+committed `benchmark_results.json` carries.
+
 
 | metric | this variant | `min_variance_gtaa` |
 |---|---|---|
-| Sharpe | +0.9212 | +0.5975 |
-| max drawdown | -0.0746 | -0.2155 |
-| final equity from 100,000 | 152,088 | 263,790 |
+| Sharpe | +0.8958 | +0.5806 |
+| max drawdown | -0.0742 | -0.2158 |
+| final equity from 100,000 | 151,992 | 263,207 |
 
 The authoritative figure is `benchmark_results.json`, produced by
 `BenchmarkRunner`. The table above is the pre-benchmark smoke measurement

@@ -10,10 +10,12 @@
 # the three is deliberate: the comparison under test is solver objective at
 # fixed universe, so divergent universes would confound it.
 #
-# DBC incepts 2006-02-06 and binds the complete-rows intersection, giving an
-# effective panel start of 2006-02-06 across 5008 complete rows. The 3-asset
-# incumbents are bound by the same ticker to the same date, so the
-# cardinality comparison runs on an identical window.
+# DBC incepts 2006-02-06 and binds the complete-rows intersection, so a
+# dropna(how="any") panel holds 5008 rows from 2006-02-06. The runner does
+# not trim that way for ETF-only strategies, so the committed benchmark panel
+# is 5282 bars from 2005-01-03 with 275 NaN-bearing rows. The 3-asset
+# incumbents get identical treatment, so the cardinality comparison runs on
+# an identical window either way. See known_failures.md section 4.
 
 strategy: min_variance_gtaa_10asset
 family: macro
