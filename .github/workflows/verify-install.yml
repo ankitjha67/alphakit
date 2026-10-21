@@ -117,9 +117,16 @@ jobs:
 
           from alphakit.bench.discovery import discover_slugs
           slugs = discover_slugs()
-          if len(slugs) != 109:
+          # Exact-count smoke check for the pip-installed layout: too few means
+          # discovery is missing strategies in the packaged tree, too many means
+          # an accidental duplicate. When the roster changes, update BOTH this
+          # pin and tests/test_discovery.py::TestDiscoverSlugs. Session 2L took
+          # 109 -> 112 (the three 10-asset covariance variants); the Windows CI
+          # leg added in the same session caught this pin having been missed.
+          expected = 112
+          if len(slugs) != expected:
               raise RuntimeError(
-                  f'Discovery returned {len(slugs)} strategies, expected 109. '
+                  f'Discovery returned {len(slugs)} strategies, expected {expected}. '
                   f'First 10 found: {sorted(slugs)[:10]}. '
                   f'This indicates alphakit.bench.discovery is not finding '
                   f'strategies in the pip-installed layout.'
