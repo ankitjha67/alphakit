@@ -1,20 +1,29 @@
-# Phase 2 — remaining session kickoffs (2L → 2N, then Phase 2 CLOSED)
+# Phase 2 — remaining session kickoffs (2L → 2O, then Phase 2 CLOSED)
 
 > Every placeholder resolved. Each `## Session` block below is pasteable
 > as-is. Prepend §3 Standing Discipline from
 > [`docs/roadmap-phase-3-to-v1.md`](../roadmap-phase-3-to-v1.md) to each;
 > prepend §2 Definition of Done only to 2L (the only remaining session that
-> creates strategies).
+> creates strategies; 2M touches no strategy signal logic).
 
 **Remaining Phase 2 arc:**
 
 | Session | Scope | Tag | Strategy count |
 |---|---|---|---|
 | **2L** *(in flight, paused at S2L-0)* | Macro covariance universe expansion | `v0.2.3` | 109 → 112 |
-| **2M** | Supply-chain pinning + tooling hygiene | `v0.2.4` | 112 |
-| **2N** | Prediction recalibration + Phase 2 retrospective + Phase 3 master plan | `v0.2.5` | 112 |
+| **2M** | Benchmark fidelity: runner panel construction (full spec in [`2m-benchmark-fidelity-kickoff.md`](2m-benchmark-fidelity-kickoff.md)) | `v0.2.4` | 112 |
+| **2N** | Supply-chain pinning + tooling hygiene | `v0.2.5` | 112 |
+| **2O** | Prediction recalibration + Phase 2 retrospective + Phase 3 master plan | `v0.2.6` | 112 |
 
-After 2N, Phase 2 is closed and Session 3A opens Phase 3.
+Session 2M was carved out of 2L when two runner-level panel-construction
+defects surfaced (a 31%-of-rebalances month-end skip across 30 strategies,
+and the single-feed no-complete-rows-trim path across 20 ETF strategies).
+Both change committed benchmark numbers, so they need their own coordinated
+keyed regen rather than riding a feature session. 2M must precede 2O, whose
+recalibration re-runs the cluster against these benchmarks; 2M and 2N are
+independent and may run in either order.
+
+After 2O, Phase 2 is closed and Session 3A opens Phase 3.
 
 ---
 
@@ -37,22 +46,23 @@ restating. **Nothing below starts until 2L tags `v0.2.3`.**
 
 ---
 
-## Session 2M kickoff
+## Session 2N kickoff
 
 ```
-Session 2M kickoff. Scope: supply-chain action pinning + three tooling-debt
+Session 2N kickoff. Scope: supply-chain action pinning + three tooling-debt
 items carried from the 2K closeout §10 backlog. No strategy changes.
-Branch: claude/2m-supply-chain-and-tooling
+Branch: claude/2n-supply-chain-and-tooling
 
 [Paste §3 Standing Discipline from docs/roadmap-phase-3-to-v1.md]
 (Definition of Done not needed — this session creates no strategies.)
 
-Context: v0.2.3 shipped 3 new covariance variants. This session clears the
+Context: v0.2.3 shipped 3 new covariance variants; v0.2.4 (Session 2M) fixed
+the benchmark-fidelity defects. This session clears the
 non-strategy debt so Phase 2 closes without carrying tooling rot into
 Phase 3. Four items, all independently landable.
 
-S2M-0: Carry-in + action-pin audit
-- Verify v0.2.3's verify-install is 6/6 green via GitHub MCP
+S2N-0: Carry-in + action-pin audit
+- Verify v0.2.4's verify-install is 6/6 green via GitHub MCP
   (mcp__github__actions_list, method=list_workflow_jobs on the tag's run).
   If red, STOP and report before any 2M work.
 - Write scripts/audit_action_pins.py. Not a data-substrate probe, so it
@@ -80,9 +90,9 @@ S2M-0: Carry-in + action-pin audit
         elsewhere. Lighter; weaker guarantee; inconsistent by construction.
     (c) SHA-pin third-party only (peaceiris), immutable/floating for
         first-party. Risk-weighted middle.
-  Do not start S2M-1 until I confirm.
+  Do not start S2N-1 until I confirm.
 
-S2M-1: setup-uv v8 + pinning policy applied
+S2N-1: setup-uv v8 + pinning policy applied
 - Bump astral-sh/setup-uv@v7 -> @v8.x (immutable — v8 stopped publishing
   floating majors, which is why 2K held at v7).
 - Apply the chosen policy across all 6 refs in all 5 workflow files.
@@ -91,10 +101,10 @@ S2M-1: setup-uv v8 + pinning policy applied
 - If SHAs: add .github/dependabot.yml for the github-actions ecosystem, or
   the pins go stale and the policy becomes worse than floating.
 - Gates: uv sync --extra dev && uv run pytest (NO path arg).
-- CI must go green on the bump before S2M-2 starts — a broken workflow
+- CI must go green on the bump before S2N-2 starts — a broken workflow
   blocks every later session.
 
-S2M-2: Doc-consistency linter
+S2N-2: Doc-consistency linter
 - Closes the 2K closeout §8(g) finding: CodeRabbit caught prose referencing
   renamed identifiers 7 times across PRs #22/#23.
 - Implement as a pytest test in tests/, NOT a standalone tool — then it
@@ -111,7 +121,7 @@ S2M-2: Doc-consistency linter
 - Seed it by confirming it would have caught the S2K-1 "cftc-cot" drift:
   temporarily reintroduce one stale ref, watch the test fail, revert.
 
-S2M-3: Code-aware cache keys
+S2N-3: Code-aware cache keys
 - Closes the S2J §8(e) finding: ~/.alphakit/cache survived uv sync
   --reinstall and silently overrode the S2J-2.5 adapter fix on a keyed run.
   Cache key is (feed_name, symbols, start, end, frequency) — no code
@@ -129,7 +139,7 @@ S2M-3: Code-aware cache keys
 - Tests: same-code repeated fetch hits cache; simulated adapter-code change
   misses; corrupt/legacy entry degrades to a miss, not a crash.
 
-S2M-4: Windows CI leg — ONLY IF 2L deferred it
+S2N-4: Windows CI leg — ONLY IF 2L deferred it
 - If 2L's S2L-3 stretch landed windows-latest, skip this entirely.
 - If deferred: add windows-latest + py3.12 to test.yml's matrix (one Python
   version to bound job count).
@@ -141,27 +151,27 @@ S2M-4: Windows CI leg — ONLY IF 2L deferred it
 - TIME-BOX: >3 distinct failure classes or >3h, STOP, document in the
   closeout, defer. verify-install stays Linux+macOS this session.
 
-S2M-5: Docs + closeout + v0.2.4 tag
+S2N-5: Docs + closeout + v0.2.5 tag
 - Amendment only if a convention changed (the pinning policy is an ADR, not
   an amendment; a cache-key format change IS an amendment).
-- CHANGELOG [0.2.4]; docs/sessions/2m-closeout.md mirroring 2k structure.
+- CHANGELOG [0.2.5]; docs/sessions/2m-closeout.md mirroring 2k structure.
 - Drafts for my review BEFORE the docs commit.
-- PR review -> squash-merge -> v0.2.4 tag on squash SHA.
+- PR review -> squash-merge -> v0.2.5 tag on squash SHA.
   Tag SHA == CI-target SHA (Session 2H §7 footgun guard).
   Tag push is Ankit-side — sandbox gets HTTP 403 on tag refs.
 
-Reporting cadence: after each S2M-n, plus a pause at the S2M-0 decision.
-Estimate: 5-7h, +2-3h if S2M-4 activates.
+Reporting cadence: after each S2N-n, plus a pause at the S2N-0 decision.
+Estimate: 5-7h, +2-3h if S2N-4 activates.
 ```
 
 ---
 
-## Session 2N kickoff
+## Session 2O kickoff
 
 ```
-Session 2N kickoff. Scope: mechanism-derived prediction recalibration across
+Session 2O kickoff. Scope: mechanism-derived prediction recalibration across
 all four real-feed families, Phase 2 retrospective, and the Phase 3 master
-plan. Final Phase 2 session. Branch: claude/2n-recalibration-and-phase2-close
+plan. Final Phase 2 session. Branch: claude/2o-recalibration-and-phase2-close
 
 [Paste §3 Standing Discipline from docs/roadmap-phase-3-to-v1.md]
 (Definition of Done not needed — this session creates no strategies.)
@@ -171,8 +181,8 @@ pairs inside their predicted bands. The 2K closeout §8(h) established that
 the four families miss in four DIFFERENT directions for four DIFFERENT
 mechanisms. This session acts on that, then closes Phase 2.
 
-S2N-0: Carry-in + prediction inventory
-- Verify v0.2.4's verify-install is 6/6 green via GitHub MCP. If red, STOP.
+S2O-0: Carry-in + prediction inventory
+- Verify v0.2.5's verify-install is 6/6 green via GitHub MCP. If red, STOP.
 - No substrate audit — this is doc work. Instead write
   scripts/audit_predictions.py: for every in-cluster pair, emit
   (family, strategy_a, strategy_b, a_priori_band, observed_rho,
@@ -186,7 +196,7 @@ S2N-0: Carry-in + prediction inventory
   stay a priori until their substrate lands in Phase 3.
 - PAUSE for my review of the inventory before any file is edited.
 
-S2N-1: Mechanism-derived recalibration
+S2O-1: Mechanism-derived recalibration
 - METHODOLOGICAL GUARDRAIL — this is the entire point of the session.
   Setting each prediction to its observed rho would score ~40/40 and mean
   NOTHING. That is curve-fitting the hypothesis to the answer. Per OUT pair:
@@ -211,7 +221,7 @@ S2N-1: Mechanism-derived recalibration
   the post-recalibration score to land well short of 40/40 — that is
   correct, and a score near 40/40 is evidence the guardrail was violated.
 
-S2N-2: Cluster re-run to score the recalibration
+S2O-2: Cluster re-run to score the recalibration
 - Extend cluster_analysis.py AND tests/test_cluster_analysis.py in the SAME
   commit — the prediction-coverage test pins cluster scope and broke CI in
   S2K-4 (753d388).
@@ -222,7 +232,7 @@ S2N-2: Cluster re-run to score the recalibration
   Report BOTH numbers. If they did not improve, that is a finding about the
   mechanisms being wrong, and it goes in the closeout as such.
 
-S2N-3: Phase 2 retrospective + Phase 3 master plan
+S2O-3: Phase 2 retrospective + Phase 3 master plan
 - docs/phase-3-master-plan.md, mirroring the structure of
   phase-2-master-plan.md: mission/non-goals, ADRs for the new substrates,
   data-layer design, per-session handoffs (3A-3K from
@@ -237,18 +247,18 @@ S2N-3: Phase 2 retrospective + Phase 3 master plan
     2. paid-feed policy (gates 20 strategies)
     3. ADR-001 carry resolution (deferred since Phase 1)
 
-S2N-4: Docs + closeout + v0.2.5 tag + Phase 2 CLOSED
-- Amendment: the two-tier prediction convention from S2N-1.
-- CHANGELOG [0.2.5].
+S2O-4: Docs + closeout + v0.2.6 tag + Phase 2 CLOSED
+- Amendment: the two-tier prediction convention from S2O-1.
+- CHANGELOG [0.2.6].
 - docs/sessions/2n-closeout.md — and because this closes the phase, it also
   carries the Phase 2 final scorecard: 112 strategies, real-feed coverage,
   families shipped, strategies dropped with reasons, amendments issued,
   substrate blockers documented.
 - Drafts for my review BEFORE the docs commit.
-- PR review -> squash-merge -> v0.2.5 tag on squash SHA.
+- PR review -> squash-merge -> v0.2.6 tag on squash SHA.
   Tag SHA == CI-target SHA. Tag push is Ankit-side.
 
-Reporting cadence: after each S2N-n, plus a pause at S2N-0.
+Reporting cadence: after each S2O-n, plus a pause at S2O-0.
 Estimate: 7-9h. The retrospective is the long pole, not the recalibration.
 ```
 
@@ -256,7 +266,7 @@ Estimate: 7-9h. The retrospective is the long pole, not the recalibration.
 
 ## What "Phase 2 complete" means
 
-At `v0.2.5`, all of the following are true:
+At `v0.2.6`, all of the following are true:
 
 - **112 strategies** across 9 families, every one carrying real citations,
   known-failure analysis, tests, and a runner-produced benchmark.
