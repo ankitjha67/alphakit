@@ -234,7 +234,7 @@ class BenchmarkRunner:
         # which raises FileExistsError on Windows when the target already exists
         # — the common regen case where benchmark_results.json is already there.
         tmp = path.with_suffix(".json.tmp")
-        with open(tmp, "w") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, default=str)
             f.write("\n")
         tmp.replace(path)

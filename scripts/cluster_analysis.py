@@ -3,7 +3,7 @@
 
 Computes pairwise Pearson correlation across strategy equity-curve returns,
 either on a synthetic-fixture basis (49 x 49, default) or against real feeds
-(Session 2K: 29 x 29, expanded from Session 2J's 11 x 11).
+(Session 2L: 32 x 32, expanded from Session 2K's 29 x 29).
 
 Surfaces:
 * the highest-correlated pairs (rho >= 0.70),
@@ -37,6 +37,14 @@ Session 2K (``--feed real`` 29x29): folds in
   min_variance_gtaa, max_diversification, permanent_portfolio,
   gtaa_cross_asset_momentum, vigilant_asset_allocation_5).
 
+Session 2L (``--feed real`` 32x32): adds the three 10-asset covariance
+variants (risk_parity_erc_10asset, min_variance_gtaa_10asset,
+max_diversification_10asset), built in response to the Session 2K-4
+dedup-bar breach where the three 3-asset originals correlated at rho 0.980
+to 0.993. The originals stay in the cluster, so both cardinalities of the
+same three objectives are now scored against the bar. Measured maximum
+pairwise rho within the 10-asset trio is +0.9480, below the bar by 0.0020.
+
 The yfinance-real strategies have ETF-only universes (no FRED informational
 columns, no CFTC, no second-month futures) so they route through standard
 ``BenchmarkRunner.run_single`` cleanly. Methodologically valid: all 29 curves
@@ -51,20 +59,20 @@ Output covers four intra-family blocks + selected cross-family blocks:
   S2K-1 cot prediction);
 * 11x11 rates intra-family (Session 2H predictions extracted from
   known_failures.md across the 11 rates strategies);
-* 6x6 macro intra-family (Session 2H predictions — covariance-primitive trio
+* 9x9 macro intra-family (Session 2H predictions — covariance-primitive trio
   + permanent_portfolio overlap + gtaa/vigilant overlap);
 * cross-family blocks: regime x commodity (carry-over from S2J), plus
   rates x commodity and rates x macro descriptive lists.
 
 Requires ``FRED_API_KEY`` + ``fredapi`` (for the 5 regime strategies) and
-``yfinance`` (for the 7 commodity + 11 rates + 6 macro strategies). The real
+``yfinance`` (for the 7 commodity + 11 rates + 9 macro strategies). The real
 curves are NOT pooled with the 47 synthetic curves — different price bases
 are not apples-to-apples.
 
 Usage:
     uv run --extra dev python scripts/cluster_analysis.py                # synthetic 49x49
     uv run --with fredapi --with yfinance --extra dev \
-        python scripts/cluster_analysis.py --feed real                  # real 29x29
+        python scripts/cluster_analysis.py --feed real                  # real 32x32
 """
 
 from __future__ import annotations
@@ -164,6 +172,14 @@ _MACRO_REAL_SLUGS = [
     "risk_parity_erc_3asset",
     "min_variance_gtaa",
     "max_diversification",
+    # Session 2L: 10-asset variants of the covariance trio, added in response
+    # to the Session 2K-4 dedup-bar breach. The 3-asset originals above are
+    # preserved as the documented small-N convergence case, so the cluster
+    # now carries both cardinalities of the same three objectives and the
+    # dedup bar is evaluated against each.
+    "risk_parity_erc_10asset",
+    "min_variance_gtaa_10asset",
+    "max_diversification_10asset",
     "permanent_portfolio",
     "gtaa_cross_asset_momentum",
     "vigilant_asset_allocation_5",
@@ -218,6 +234,18 @@ _PREDICTED_RATES_RHO: dict[frozenset[str], tuple[float, float]] = {
 # (risk_parity_erc_3asset / min_variance_gtaa / max_diversification) shares the
 # same covariance estimator; gtaa↔vigilant overlap on cross-asset momentum is
 # the strongest non-trio prediction.
+#
+# Session 2L adds the 10-asset variant bands. Those are NOT blind predictions:
+# the variants were built after a pre-build measurement through
+# ``vectorbt_bridge.run`` at 2bp commission, the same configuration this
+# script uses, over 5007 bars 2006-02-06 to 2025-12-30. Each band is the
+# measured value plus or minus 0.05, which absorbs the difference between a
+# direct adapter fetch and the runner's ``_fetch_prices`` path without
+# pretending to a precision the measurement does not support. Scoring these
+# against OK/OUT therefore tests reproducibility of the measurement, not
+# foresight. The blind a priori bands from the Session 2K-4 calibration
+# lesson, and how they scored, are recorded in each variant's
+# ``known_failures.md`` section 6.
 _PREDICTED_MACRO_RHO: dict[frozenset[str], tuple[float, float]] = {
     frozenset({"risk_parity_erc_3asset", "min_variance_gtaa"}): (0.55, 0.75),
     frozenset({"risk_parity_erc_3asset", "max_diversification"}): (0.50, 0.70),
@@ -226,6 +254,27 @@ _PREDICTED_MACRO_RHO: dict[frozenset[str], tuple[float, float]] = {
     frozenset({"min_variance_gtaa", "permanent_portfolio"}): (0.50, 0.70),
     frozenset({"max_diversification", "permanent_portfolio"}): (0.40, 0.60),
     frozenset({"gtaa_cross_asset_momentum", "vigilant_asset_allocation_5"}): (0.65, 0.85),
+    # --- Session 2L, measured 2026-10-21 ---
+    # Intra 10-asset trio. erc↔maxdiv at +0.9480 is the near-breach: it sits
+    # 0.0020 below the 0.95 dedup bar and is the pair to watch here.
+    frozenset({"risk_parity_erc_10asset", "min_variance_gtaa_10asset"}): (0.68, 0.78),
+    frozenset({"risk_parity_erc_10asset", "max_diversification_10asset"}): (0.90, 0.99),
+    frozenset({"min_variance_gtaa_10asset", "max_diversification_10asset"}): (0.63, 0.73),
+    # Same solver, different cardinality. No new breach: highest is +0.8854.
+    frozenset({"risk_parity_erc_10asset", "risk_parity_erc_3asset"}): (0.82, 0.92),
+    frozenset({"min_variance_gtaa_10asset", "min_variance_gtaa"}): (0.58, 0.68),
+    frozenset({"max_diversification_10asset", "max_diversification"}): (0.84, 0.94),
+    # Against the Session 2K-4 correlation magnet. permanent_portfolio holds
+    # SHY, the asset all three objectives concentrate into, so shared SHY
+    # exposure is the transmission path rather than a shared objective.
+    frozenset({"risk_parity_erc_10asset", "permanent_portfolio"}): (0.80, 0.90),
+    frozenset({"min_variance_gtaa_10asset", "permanent_portfolio"}): (0.56, 0.66),
+    frozenset({"max_diversification_10asset", "permanent_portfolio"}): (0.77, 0.87),
+    # Negative by construction: a momentum rotation and a covariance-minimising
+    # allocator load on opposite sides of the same assets during trends.
+    frozenset({"risk_parity_erc_10asset", "gtaa_cross_asset_momentum"}): (-0.21, -0.11),
+    frozenset({"min_variance_gtaa_10asset", "gtaa_cross_asset_momentum"}): (-0.13, -0.03),
+    frozenset({"max_diversification_10asset", "gtaa_cross_asset_momentum"}): (-0.22, -0.12),
 }
 
 # Documented deliberate-redundancy pairs to report explicitly (from known_failures.md).
@@ -435,8 +484,8 @@ def _report_cross_family(
 
 
 def _real_cluster() -> int:
-    """Compute and report the 29x29 real-feed cluster (5 regime + 7 commodity
-    + 11 rates + 6 macro).
+    """Compute and report the 32x32 real-feed cluster (5 regime + 7 commodity
+    + 11 rates + 9 macro).
 
     Single combined correlation matrix; output split into four intra-family
     blocks and selected cross-family blocks.
@@ -589,9 +638,9 @@ def main() -> int:
         "--feed",
         choices=["synthetic", "real"],
         default="synthetic",
-        help="'synthetic' (default): 49x49 fixture-basis matrix. 'real': 29x29 "
+        help="'synthetic' (default): 49x49 fixture-basis matrix. 'real': 32x32 "
         "real-feed cluster (5 regime via yfinance+FRED + 7 commodity via "
-        "yfinance-futures+cftc-cot-wide + 11 rates ETF + 6 macro ETF, all via "
+        "yfinance-futures+cftc-cot-wide + 11 rates ETF + 9 macro ETF, all via "
         "yfinance) with intra-family OK/OUT vs Session 2E/2G/2H/2K predictions "
         "and selected cross-family descriptive blocks. Needs FRED_API_KEY + "
         "fredapi + yfinance.",

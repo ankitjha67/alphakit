@@ -2,8 +2,8 @@
 
 The default ``--feed synthetic`` 49x49 path is unchanged and slow (it runs every
 Phase-2 strategy through the bridge), so it is not exercised here. These tests
-cover the real-feed **29x29** cluster (5 regime + 7 commodity + 11 rates + 6
-macro, Session 2K-4 expansion of Session 2J's 11x11): the prerequisite
+cover the real-feed **32x32** cluster (5 regime + 7 commodity + 11 rates + 9
+macro, Session 2L expansion of Session 2K-4's 29x29): the prerequisite
 fail-loud paths, the predicted-vs-actual ρ reporting for all four intra-family
 blocks, and the cross-family descriptive blocks. The three returns helpers
 (``_regime_real_returns``, ``_commodity_real_returns``,
@@ -72,7 +72,7 @@ def test_require_commodity_real_without_yfinance_raises(
 def test_real_cluster_reports_intra_and_cross_family_blocks(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The 29x29 combined cluster prints all four intra-family
+    """The 32x32 combined cluster prints all four intra-family
     predicted-vs-actual tables (regime / commodity / rates / macro), the
     cross-family descriptive blocks, and an overall summary line. Every slug
     appears in the output and the dedup-bar line is emitted.
@@ -169,9 +169,91 @@ def test_predicted_rates_rho_keys_are_in_scope_pairs() -> None:
 
 def test_predicted_macro_rho_keys_are_in_scope_pairs() -> None:
     """Every ``_PREDICTED_MACRO_RHO`` key is a pair of two distinct
-    in-scope macro slugs. Curated subset of the 15 total macro pairs."""
+    in-scope macro slugs. Curated subset of the 36 total macro pairs at
+    N=9."""
     assert len(cluster._PREDICTED_MACRO_RHO) > 0
     macro_set = set(cluster._MACRO_REAL_SLUGS)
     for pair in cluster._PREDICTED_MACRO_RHO:
         assert len(pair) == 2, f"prediction key {pair} must be a 2-set"
         assert pair.issubset(macro_set), f"{pair} contains an out-of-scope macro slug"
+
+
+def test_session_2l_macro_variants_are_in_cluster_scope() -> None:
+    """The three Session 2L 10-asset variants are in the macro cluster block,
+    alongside the preserved 3-asset originals.
+
+    The other macro tests read ``_MACRO_REAL_SLUGS`` live and so auto-adapt to
+    any membership change, which means they would not notice the variants
+    being dropped. This test pins the Session 2L scope explicitly. Both
+    cardinalities must be present: the comparison the session exists to make
+    is 3-asset versus 10-asset on the same three solver objectives, and
+    removing either side destroys it.
+    """
+    macro = list(cluster._MACRO_REAL_SLUGS)
+
+    originals = ["risk_parity_erc_3asset", "min_variance_gtaa", "max_diversification"]
+    variants = [
+        "risk_parity_erc_10asset",
+        "min_variance_gtaa_10asset",
+        "max_diversification_10asset",
+    ]
+    for slug in originals + variants:
+        assert slug in macro, f"{slug} missing from the macro cluster block"
+
+    assert len(macro) == 9, f"expected 9 macro slugs, got {len(macro)}: {macro}"
+    assert len(set(macro)) == len(macro), "macro cluster block has duplicates"
+
+
+def test_session_2l_variant_predictions_are_present_and_ordered() -> None:
+    """Every Session 2L pair carries a band, and every band is well-formed.
+
+    Bands for these pairs are measurement-derived rather than blind
+    predictions; see the comment above ``_PREDICTED_MACRO_RHO``. This test
+    checks structural validity, not accuracy: lower bound below upper bound,
+    both inside [-1, 1].
+    """
+    variants = [
+        "risk_parity_erc_10asset",
+        "min_variance_gtaa_10asset",
+        "max_diversification_10asset",
+    ]
+    table = cluster._PREDICTED_MACRO_RHO
+
+    # Each variant pairs with the other two variants, its same-solver
+    # 3-asset original, permanent_portfolio, and gtaa_cross_asset_momentum.
+    expected_pairs = [
+        frozenset({"risk_parity_erc_10asset", "min_variance_gtaa_10asset"}),
+        frozenset({"risk_parity_erc_10asset", "max_diversification_10asset"}),
+        frozenset({"min_variance_gtaa_10asset", "max_diversification_10asset"}),
+        frozenset({"risk_parity_erc_10asset", "risk_parity_erc_3asset"}),
+        frozenset({"min_variance_gtaa_10asset", "min_variance_gtaa"}),
+        frozenset({"max_diversification_10asset", "max_diversification"}),
+    ]
+    for pair in expected_pairs:
+        assert pair in table, f"missing Session 2L band for {sorted(pair)}"
+
+    for variant in variants:
+        for comparator in ("permanent_portfolio", "gtaa_cross_asset_momentum"):
+            pair = frozenset({variant, comparator})
+            assert pair in table, f"missing band for {sorted(pair)}"
+
+    for pair, (lo, hi) in table.items():
+        assert lo < hi, f"band for {sorted(pair)} is inverted: ({lo}, {hi})"
+        assert -1.0 <= lo <= 1.0, f"band lower bound out of range for {sorted(pair)}"
+        assert -1.0 <= hi <= 1.0, f"band upper bound out of range for {sorted(pair)}"
+
+
+def test_erc_to_maxdiv_10asset_band_straddles_the_dedup_bar() -> None:
+    """The near-breach pair's band must reach above 0.95.
+
+    Measured at +0.9480, the ``risk_parity_erc_10asset`` to
+    ``max_diversification_10asset`` pair sits 0.0020 below the dedup-review
+    bar. A band that stopped short of 0.95 would score a genuine breach as
+    OUT-high and bury the single most important risk in this variant group.
+    """
+    pair = frozenset({"risk_parity_erc_10asset", "max_diversification_10asset"})
+    lo, hi = cluster._PREDICTED_MACRO_RHO[pair]
+    assert lo < 0.95 < hi, (
+        f"band ({lo}, {hi}) must straddle the 0.95 dedup bar so a breach is "
+        "visible rather than scored as a band miss"
+    )

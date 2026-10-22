@@ -89,7 +89,7 @@ class TestBenchmarkRunner:
         # Guard: the write must land at the redirected target, not the repo.
         assert path == target
         assert path.exists()
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             written = json.load(f)
         assert written["slug"] == "tsmom_12_1"
         assert written["status"] == "populated"
@@ -135,7 +135,7 @@ class TestBenchmarkRunner:
         path = runner.write_benchmark("tsmom_12_1", result, family="trend")
 
         assert path == target
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             written = json.load(f)
         assert written["slug"] == "tsmom_12_1"  # overwritten, not the old content
         assert not stale_tmp.exists()  # the temp file was consumed by the replace

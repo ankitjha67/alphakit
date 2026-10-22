@@ -5,8 +5,13 @@ Regenerates ``benchmark_results.json`` for the macro + rates + commodity
 families on the canonical runner schema, stamping a ``data_source`` field
 that records provenance:
 
-* **Tier-1 (17)** — ETF-only universes (11 rates + 6 macro). Fetched from
+* **Tier-1 (20)** — ETF-only universes (11 rates + 9 macro). Fetched from
   real yfinance prices under a retry budget; ``data_source="yfinance-real"``.
+  The macro block grew from 6 to 9 in Session 2L with the three 10-asset
+  covariance variants (``risk_parity_erc_10asset``,
+  ``min_variance_gtaa_10asset``, ``max_diversification_10asset``), added in
+  response to the Session 2K-4 dedup-bar breach. The three 3-asset originals
+  are preserved unchanged alongside them.
 * **Tier-2 (5 macro, FRED-gated)** — require FRED informational columns.
   Two feeds, selected by ``--feed`` (default ``synthetic``):
 
@@ -43,7 +48,7 @@ missing for Tier-1 / commodity; ``FRED_API_KEY`` unset or ``fredapi`` missing
 for Tier-2 ``--feed real``), rather than silently falling back to synthetic
 fixtures (the trap in ``BenchmarkRunner._fetch_prices``).
 
-Modes: ``smoke`` (3 single-ETF rates), ``tier1`` (17 real), ``tier2``
+Modes: ``smoke`` (3 single-ETF rates), ``tier1`` (20 real), ``tier2``
 (5 macro), ``commodity`` (7 — 6 front-month + cot_speculator_position via
 the Session 2K-1 cftc-cot-wide adapter, ``--feed real`` required), ``all``
 (Tier-1 + Tier-2). ``--feed`` governs the Tier-2 + commodity paths.
@@ -88,6 +93,12 @@ TIER1: dict[str, str] = {
     "risk_parity_erc_3asset": "macro",
     "min_variance_gtaa": "macro",
     "max_diversification": "macro",
+    # Session 2L: 10-asset variants of the covariance trio, added in
+    # response to the Session 2K-4 dedup-bar breach. Same yfinance-real
+    # substrate as the 3-asset originals, which are preserved unchanged.
+    "risk_parity_erc_10asset": "macro",
+    "min_variance_gtaa_10asset": "macro",
+    "max_diversification_10asset": "macro",
 }
 
 # The 3 simplest single-ETF rates strategies — run first as a viability gate.

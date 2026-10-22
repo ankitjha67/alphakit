@@ -31,6 +31,19 @@ shrinkage, rolling-window covariance, ERC / minimum-variance /
 maximum-diversification solvers) — see Commit 1.5 in the Session 2G
 ship order for the helper's gate-3 review.
 
+Session 2L adds three 10-asset variants of that trio
+(``risk_parity_erc_10asset``, ``min_variance_gtaa_10asset``,
+``max_diversification_10asset``) in response to the Session 2K-4
+dedup-bar breach, where the three 3-asset originals correlated at rho
+0.980 to 0.993 because they shared one universe and one estimator and
+differed only in solver objective. The variants share the
+``_gtaa10_universe`` module so the comparison stays "solver objective at
+fixed universe"; measured maximum pairwise rho falls to +0.9480, below
+the 0.95 bar. The 3-asset originals are preserved unchanged as the
+documented small-N convergence case. See
+``docs/sessions/2k-closeout.md`` section 5 and each variant's
+``known_failures.md`` section 6.
+
 Regime allocators (``growth_inflation_regime_rotation``,
 ``yield_curve_regime_allocation``, ``recession_probability_rotation``,
 ``fed_policy_tilt``, ``inflation_regime_allocation``) follow the
@@ -56,13 +69,22 @@ from alphakit.strategies.macro.inflation_regime_allocation.strategy import (
     InflationRegimeAllocation,
 )
 from alphakit.strategies.macro.max_diversification.strategy import MaxDiversification
+from alphakit.strategies.macro.max_diversification_10asset.strategy import (
+    MaxDiversification10Asset,
+)
 from alphakit.strategies.macro.min_variance_gtaa.strategy import MinVarianceGtaa
+from alphakit.strategies.macro.min_variance_gtaa_10asset.strategy import (
+    MinVarianceGtaa10Asset,
+)
 from alphakit.strategies.macro.permanent_portfolio.strategy import PermanentPortfolio
 from alphakit.strategies.macro.recession_probability_rotation.strategy import (
     RecessionProbabilityRotation,
 )
 from alphakit.strategies.macro.risk_parity_erc_3asset.strategy import (
     RiskParityErc3Asset,
+)
+from alphakit.strategies.macro.risk_parity_erc_10asset.strategy import (
+    RiskParityErc10Asset,
 )
 from alphakit.strategies.macro.vigilant_asset_allocation_5.strategy import (
     VigilantAssetAllocation5,
@@ -77,10 +99,13 @@ __all__: list[str] = [
     "GtaaCrossAssetMomentum",
     "InflationRegimeAllocation",
     "MaxDiversification",
+    "MaxDiversification10Asset",
     "MinVarianceGtaa",
+    "MinVarianceGtaa10Asset",
     "PermanentPortfolio",
     "RecessionProbabilityRotation",
     "RiskParityErc3Asset",
+    "RiskParityErc10Asset",
     "VigilantAssetAllocation5",
     "YieldCurveRegimeAllocation",
 ]

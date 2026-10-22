@@ -1,0 +1,51 @@
+# Default configuration for max_diversification_10asset.
+#
+# Session 2L variant of max_diversification. Same published rule and same
+# shared _covariance solver on a wider universe. The 3-asset original is
+# preserved unchanged as the documented small-N convergence case from the
+# Session 2K-4 dedup-bar breach.
+#
+# The universe is shared with the other two 10-asset variants via
+# alphakit.strategies.macro._gtaa10_universe. Keeping one universe across
+# the three is deliberate: the comparison under test is solver objective at
+# fixed universe, so divergent universes would confound it.
+#
+# DBC incepts 2006-02-06 and binds the complete-rows intersection, so a
+# dropna(how="any") panel holds 5008 rows from 2006-02-06. The runner does
+# not trim that way for ETF-only strategies, so the committed benchmark panel
+# is 5282 bars from 2005-01-03 with 275 NaN-bearing rows. The 3-asset
+# incumbents get identical treatment, so the cardinality comparison runs on
+# an identical window either way. See known_failures.md section 4.
+
+strategy: max_diversification_10asset
+family: macro
+paper_doi: "10.2139/ssrn.1895459"
+
+universe:
+  - "SPY"   # US large-cap equity
+  - "TLT"   # 20+ year Treasuries
+  - "DBC"   # broad commodities
+  - "IEF"   # 7-10 year Treasuries
+  - "SHY"   # 1-3 year Treasuries
+  - "LQD"   # investment-grade corporate credit
+  - "GLD"   # gold
+  - "VNQ"   # US real estate
+  - "EFA"   # developed ex-US equity
+  - "EEM"   # emerging-market equity
+
+# Covariance estimator, matching the 3-asset incumbents
+cov_window_days: 252
+shrinkage: "ledoit_wolf"
+
+max_weight: 1.0              # uncapped; a binding cap converges the three solvers
+
+# Portfolio mechanics
+long_only: true
+rebalance: monthly
+
+meta:
+  paper_doi: "10.2139/ssrn.1895459"
+  paper_url: "https://doi.org/10.2139/ssrn.1895459"
+  foundational_paper_doi: "10.3905/JPM.2008.35.1.40"
+  foundational_paper_url: "https://doi.org/10.3905/JPM.2008.35.1.40"
+  last_validated_against_data_through: "2025-12-31"

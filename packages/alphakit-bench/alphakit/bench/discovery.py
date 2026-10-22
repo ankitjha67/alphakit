@@ -101,7 +101,12 @@ def load_config(family: str, slug: str) -> dict[str, Any]:
 
     if not config_path.exists():
         raise FileNotFoundError(f"No config.yaml for {family}/{slug} at {config_path}")
-    with open(config_path) as f:
+    # encoding is explicit: 43 config.yaml files carry non-ASCII (section
+    # markers, Greek sigma, arrows, em dashes). A bare open() uses the
+    # platform default, which is cp1252 on Windows before Python 3.15, and
+    # that raises UnicodeDecodeError on 3 of them and silently mojibakes
+    # the other 40. See tests/test_config_encoding.py.
+    with open(config_path, encoding="utf-8") as f:
         return dict(yaml.safe_load(f))
 
 

@@ -26,6 +26,26 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.10", "3.11", "3.12"]
+        # Session 2L: one Windows job rather than a third row of the cross
+        # product, which would take the matrix from 6 jobs to 9. Python 3.12
+        # only, because the failure classes this leg exists to catch are
+        # OS-specific rather than interpreter-specific.
+        #
+        # Rationale: the Session 2K-3.5 cache-sentinel bug existed precisely
+        # because no Windows leg ran. Path() normalisation turned "/dev/null"
+        # into "\dev\null", so the disable sentinel silently missed and the
+        # cache stayed ON for Windows developers who expected it OFF. A
+        # pre-enable audit for this leg then found a second instance of the
+        # same class: discovery.load_config read config.yaml through a bare
+        # open(), which is cp1252 on Windows, raising UnicodeDecodeError on 3
+        # configs and silently mojibaking 40 more. Both are fixed; this leg
+        # is what stops a third.
+        #
+        # verify-install stays Linux + macOS this session. Extending that
+        # workflow is a separate change with its own 6-job cost.
+        include:
+          - os: windows-latest
+            python-version: "3.12"
 
     steps:
       - name: Check out source
