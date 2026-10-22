@@ -10,28 +10,39 @@ equal marginal risk contribution.
 
 ## 1. Lower absolute return than the 3-asset incumbent, by construction
 
-Measured through the `regenerate_benchmarks.py tier1 --feed real` runner
-configuration (`BenchmarkRunner(commission_bps=5.0, data_start="2005-01-01")`)
-on real yfinance prices, 5282 bars from 2005-01-03. These are the figures the
-committed `benchmark_results.json` carries.
+From the committed `benchmark_results.json`, produced by
+`regenerate_benchmarks.py tier1` (`BenchmarkRunner(commission_bps=5.0,
+data_start="2005-01-01")`) on real yfinance prices, a 5282-bar panel from
+2005-01-03. Sharpe, Sortino, Calmar and max drawdown are out-of-sample
+(2020-01-01 to 2025-12-31, the runner's OOS window); return and volatility
+are annualized. An earlier draft quoted full-period Sharpes computed by hand;
+these are the committed OOS figures.
 
 
-| metric | this variant | `risk_parity_erc_3asset` |
+| metric (OOS 2020-2025, 5bp) | this variant | `risk_parity_erc_3asset` |
 |---|---|---|
-| Sharpe | +0.7082 | +0.6015 |
+| Sharpe | +0.5268 | +0.5224 |
+| Sortino | +0.4921 | +0.4851 |
+| Calmar | +0.2098 | +0.2694 |
 | max drawdown | -0.1302 | -0.1953 |
-| final equity from 100,000 | 174,807 | 274,355 |
+| annualized return | +0.0284 | +0.0573 |
+| annualized vol | 0.0539 | 0.1096 |
 
-Higher Sharpe, shallower drawdown, lower terminal wealth. The mechanism is
-direct: the wider universe contains SHY, a 1-3 year Treasury ETF with the
+OOS Sharpe is essentially flat against the incumbent (+0.527 vs +0.522);
+the variant's effect is on risk, not risk-adjusted return.
+
+The common mechanism across all three variants: the wider universe contains
+SHY, a 1-3 year Treasury ETF with the
 lowest variance in the set, and every covariance-minimising objective
 concentrates into it. Measured mean SHY weight was 0.539 for ERC, 0.709 for
 minimum variance, and 0.614 for maximum diversification.
 
 A portfolio that is 54 to 71 percent short-duration Treasuries has low
-volatility and low return. The improved Sharpe is real, and so is the
-roughly 100,000 of forgone terminal wealth against the incumbent over twenty
-years.
+volatility and low return. Annualized volatility roughly halves against the
+incumbent and so does max drawdown; annualized return falls by a similar
+proportion. The risk-adjusted outcome therefore depends on the solver: a
+clear gain for minimum variance, a wash for ERC, a small loss for maximum
+diversification.
 
 Users wanting the incumbent's return profile should use the 3-asset
 original, which is preserved for exactly that reason. These variants exist

@@ -166,6 +166,14 @@ before committing either way.
 - Verify the preceding tag's `verify-install` is green via GitHub MCP.
 - Re-run the two blast-radius greps against live `main` after 2L merges, in
   case the strategy set shifted. Confirm the 30 / 20 counts.
+- Runner-determinism baseline (measured in 2L, do not re-derive): a plain
+  `regenerate_benchmarks.py tier1` re-run in the 2L sandbox reproduced the 17
+  existing tier1 benchmarks to within 0.0001 (only `breakeven_inflation_rotation`
+  -0.2366 to -0.2365 and `g10_bond_carry` +0.0724 to +0.0723 moved, both
+  last-digit rounding; every other metric was byte-identical apart from
+  `benchmark_date` and `commit_sha`). So any metric move larger than 0.0001
+  that 2M's regen produces is the fix, not re-run noise. Those 17 re-run
+  deltas were discarded in 2L as out of scope; 2M owns them.
 - Decide defect 2 position 1 vs 2 (present Sharpe deltas). **Pause for owner
   decision.**
 

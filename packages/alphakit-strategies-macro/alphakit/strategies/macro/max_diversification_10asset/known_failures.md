@@ -10,28 +10,40 @@ maximum diversification ratio.
 
 ## 1. Lower absolute return than the 3-asset incumbent, by construction
 
-Measured through the `regenerate_benchmarks.py tier1 --feed real` runner
-configuration (`BenchmarkRunner(commission_bps=5.0, data_start="2005-01-01")`)
-on real yfinance prices, 5282 bars from 2005-01-03. These are the figures the
-committed `benchmark_results.json` carries.
+From the committed `benchmark_results.json`, produced by
+`regenerate_benchmarks.py tier1` (`BenchmarkRunner(commission_bps=5.0,
+data_start="2005-01-01")`) on real yfinance prices, a 5282-bar panel from
+2005-01-03. Sharpe, Sortino, Calmar and max drawdown are out-of-sample
+(2020-01-01 to 2025-12-31, the runner's OOS window); return and volatility
+are annualized. An earlier draft quoted full-period Sharpes computed by hand;
+these are the committed OOS figures.
 
 
-| metric | this variant | `max_diversification` |
+| metric (OOS 2020-2025, 5bp) | this variant | `max_diversification` |
 |---|---|---|
-| Sharpe | +0.7556 | +0.6308 |
+| Sharpe | +0.4075 | +0.4620 |
+| Sortino | +0.3849 | +0.4346 |
+| Calmar | +0.1377 | +0.2283 |
 | max drawdown | -0.1344 | -0.1993 |
-| final equity from 100,000 | 172,893 | 286,515 |
+| annualized return | +0.0195 | +0.0505 |
+| annualized vol | 0.0478 | 0.1092 |
 
-Higher Sharpe, shallower drawdown, lower terminal wealth. The mechanism is
-direct: the wider universe contains SHY, a 1-3 year Treasury ETF with the
+OOS Sharpe is slightly LOWER than the incumbent (+0.408 vs +0.462): the one
+variant where the wider universe does not improve risk-adjusted return. The
+risk reduction is real but the return give-up outweighs it on a ratio basis.
+
+The common mechanism across all three variants: the wider universe contains
+SHY, a 1-3 year Treasury ETF with the
 lowest variance in the set, and every covariance-minimising objective
 concentrates into it. Measured mean SHY weight was 0.539 for ERC, 0.709 for
 minimum variance, and 0.614 for maximum diversification.
 
 A portfolio that is 54 to 71 percent short-duration Treasuries has low
-volatility and low return. The improved Sharpe is real, and so is the
-roughly 100,000 of forgone terminal wealth against the incumbent over twenty
-years.
+volatility and low return. Annualized volatility roughly halves against the
+incumbent and so does max drawdown; annualized return falls by a similar
+proportion. The risk-adjusted outcome therefore depends on the solver: a
+clear gain for minimum variance, a wash for ERC, a small loss for maximum
+diversification.
 
 Users wanting the incumbent's return profile should use the 3-asset
 original, which is preserved for exactly that reason. These variants exist

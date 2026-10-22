@@ -70,19 +70,28 @@ Inception dates measured 2026-10-21 via `scripts/audit_etf_universe.py`.
 
 ## Measured performance
 
-Measured through the `regenerate_benchmarks.py tier1 --feed real` runner
-configuration (`BenchmarkRunner(commission_bps=5.0, data_start="2005-01-01")`)
-on real yfinance prices, 5282 bars from 2005-01-03. These are the figures the
-committed `benchmark_results.json` carries.
+From the committed `benchmark_results.json`, produced by
+`regenerate_benchmarks.py tier1` (`BenchmarkRunner(commission_bps=5.0,
+data_start="2005-01-01")`) on real yfinance prices, a 5282-bar panel from
+2005-01-03. Sharpe, Sortino, Calmar and max drawdown are out-of-sample
+(2020-01-01 to 2025-12-31, the runner's OOS window); return and volatility
+are annualized. An earlier draft quoted full-period Sharpes computed by hand;
+these are the committed OOS figures.
 
-| metric | this variant | 3-asset incumbent |
+| metric (OOS 2020-2025, 5bp) | this variant | 3-asset incumbent |
 |---|---|---|
-| Sharpe | +0.7556 | +0.6308 |
+| Sharpe | +0.4075 | +0.4620 |
+| Sortino | +0.3849 | +0.4346 |
+| Calmar | +0.1377 | +0.2283 |
 | max drawdown | -0.1344 | -0.1993 |
-| final equity from 100,000 | 172,893 | 286,515 |
+| annualized return | +0.0195 | +0.0505 |
+| annualized vol | 0.0478 | 0.1092 |
 
-Higher Sharpe and shallower drawdown than the incumbent, at lower absolute
-return. That trade is structural, not incidental: see
+OOS Sharpe is slightly LOWER than the incumbent (+0.408 vs +0.462): this is
+the one variant where the wider universe does not improve risk-adjusted
+return. Max drawdown still roughly halves (19.9% to 13.4%) and volatility
+drops from 10.9% to 4.8%, but the return give-up (5.1% to 2.0%) outweighs the
+risk reduction on a ratio basis, and Calmar falls too (0.14 vs 0.23). That trade is structural, not incidental: see
 [`known_failures.md`](known_failures.md) section 1.
 
 ## Documentation

@@ -1,11 +1,12 @@
 # Phase 2 Session 2L closeout — v0.2.3: 10-asset covariance variants + 32x32 cluster + Windows CI
 
-> DRAFT pending the keyed tier1 regen. Every benchmark and cluster figure
-> below is tagged with how it was measured. Figures marked
-> `[sandbox-measured]` were produced in-session against real yfinance prices
-> through the runner path; they become `[committed]` once the keyed regen
-> JSONs land and are confirmed to match. Nothing here is hand-edited into a
-> benchmark file.
+> The three new strategies are tier1 ETF strategies on keyless yfinance data,
+> so the tier1 regen ran in-sandbox (`regenerate_benchmarks.py tier1`, 20 ok)
+> and its JSONs are committed with this session. Every benchmark and cluster
+> figure below was produced in-session through the runner path on real
+> yfinance prices; nothing here is hand-edited into a benchmark file. The
+> remaining owner-side steps are the fresh-venv cross-platform reproduce on
+> Windows and the tag push (the sandbox token cannot push tags), section 7.
 
 ## 1. Summary
 
@@ -19,7 +20,8 @@
 - **PR CI:** **14/14 green** on head `22bba51` (7-job test matrix including
   `windows-latest`, 6-job verify-install, ruff+mypy). Confirmed via the
   GitHub Actions API, not the HTML view.
-- **Tag:** `v0.2.3`, pending the keyed regen JSONs and owner approval.
+- **Tag:** `v0.2.3`, pending the owner fresh-venv reproduce and tag push
+  (section 7); the benchmark JSONs are committed.
 
 ## 2. Commits
 
@@ -66,9 +68,9 @@
 
 ## 4. Real-feed coverage update
 
-Strategy count **109 to 112**. The three new strategies are `yfinance-real`
-once the keyed regen commits their benchmarks. Real-feed coverage **29/109
-(26.6%) to 32/112 (28.6%)**.
+Strategy count **109 to 112**. The three new strategies carry
+`data_source: yfinance-real` benchmarks, committed from the in-sandbox tier1
+regen. Real-feed coverage **29/109 (26.6%) to 32/112 (28.6%)**.
 
 No existing strategy changed data_source. The benchmark-altering defects that
 would change existing numbers were deliberately carved into Session 2M rather
@@ -76,9 +78,11 @@ than actioned here (section 6).
 
 ## 5. 32x32 cluster findings (real-feed basis)
 
-`[sandbox-measured]` pending the keyed cluster run. All figures from the
-runner path on real yfinance prices; the keyed run should reproduce them to
-within noise.
+All figures measured in-session on the keyless yfinance path, the same path
+the committed benchmarks use. These are correlations of return series, so
+they do not depend on the in-sample/out-of-sample split the benchmark Sharpe
+figures use. The Windows fresh-venv reproduce (section 7) is the remaining
+cross-platform check.
 
 ### Hypothesis result
 
@@ -161,14 +165,22 @@ on live 2005-2025 data instead of waiting on a round-trip. FRED still needs
 the owner's key, so Option A holds for keyed feeds only. The division of
 labor should be re-scoped around "keyed vs keyless", not "sandbox vs Windows".
 
-### (b) Measure the benchmark on the path the benchmark uses
+### (b) Measure the benchmark on the path AND the window the benchmark uses
 
-The S2L-1 docs first quoted Sharpes measured on a trimmed 5007-bar panel at
-2bp. The committed benchmark runs on the runner's untrimmed 5282-bar panel at
-5bp. Different panel, different commission, different numbers (erc 0.7367 vs
-0.7082). Corrected in S2L-2. A performance figure without its panel and
-commission is meaningless at two-decimal precision, and the fix was to
-measure through `BenchmarkRunner._fetch_prices`, not a hand-built panel.
+The erc Sharpe was quoted three different ways before it was right. The
+S2L-1 draft measured +0.7367 on a hand-trimmed 5007-bar panel at 2bp. S2L-2
+corrected the panel and commission to the runner's untrimmed 5282-bar panel
+at 5bp and got +0.7082. Both were full-period. The committed
+`benchmark_results.json` reports the out-of-sample window (2020-01-01 to
+2025-12-31) that `BenchmarkRunner` splits off, where erc is **+0.5268**.
+Panel, commission, and sample window each move the number; a performance
+figure is meaningless at two-decimal precision without all three stated. The
+fix was to quote the committed JSON directly and label its window, not to
+re-measure by hand. The same error flipped one headline claim: on the
+full-period probe all three variants appeared to beat their incumbent on
+Sharpe, but on the committed OOS window `max_diversification_10asset`
+(+0.4075) is slightly below its incumbent (+0.4620). Minimum variance is a
+clear OOS gain (+0.6469 vs +0.4252), ERC a wash (+0.5268 vs +0.5224).
 
 ### (c) Scope pins travel in pairs, and CI invocation matters
 

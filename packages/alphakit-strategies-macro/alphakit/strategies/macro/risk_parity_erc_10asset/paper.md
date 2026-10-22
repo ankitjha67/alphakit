@@ -117,17 +117,23 @@ crisis (2008) only 20 months after the usable start.
 
 ## Measured performance
 
-Measured through the `regenerate_benchmarks.py tier1 --feed real` runner
-configuration (`BenchmarkRunner(commission_bps=5.0, data_start="2005-01-01")`)
-on real yfinance prices, 5282 bars from 2005-01-03. These are the figures the
-committed `benchmark_results.json` carries.
+From the committed `benchmark_results.json`, produced by
+`regenerate_benchmarks.py tier1` (`BenchmarkRunner(commission_bps=5.0,
+data_start="2005-01-01")`) on real yfinance prices, a 5282-bar panel from
+2005-01-03. Sharpe, Sortino, Calmar and max drawdown are out-of-sample
+(2020-01-01 to 2025-12-31, the runner's OOS window); return and volatility
+are annualized. An earlier draft quoted full-period Sharpes computed by hand;
+these are the committed OOS figures.
 
 
-| metric | this variant | `risk_parity_erc_3asset` |
+| metric (OOS 2020-2025, 5bp) | this variant | `risk_parity_erc_3asset` |
 |---|---|---|
-| Sharpe | +0.7082 | +0.6015 |
+| Sharpe | +0.5268 | +0.5224 |
+| Sortino | +0.4921 | +0.4851 |
+| Calmar | +0.2098 | +0.2694 |
 | max drawdown | -0.1302 | -0.1953 |
-| final equity from 100,000 | 174,807 | 274,355 |
+| annualized return | +0.0284 | +0.0573 |
+| annualized vol | 0.0539 | 0.1096 |
 
 The authoritative figure is `benchmark_results.json`, produced by
 `BenchmarkRunner`. The table above is the pre-benchmark smoke measurement
